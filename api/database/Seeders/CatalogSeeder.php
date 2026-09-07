@@ -36,10 +36,12 @@ final class CatalogSeeder
 
     private function addImage(Connection $db, int $productId, string $filename, bool $primary = true): void
     {
-        $url = '/uploads/products/' . $filename;
+        $name = pathinfo($filename, PATHINFO_FILENAME);
+        $label = urlencode(str_replace('-', ' ', $name));
+        $url = "https://placehold.co/400x300/E02424/white?text={$label}";
         $db->execute(
             "INSERT INTO product_images (product_id, url, alt_text, sort_order, is_primary) VALUES (?, ?, ?, 0, ?)",
-            [$productId, $url, pathinfo($filename, PATHINFO_FILENAME), $primary ? 1 : 0]
+            [$productId, $url, $name, $primary ? 1 : 0]
         );
     }
 
@@ -52,7 +54,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Biryani', 'slug' => 'biryani', 'sort_order' => 1,
             'description' => 'Slow-cooked dum biryani with aromatic spices',
-            'image_url' => '/uploads/categories/biryani.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Biryani',
         ]);
 
         $p = $prodRepo->create([
@@ -84,7 +86,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Curries', 'slug' => 'curries', 'sort_order' => 2,
             'description' => 'Rich gravies and dry preparations',
-            'image_url' => '/uploads/categories/curries.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Curries',
         ]);
 
         $p = $prodRepo->create([
@@ -132,7 +134,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Starters', 'slug' => 'starters', 'sort_order' => 3,
             'description' => 'Crispy, spicy appetizers to kick things off',
-            'image_url' => '/uploads/categories/starters.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Starters',
         ]);
 
         $p = $prodRepo->create([
@@ -170,7 +172,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Breads', 'slug' => 'breads', 'sort_order' => 4,
             'description' => 'Fresh-from-tandoor breads',
-            'image_url' => '/uploads/categories/breads.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Breads',
         ]);
 
         $p = $prodRepo->create([
@@ -204,7 +206,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Drinks', 'slug' => 'drinks', 'sort_order' => 5,
             'description' => 'Refreshing beverages',
-            'image_url' => '/uploads/categories/drinks.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Drinks',
         ]);
 
         $p = $prodRepo->create([
@@ -261,7 +263,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Thali & Meals', 'slug' => 'thali-meals', 'sort_order' => 1,
             'description' => 'Complete meal platters',
-            'image_url' => '/uploads/categories/thali.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Thali',
         ]);
 
         $p = $prodRepo->create([
@@ -289,7 +291,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Curries', 'slug' => 'curries', 'sort_order' => 2,
             'description' => 'Signature gravies and dry preparations',
-            'image_url' => '/uploads/categories/curries.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Curries',
         ]);
 
         $p = $prodRepo->create([
@@ -337,7 +339,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'South Indian', 'slug' => 'south-indian', 'sort_order' => 3,
             'description' => 'Dosas, idlis, and more',
-            'image_url' => '/uploads/categories/south-indian.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=South+Indian',
         ]);
 
         $p = $prodRepo->create([
@@ -375,7 +377,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Biryani', 'slug' => 'biryani', 'sort_order' => 4,
             'description' => 'Hyderabadi-style dum biryani',
-            'image_url' => '/uploads/categories/biryani.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Biryani',
         ]);
 
         $chickenBiryani = $prodRepo->create([
@@ -403,7 +405,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Desserts', 'slug' => 'desserts', 'sort_order' => 5,
             'description' => 'Sweet endings',
-            'image_url' => '/uploads/categories/desserts.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Desserts',
         ]);
 
         $p = $prodRepo->create([
@@ -427,7 +429,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Breads', 'slug' => 'breads', 'sort_order' => 6,
             'description' => 'Fresh tandoor breads',
-            'image_url' => '/uploads/categories/breads.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Breads',
         ]);
 
         $p = $prodRepo->create([
@@ -468,7 +470,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => "Today's Special", 'slug' => 'todays-special', 'sort_order' => 1,
             'description' => 'Fresh home-cooked specials, limited quantity daily',
-            'image_url' => '/uploads/categories/thali.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Thali',
         ]);
 
         $p = $prodRepo->create([
@@ -498,7 +500,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'South Indian', 'slug' => 'south-indian', 'sort_order' => 2,
             'description' => 'Traditional South Indian breakfast & snacks',
-            'image_url' => '/uploads/categories/south-indian.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=South+Indian',
         ]);
 
         $p = $prodRepo->create([
@@ -574,7 +576,7 @@ final class CatalogSeeder
             'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
             'name' => 'Snacks', 'slug' => 'snacks', 'sort_order' => 4,
             'description' => 'Evening tea-time treats',
-            'image_url' => '/uploads/categories/starters.jpg',
+            'image_url' => 'https://placehold.co/400x300/1a1a2e/white?text=Starters',
         ]);
 
         $p = $prodRepo->create([
