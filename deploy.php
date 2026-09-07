@@ -226,14 +226,23 @@ if (!$srcFrontend) {
     log_step('~', 'Build locally: cd admin && npm run build, then copy dist/ to public_html/ and commit.', 'warn');
 } else {
     log_step('-', 'Cleaning old frontend files...');
-    // Delete everything in root EXCEPT deploy.php, api/, and .htaccess
-    $deletedFe = clean_dir(BASE_DIR, ['deploy.php', 'api', '.htaccess', '.env']);
+    // Delete everything in root EXCEPT deploy.php, install.php, api/, and .htaccess
+    $deletedFe = clean_dir(BASE_DIR, ['deploy.php', 'install.php', 'api', '.htaccess', '.env']);
     log_step('.', "Deleted {$deletedFe} old item(s) from frontend", 'muted');
 
     log_step('+', 'Copying fresh frontend files...');
-    $feFiles = rcopy($srcFrontend, BASE_DIR, ['deploy.php', 'api', '.htaccess']);
+    $feFiles = rcopy($srcFrontend, BASE_DIR, ['deploy.php', 'install.php', 'api', '.htaccess']);
     log_step('OK', 'Frontend updated - ' . count($feFiles) . ' file(s)', 'ok');
     log_step('.', render_file_list($feFiles, BASE_DIR, ''), 'muted');
+}
+
+// Copy root-level scripts from repo (deploy.php, install.php) to keep them updated
+foreach (['install.php'] as $rootFile) {
+    $srcFile = $repoRoot . '/' . $rootFile;
+    if (file_exists($srcFile)) {
+        copy($srcFile, BASE_DIR . '/' . $rootFile);
+        log_step('.', "Updated {$rootFile} from repo", 'muted');
+    }
 }
 
 // =============================================================================
