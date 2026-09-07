@@ -359,10 +359,10 @@ onMounted(loadProduct)
 <template>
   <div class="product-edit-page">
     <div class="flex items-center gap-4 mb-6">
-      <button @click="router.push('/products')" class="text-sm text-blue-600 hover:text-blue-800">← Back to Products</button>
+      <button @click="router.push('/products')" class="text-sm text-red-600 hover:text-red-800">← Back to Products</button>
       <h1 class="text-2xl font-bold text-gray-900 flex-1">{{ product?.name || 'Edit Product' }}</h1>
       <button @click="showDeleteConfirm = true" class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100">Delete</button>
-      <button @click="saveProduct" :disabled="saving" class="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+      <button @click="saveProduct" :disabled="saving" class="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50">
         {{ saving ? 'Saving...' : 'Save Changes' }}
       </button>
     </div>
@@ -393,25 +393,25 @@ onMounted(loadProduct)
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
-              <input v-model="form.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="form.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">Short Description</label>
-              <input v-model="form.short_description" type="text" maxlength="160" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="form.short_description" type="text" maxlength="160" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">Full Description</label>
-              <textarea v-model="form.description" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <textarea v-model="form.description" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <select v-model="form.category_uuid" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.category_uuid" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option v-for="cat in categories" :key="cat.uuid" :value="cat.uuid">{{ cat.name }}</option>
               </select>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select v-model="form.status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="out_of_stock">Out of Stock</option>
@@ -425,23 +425,23 @@ onMounted(loadProduct)
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Base Price (₹)</label>
-              <input v-model.number="form.base_price" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.base_price" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Sale Price (₹)</label>
-              <input v-model.number="form.sale_price" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.sale_price" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
               <p class="text-xs text-gray-400 mt-1">Leave 0 for no sale</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Pricing Mode</label>
-              <select v-model="form.pricing_mode" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.pricing_mode" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="fixed">Fixed Price</option>
                 <option value="weight">Weight-based</option>
               </select>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-              <select v-model="form.unit" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.unit" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="piece">Piece</option>
                 <option value="kg">Kg</option>
                 <option value="g">Gram</option>
@@ -457,36 +457,36 @@ onMounted(loadProduct)
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mode</label>
-              <select v-model="form.stock_mode" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.stock_mode" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="unlimited">Unlimited</option>
                 <option value="tracked">Tracked</option>
               </select>
             </div>
             <div v-if="form.stock_mode === 'tracked'">
               <label class="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
-              <input v-model.number="form.stock_quantity" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.stock_quantity" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Min Order Qty</label>
-              <input v-model.number="form.min_quantity" type="number" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.min_quantity" type="number" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Max Order Qty</label>
-              <input v-model.number="form.max_quantity" type="number" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.max_quantity" type="number" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Preparation Time (min)</label>
-              <input v-model.number="form.preparation_time_minutes" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.preparation_time_minutes" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
               <p class="text-xs text-gray-400 mt-1">Estimated preparation time</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
-              <input v-model.number="form.sort_order" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.sort_order" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div class="flex items-center gap-3 pt-6">
               <label class="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" :checked="form.is_featured === 1" @change="form.is_featured = ($event.target as HTMLInputElement).checked ? 1 : 0" class="sr-only peer" />
-                <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-red-500 rounded-full peer peer-checked:bg-red-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
               </label>
               <span class="text-sm font-medium text-gray-700">Featured Product</span>
             </div>
@@ -499,7 +499,7 @@ onMounted(loadProduct)
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-900">Product Images</h2>
-            <button @click="imageInput?.click()" :disabled="uploading" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button @click="imageInput?.click()" :disabled="uploading" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50">
               {{ uploading ? 'Uploading...' : '+ Upload Images' }}
             </button>
             <input ref="imageInput" type="file" accept="image/*" multiple class="hidden" @change="handleImageUpload" />
@@ -517,7 +517,7 @@ onMounted(loadProduct)
                 <button v-if="!img.is_primary" @click="makePrimary(img.id)" class="px-2 py-1 bg-white text-xs font-medium rounded" title="Set as primary">⭐</button>
                 <button @click="deleteImage(img.id)" class="px-2 py-1 bg-red-500 text-white text-xs font-medium rounded" title="Delete">✕</button>
               </div>
-              <div v-if="img.is_primary" class="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded">Primary</div>
+              <div v-if="img.is_primary" class="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-0.5 rounded">Primary</div>
             </div>
           </div>
         </div>
@@ -528,7 +528,7 @@ onMounted(loadProduct)
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-900">Product Variants</h2>
-            <button @click="openVariantCreate" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ Add Variant</button>
+            <button @click="openVariantCreate" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">+ Add Variant</button>
           </div>
 
           <div v-if="!product.variants?.length" class="text-center py-8 text-gray-400">
@@ -549,7 +549,7 @@ onMounted(loadProduct)
                 <td class="py-3 text-sm">{{ v.stock_mode === 'unlimited' ? '∞' : v.stock_quantity }}</td>
                 <td class="py-3"><span class="px-2 py-0.5 rounded-full text-xs" :class="v.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'">{{ v.status }}</span></td>
                 <td class="py-3 text-right">
-                  <button @click="openVariantEdit(v)" class="text-blue-600 text-sm mr-2 hover:underline">Edit</button>
+                  <button @click="openVariantEdit(v)" class="text-red-600 text-sm mr-2 hover:underline">Edit</button>
                   <button @click="deleteVariant(v.id)" class="text-red-600 text-sm hover:underline">Delete</button>
                 </td>
               </tr>
@@ -563,7 +563,7 @@ onMounted(loadProduct)
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-900">Linked Addon Groups</h2>
-            <button @click="showAddonForm = true" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ New Group</button>
+            <button @click="showAddonForm = true" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">+ New Group</button>
           </div>
 
           <!-- Linked addon groups -->
@@ -579,7 +579,7 @@ onMounted(loadProduct)
                   <p class="text-xs text-gray-500">{{ group.is_required ? 'Required' : 'Optional' }} · {{ group.min_selections }}-{{ group.max_selections }} selections</p>
                 </div>
                 <div class="flex gap-2">
-                  <button @click="showItemForm = group.id" class="text-blue-600 text-sm hover:underline">+ Item</button>
+                  <button @click="showItemForm = group.id" class="text-red-600 text-sm hover:underline">+ Item</button>
                   <button @click="detachAddon(group.id)" class="text-red-600 text-sm hover:underline">Unlink</button>
                 </div>
               </div>
@@ -596,7 +596,7 @@ onMounted(loadProduct)
               <div v-if="showItemForm === group.id" class="mt-3 flex gap-2">
                 <input v-model="addonItemForm.name" type="text" placeholder="Item name" class="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm" />
                 <input v-model.number="addonItemForm.price" type="number" step="0.01" min="0" placeholder="Price ₹" class="w-24 border border-gray-300 rounded-md px-3 py-1.5 text-sm" />
-                <button @click="addItemToGroup(group.id)" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md">Add</button>
+                <button @click="addItemToGroup(group.id)" class="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md">Add</button>
                 <button @click="showItemForm = null" class="px-3 py-1.5 text-gray-600 text-sm">Cancel</button>
               </div>
             </div>
@@ -612,7 +612,7 @@ onMounted(loadProduct)
                 <span class="font-medium text-sm">{{ group.name }}</span>
                 <span class="text-xs text-gray-400 ml-2">({{ group.items?.length || 0 }} items)</span>
               </div>
-              <button @click="attachAddon(group.id)" class="text-blue-600 text-sm hover:underline">Link to product</button>
+              <button @click="attachAddon(group.id)" class="text-red-600 text-sm hover:underline">Link to product</button>
             </div>
           </div>
         </div>
@@ -626,44 +626,44 @@ onMounted(loadProduct)
         <form @submit.prevent="saveVariant" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Variant Name</label>
-            <input v-model="variantForm.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. 500g, Large" />
+            <input v-model="variantForm.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="e.g. 500g, Large" />
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
-              <input v-model.number="variantForm.price" type="number" step="0.01" min="0" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="variantForm.price" type="number" step="0.01" min="0" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Compare Price (₹)</label>
-              <input v-model.number="variantForm.compare_price" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="variantForm.compare_price" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-              <input v-model="variantForm.sku" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="variantForm.sku" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Weight (grams)</label>
-              <input v-model.number="variantForm.weight_grams" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="variantForm.weight_grams" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mode</label>
-              <select v-model="variantForm.stock_mode" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="variantForm.stock_mode" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="unlimited">Unlimited</option>
                 <option value="tracked">Tracked</option>
               </select>
             </div>
             <div v-if="variantForm.stock_mode === 'tracked'">
               <label class="block text-sm font-medium text-gray-700 mb-1">Stock Qty</label>
-              <input v-model.number="variantForm.stock_quantity" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="variantForm.stock_quantity" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" @click="showVariantForm = false" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-            <button type="submit" :disabled="variantSaving" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button type="submit" :disabled="variantSaving" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
               {{ variantSaving ? 'Saving...' : 'Save Variant' }}
             </button>
           </div>
@@ -690,28 +690,28 @@ onMounted(loadProduct)
         <form @submit.prevent="createAddonGroup" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
-            <input v-model="addonGroupForm.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. Spice Level, Extras" />
+            <input v-model="addonGroupForm.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="e.g. Spice Level, Extras" />
           </div>
           <div class="flex items-center gap-3">
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" :checked="addonGroupForm.is_required === 1" @change="addonGroupForm.is_required = ($event.target as HTMLInputElement).checked ? 1 : 0" class="sr-only peer" />
-              <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+              <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-red-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
             </label>
             <span class="text-sm text-gray-700">Required selection</span>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Min Selections</label>
-              <input v-model.number="addonGroupForm.min_selections" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="addonGroupForm.min_selections" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Max Selections</label>
-              <input v-model.number="addonGroupForm.max_selections" type="number" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="addonGroupForm.max_selections" type="number" min="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="flex justify-end gap-3 pt-2">
             <button type="button" @click="showAddonForm = false" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-            <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Create Group</button>
+            <button type="submit" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700">Create Group</button>
           </div>
         </form>
       </div>

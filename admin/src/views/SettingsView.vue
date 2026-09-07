@@ -179,16 +179,16 @@ onMounted(loadSettings)
               <label class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
               <div class="flex gap-2">
                 <input v-model="settings.branding.primary_color" type="color" class="w-10 h-10 rounded border border-gray-300 cursor-pointer" />
-                <input v-model="settings.branding.primary_color" type="text" class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input v-model="settings.branding.primary_color" type="text" class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
-              <input v-model="settings.branding.tagline" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Your store tagline" />
+              <input v-model="settings.branding.tagline" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Your store tagline" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
-              <input v-model="settings.branding.logo_url" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://..." />
+              <input v-model="settings.branding.logo_url" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="https://..." />
             </div>
           </div>
         </div>
@@ -199,15 +199,15 @@ onMounted(loadSettings)
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Default Prep Time (min)</label>
-              <input v-model.number="settings.preparation_time_default" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="settings.preparation_time_default" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Min Order Amount (₹)</label>
-              <input v-model.number="settings.min_order_amount" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="settings.min_order_amount" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
-              <input v-model.number="settings.tax_rate" type="number" min="0" max="100" step="0.01" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="settings.tax_rate" type="number" min="0" max="100" step="0.01" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
         </div>
@@ -217,11 +217,11 @@ onMounted(loadSettings)
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Fulfillment Options</h2>
           <div class="flex gap-6">
             <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" v-model="settings.delivery_enabled" class="w-4 h-4 text-blue-600 rounded" />
+              <input type="checkbox" v-model="settings.delivery_enabled" class="w-4 h-4 text-red-600 rounded" />
               <span class="text-sm font-medium text-gray-700">Delivery Enabled</span>
             </label>
             <label class="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" v-model="settings.pickup_enabled" class="w-4 h-4 text-blue-600 rounded" />
+              <input type="checkbox" v-model="settings.pickup_enabled" class="w-4 h-4 text-red-600 rounded" />
               <span class="text-sm font-medium text-gray-700">Pickup Enabled</span>
             </label>
           </div>
@@ -233,7 +233,7 @@ onMounted(loadSettings)
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <button v-for="opt in paymentOptions" :key="opt.value" @click="togglePayment(opt.value)"
               class="p-3 border-2 rounded-lg text-sm font-medium text-left transition-colors"
-              :class="settings.payment_methods.includes(opt.value) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+              :class="settings.payment_methods.includes(opt.value) ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
             >
               {{ opt.label }}
             </button>
@@ -248,19 +248,19 @@ onMounted(loadSettings)
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-              <input v-model="passwordForm.current_password" type="password" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="passwordForm.current_password" type="password" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-              <input v-model="passwordForm.new_password" type="password" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="passwordForm.new_password" type="password" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-              <input v-model="passwordForm.confirm_password" type="password" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="passwordForm.confirm_password" type="password" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="mt-4">
-            <button @click="changePassword" :disabled="passwordSaving" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            <button @click="changePassword" :disabled="passwordSaving" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
               {{ passwordSaving ? 'Changing...' : 'Change Password' }}
             </button>
           </div>
@@ -273,13 +273,13 @@ onMounted(loadSettings)
             <div v-for="day in days" :key="day" class="flex items-center gap-4 py-2 border-b border-gray-50 last:border-0">
               <label class="w-28 text-sm font-medium text-gray-700">{{ formatDay(day) }}</label>
               <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" v-model="settings.business_hours[day].open" class="w-4 h-4 text-blue-600 rounded" />
+                <input type="checkbox" v-model="settings.business_hours[day].open" class="w-4 h-4 text-red-600 rounded" />
                 <span class="text-xs text-gray-500">Open</span>
               </label>
               <template v-if="settings.business_hours[day].open">
-                <input v-model="settings.business_hours[day].start" type="time" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input v-model="settings.business_hours[day].start" type="time" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
                 <span class="text-gray-400 text-sm">to</span>
-                <input v-model="settings.business_hours[day].end" type="time" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input v-model="settings.business_hours[day].end" type="time" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
               </template>
               <span v-else class="text-sm text-gray-400">Closed</span>
             </div>

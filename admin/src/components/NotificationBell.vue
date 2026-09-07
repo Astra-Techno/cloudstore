@@ -139,10 +139,10 @@ onUnmounted(() => {
     <Transition name="toast">
       <div
         v-if="showToast"
-        class="fixed top-4 right-4 z-[100] max-w-sm bg-white border border-blue-200 shadow-lg rounded-xl p-4 flex items-start gap-3"
+        class="fixed top-4 right-4 z-[100] max-w-sm bg-white border border-red-200 shadow-lg rounded-xl p-4 flex items-start gap-3"
       >
-        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-          <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+          <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
         </div>
@@ -187,7 +187,7 @@ onUnmounted(() => {
           v-if="hasUnread"
           @click="markAllRead"
           :disabled="loading"
-          class="text-xs text-blue-600 hover:text-blue-800 font-medium"
+          class="text-xs text-red-600 hover:text-red-800 font-medium"
         >
           Mark all read
         </button>
@@ -202,12 +202,12 @@ onUnmounted(() => {
           :key="n.id"
           @click="!n.read_at && markRead(n.id)"
           class="px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
-          :class="{ 'bg-blue-50/50': !n.read_at }"
+          :class="{ 'bg-red-50/50': !n.read_at }"
         >
           <div class="flex items-start gap-3">
             <div
               class="w-2 h-2 rounded-full mt-1.5 shrink-0"
-              :class="n.read_at ? 'bg-transparent' : 'bg-blue-500'"
+              :class="n.read_at ? 'bg-transparent' : 'bg-red-500'"
             ></div>
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-gray-900 truncate">{{ n.title }}</p>

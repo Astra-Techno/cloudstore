@@ -223,7 +223,7 @@ onMounted(() => {
               v-model="form.name"
               type="text"
               required
-              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
             />
           </div>
 
@@ -232,7 +232,7 @@ onMounted(() => {
             <select
               v-model="form.category_uuid"
               required
-              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
             >
               <option v-for="cat in categories" :key="cat.uuid" :value="cat.uuid">{{ cat.name }}</option>
             </select>
@@ -247,14 +247,14 @@ onMounted(() => {
                 step="0.01"
                 min="0"
                 required
-                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Pricing Mode</label>
               <select
                 v-model="form.pricing_mode"
-                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="fixed">Fixed</option>
                 <option value="weight">Weight</option>
@@ -267,7 +267,7 @@ onMounted(() => {
               <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
               <select
                 v-model="form.unit"
-                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="piece">Piece</option>
                 <option value="kg">Kg</option>
@@ -280,7 +280,7 @@ onMounted(() => {
               <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mode</label>
               <select
                 v-model="form.stock_mode"
-                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="unlimited">Unlimited</option>
                 <option value="tracked">Tracked</option>
@@ -292,7 +292,7 @@ onMounted(() => {
             <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
               v-model="form.status"
-              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
             >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
@@ -310,7 +310,7 @@ onMounted(() => {
             <button
               type="submit"
               :disabled="saving"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
             >
               {{ saving ? 'Saving...' : 'Create Product' }}
             </button>

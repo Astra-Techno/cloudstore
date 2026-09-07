@@ -216,27 +216,27 @@ onMounted(loadDrivers)
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input v-model="form.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="form.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input v-model="form.phone" type="tel" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="form.phone" type="tel" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input v-model="form.email" type="email" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="form.email" type="email" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Password {{ editing ? '(leave blank to keep)' : '' }}</label>
-              <input v-model="form.password" type="password" :required="!editing" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model="form.password" type="password" :required="!editing" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
-              <select v-model="form.vehicle_type" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.vehicle_type" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="bike">Bike</option>
                 <option value="scooter">Scooter</option>
                 <option value="car">Car</option>
@@ -246,11 +246,11 @@ onMounted(loadDrivers)
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
-              <input v-model="form.vehicle_number" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="TN XX AB 1234" />
+              <input v-model="form.vehicle_number" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="TN XX AB 1234" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select v-model="form.status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="suspended">Suspended</option>
@@ -259,7 +259,7 @@ onMounted(loadDrivers)
           </div>
           <div class="flex justify-end gap-3">
             <button type="button" @click="showForm = false" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-            <button type="submit" :disabled="saving" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">{{ saving ? 'Saving...' : 'Save' }}</button>
+            <button type="submit" :disabled="saving" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">{{ saving ? 'Saving...' : 'Save' }}</button>
           </div>
         </form>
       </div>

@@ -150,7 +150,7 @@ function getAddonsList(addonsJson: string | null): { name: string; price: number
 }
 
 const statusColors: Record<string, string> = {
-  pending_payment: 'bg-amber-600', confirmed: 'bg-blue-600', accepted: 'bg-indigo-600',
+  pending_payment: 'bg-amber-600', confirmed: 'bg-red-600', accepted: 'bg-indigo-600',
   preparing: 'bg-purple-600', ready: 'bg-green-600', picked_up: 'bg-teal-600',
   out_for_delivery: 'bg-cyan-600', delivered: 'bg-emerald-600',
   cancelled: 'bg-red-600', rejected: 'bg-red-600',
@@ -210,7 +210,7 @@ onMounted(loadOrder)
 
 <template>
   <div>
-    <button @click="router.push('/orders')" class="text-sm text-blue-600 hover:text-blue-800 mb-4 inline-block">← Back to Orders</button>
+    <button @click="router.push('/orders')" class="text-sm text-red-600 hover:text-red-800 mb-4 inline-block">← Back to Orders</button>
 
     <div v-if="loading" class="text-gray-500">Loading...</div>
 
@@ -265,13 +265,13 @@ onMounted(loadOrder)
 
         <!-- Status notes -->
         <div v-if="allowedTransitions.length" class="mb-3">
-          <input v-model="statusNotes" type="text" placeholder="Optional notes for status change..." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <input v-model="statusNotes" type="text" placeholder="Optional notes for status change..." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
         </div>
 
         <div class="flex flex-wrap gap-2">
           <button v-for="transition in allowedTransitions" :key="transition" @click="updateStatus(transition)" :disabled="updating"
             class="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            :class="transition === 'cancelled' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'"
+            :class="transition === 'cancelled' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-red-100 text-red-700 hover:bg-red-200'"
           >{{ transition.replace(/_/g, ' ') }}</button>
 
           <button v-if="canAssignDriver" @click="openDriverModal" class="px-4 py-2 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg text-sm font-medium">
@@ -347,7 +347,7 @@ onMounted(loadOrder)
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Status History</h2>
         <div class="space-y-3">
           <div v-for="(entry, i) in history" :key="i" class="flex items-start gap-3">
-            <div class="w-2 h-2 rounded-full mt-2 shrink-0" :class="statusColors[entry.to_status] || 'bg-blue-500'"></div>
+            <div class="w-2 h-2 rounded-full mt-2 shrink-0" :class="statusColors[entry.to_status] || 'bg-red-500'"></div>
             <div>
               <div class="text-sm font-medium text-gray-900 capitalize">{{ entry.to_status.replace(/_/g, ' ') }}</div>
               <div class="text-xs text-gray-500">
@@ -369,8 +369,8 @@ onMounted(loadOrder)
         <div v-else-if="drivers.length === 0" class="text-gray-500 text-sm">No available drivers right now.</div>
         <div v-else class="space-y-2 mb-4">
           <label v-for="d in drivers" :key="d.uuid" class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-            :class="selectedDriver === d.uuid ? 'border-blue-500 bg-blue-50' : 'border-gray-200'">
-            <input v-model="selectedDriver" :value="d.uuid" type="radio" class="text-blue-600" />
+            :class="selectedDriver === d.uuid ? 'border-red-500 bg-red-50' : 'border-gray-200'">
+            <input v-model="selectedDriver" :value="d.uuid" type="radio" class="text-red-600" />
             <div>
               <p class="text-sm font-medium">{{ d.name }}</p>
               <p class="text-xs text-gray-500">{{ d.phone }} · {{ d.vehicle_type }} {{ d.vehicle_number }}</p>
@@ -379,7 +379,7 @@ onMounted(loadOrder)
         </div>
         <div class="flex justify-end gap-3">
           <button @click="showDriverModal = false" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-          <button @click="assignDriver" :disabled="!selectedDriver || updating" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">Assign</button>
+          <button @click="assignDriver" :disabled="!selectedDriver || updating" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">Assign</button>
         </div>
       </div>
     </div>
@@ -391,7 +391,7 @@ onMounted(loadOrder)
         <p class="text-sm text-gray-500 mb-4">This will initiate a refund of {{ formatPrice(order!.total) }} for order {{ order!.order_number }}.</p>
         <div class="mb-4">
           <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-          <textarea v-model="refundReason" rows="3" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Why is this refund being issued?" />
+          <textarea v-model="refundReason" rows="3" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Why is this refund being issued?" />
         </div>
         <div class="flex justify-end gap-3">
           <button @click="showRefundModal = false" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>

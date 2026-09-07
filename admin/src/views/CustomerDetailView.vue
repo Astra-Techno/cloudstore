@@ -48,7 +48,7 @@ function formatDateTime(d: string): string {
 
 const statusColors: Record<string, string> = {
   delivered: 'bg-green-100 text-green-800',
-  confirmed: 'bg-blue-100 text-blue-800',
+  confirmed: 'bg-red-100 text-red-800',
   preparing: 'bg-purple-100 text-purple-800',
   cancelled: 'bg-red-100 text-red-800',
   pending_payment: 'bg-amber-100 text-amber-800',
@@ -75,7 +75,7 @@ onMounted(loadCustomer)
 
 <template>
   <div>
-    <button @click="router.push('/customers')" class="text-sm text-blue-600 hover:text-blue-800 mb-4 inline-block">&larr; Back to Customers</button>
+    <button @click="router.push('/customers')" class="text-sm text-red-600 hover:text-red-800 mb-4 inline-block">&larr; Back to Customers</button>
 
     <div v-if="loading" class="text-gray-500">Loading...</div>
     <div v-else-if="error" class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{{ error }}</div>
@@ -84,7 +84,7 @@ onMounted(loadCustomer)
       <!-- Header -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div class="flex items-center gap-4">
-          <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-600">
+          <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-2xl font-bold text-red-600">
             {{ (customer.name || customer.phone || '?').charAt(0).toUpperCase() }}
           </div>
           <div class="flex-1">
@@ -132,7 +132,7 @@ onMounted(loadCustomer)
           </thead>
           <tbody>
             <tr v-for="o in customer.recent_orders" :key="o.uuid" class="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" @click="router.push(`/orders/${o.uuid}`)">
-              <td class="py-3 font-medium text-blue-600">{{ o.order_number }}</td>
+              <td class="py-3 font-medium text-red-600">{{ o.order_number }}</td>
               <td class="py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium capitalize" :class="statusColors[o.status] || 'bg-gray-100 text-gray-600'">{{ o.status.replace(/_/g, ' ') }}</span></td>
               <td class="py-3 text-right font-medium">{{ formatPrice(o.total) }}</td>
               <td class="py-3 text-sm text-gray-500 capitalize">{{ o.payment_method?.replace(/_/g, ' ') }} &middot; {{ o.payment_status }}</td>

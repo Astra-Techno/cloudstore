@@ -130,7 +130,7 @@ onMounted(loadZones)
             <td><span class="list-status" :class="zone.status === 'active' ? 'list-status--lime' : 'list-status--coral'"><i></i>{{ zone.status }}</span></td>
             <td class="list-muted">{{ zone.sort_order }}</td>
             <td class="list-action-cell">
-              <button @click="openEdit(zone)" class="text-blue-600 text-sm mr-2 hover:underline">Edit</button>
+              <button @click="openEdit(zone)" class="text-red-600 text-sm mr-2 hover:underline">Edit</button>
               <button @click="deleteZone(zone)" class="text-red-600 text-sm hover:underline">Delete</button>
             </td>
           </tr>
@@ -147,45 +147,45 @@ onMounted(loadZones)
         <form @submit.prevent="saveZone">
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">Zone Name</label>
-            <input v-model="form.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. Nearby, City Wide" />
+            <input v-model="form.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="e.g. Nearby, City Wide" />
           </div>
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Min Distance (km)</label>
-              <input v-model.number="form.min_distance_km" type="number" step="0.1" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.min_distance_km" type="number" step="0.1" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Max Distance (km)</label>
-              <input v-model.number="form.max_distance_km" type="number" step="0.1" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.max_distance_km" type="number" step="0.1" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Fee (₹)</label>
-              <input v-model.number="form.fee" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.fee" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Free Delivery Above (₹)</label>
-              <input v-model.number="form.min_order_free_delivery" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.min_order_free_delivery" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
               <p class="text-xs text-gray-400 mt-1">0 = no free delivery</p>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4 mb-6">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select v-model="form.status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select v-model="form.status" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
-              <input v-model.number="form.sort_order" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input v-model.number="form.sort_order" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
           <div class="flex justify-end gap-3">
             <button type="button" @click="showForm = false" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-            <button type="submit" :disabled="saving" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">{{ saving ? 'Saving...' : 'Save' }}</button>
+            <button type="submit" :disabled="saving" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">{{ saving ? 'Saving...' : 'Save' }}</button>
           </div>
         </form>
       </div>

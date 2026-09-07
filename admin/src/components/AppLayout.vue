@@ -39,10 +39,10 @@ const navItems = [
 
     <aside class="admin-sidebar" :class="{ 'admin-sidebar--open': mobileNavOpen }">
       <div class="sidebar-brand">
-        <div class="brand-mark">C</div>
+        <img src="/logo.svg" alt="CloudStore" class="brand-logo" />
         <div>
           <p class="brand-name">CloudStore</p>
-          <p class="brand-caption">Commerce, composed.</p>
+          <p class="brand-caption">Commerce, delivered.</p>
         </div>
         <button class="sidebar-close lg:hidden" aria-label="Close navigation" @click="closeMobileNav">
           <span aria-hidden="true">×</span>
