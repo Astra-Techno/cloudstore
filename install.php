@@ -86,22 +86,25 @@ if (!file_exists($composerPhar)) {
     $installerFile = API_DIR . '/composer-setup.php';
     file_put_contents($installerFile, $installer);
 
+    // Set COMPOSER_HOME so composer doesn't complain
+    $composerHome = API_DIR . '/.composer';
+    if (!is_dir($composerHome)) mkdir($composerHome, 0755, true);
+    putenv("COMPOSER_HOME={$composerHome}");
+    putenv("HOME=" . dirname(BASE_DIR));
+
     // Run installer
     $cwd = getcwd();
     chdir(API_DIR);
 
-    ob_start();
-    $exitCode = 0;
+    $envPrefix = "HOME=" . escapeshellarg(dirname(BASE_DIR)) . " COMPOSER_HOME=" . escapeshellarg($composerHome);
 
-    // Try exec first
     if (function_exists('exec')) {
         $output = [];
-        exec('php composer-setup.php 2>&1', $output, $exitCode);
+        exec("{$envPrefix} php composer-setup.php 2>&1", $output, $exitCode);
         echo implode("\n", $output) . "\n";
     } elseif (function_exists('shell_exec')) {
-        echo shell_exec('php composer-setup.php 2>&1') . "\n";
+        echo shell_exec("{$envPrefix} php composer-setup.php 2>&1") . "\n";
     } else {
-        // Run via include as last resort
         $_SERVER['argv'] = ['composer-setup.php'];
         include $installerFile;
     }
@@ -131,7 +134,10 @@ ob_flush(); flush();
 $cwd = getcwd();
 chdir(API_DIR);
 
-$command = 'php composer.phar install --no-dev --optimize-autoloader --no-interaction 2>&1';
+$composerHome = API_DIR . '/.composer';
+if (!is_dir($composerHome)) mkdir($composerHome, 0755, true);
+$envPrefix = "HOME=" . escapeshellarg(dirname(BASE_DIR)) . " COMPOSER_HOME=" . escapeshellarg($composerHome);
+$command = "{$envPrefix} php composer.phar install --no-dev --optimize-autoloader --no-interaction 2>&1";
 $result = '';
 
 if (function_exists('exec')) {
