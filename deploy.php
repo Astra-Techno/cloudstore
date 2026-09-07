@@ -1,6 +1,6 @@
 <?php
 /**
- * CloudStore - One-Click Deployer
+ * CloudMarket - One-Click Deployer
  *
  * Place this file at the ROOT of your hosting (public_html/).
  * Visit: https://yourdomain.com/deploy.php?key=YOUR_DEPLOY_KEY
@@ -110,7 +110,7 @@ if (function_exists('curl_init')) {
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_TIMEOUT        => 90,
         CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_USERAGENT      => 'CloudStore-Deployer/1.0',
+        CURLOPT_USERAGENT      => 'CloudMarket-Deployer/1.0',
         CURLOPT_HTTPHEADER     => array_filter([
             $token ? "Authorization: Bearer {$token}" : null,
         ]),
@@ -127,7 +127,7 @@ if (function_exists('curl_init')) {
     $ctx     = stream_context_create(['http' => [
         'timeout' => 90,
         'header'  => $token ? "Authorization: Bearer {$token}\r\n" : '',
-        'user_agent' => 'CloudStore-Deployer/1.0',
+        'user_agent' => 'CloudMarket-Deployer/1.0',
     ]]);
     $zipData = @file_get_contents($zipUrl, false, $ctx);
 }
@@ -492,7 +492,7 @@ function page_open(): string {
     return <<<HTML
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CloudStore Deployer</title>
+<title>CloudMarket Deployer</title>
 <style>
 *{box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:700px;margin:32px auto;padding:0 18px;background:#f8fafc;color:#1e293b}
@@ -513,7 +513,7 @@ details{margin:2px 0}
 summary{font-size:.78rem;color:#64748b;cursor:pointer}
 ul{margin:4px 0 0 16px;padding:0;list-style:disc;font-family:monospace;font-size:.75rem;color:#475569}
 </style></head><body>
-<h1>CloudStore Deployer</h1>
+<h1>CloudMarket Deployer</h1>
 <p class="sub">{$host} &middot; {$now}</p>
 <div class="wrap">
 HTML;

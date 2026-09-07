@@ -39,17 +39,17 @@ const navItems = [
 
     <aside class="admin-sidebar" :class="{ 'admin-sidebar--open': mobileNavOpen }">
       <div class="sidebar-brand">
-        <img src="/logo.svg" alt="CloudStore" class="brand-logo" />
+        <img src="/logo.svg" alt="CloudMarket" class="brand-logo" />
         <div>
-          <p class="brand-name">CloudStore</p>
-          <p class="brand-caption">Commerce, delivered.</p>
+          <p class="brand-name">Cloud<strong>Market</strong></p>
+          <p class="brand-caption">Your Store. Your Delivery.</p>
         </div>
         <button class="sidebar-close lg:hidden" aria-label="Close navigation" @click="closeMobileNav">
-          <span aria-hidden="true">×</span>
+          <span aria-hidden="true">&times;</span>
         </button>
       </div>
 
-      <div class="sidebar-section-label">Workspace</div>
+      <div class="sidebar-section-label">Manage</div>
       <nav class="sidebar-nav">
         <router-link
           v-for="item in navItems"
@@ -65,9 +65,9 @@ const navItems = [
       </nav>
 
       <div class="sidebar-note">
-        <span class="sidebar-note__spark">✦</span>
+        <span class="sidebar-note__spark">&#9670;</span>
         <div>
-          <p>Keep the store moving</p>
+          <p>Sell. Manage. Deliver. Grow.</p>
           <span>Live operations workspace</span>
         </div>
       </div>
@@ -79,7 +79,7 @@ const navItems = [
           <span>{{ auth.user?.email }}</span>
         </div>
         <button class="account-logout" aria-label="Sign out" title="Sign out" @click="handleLogout">
-          <span aria-hidden="true">↗</span>
+          <span aria-hidden="true">&nearr;</span>
         </button>
       </div>
     </aside>
@@ -88,7 +88,7 @@ const navItems = [
       <header class="admin-header">
         <div class="header-heading">
           <button class="mobile-menu-button lg:hidden" aria-label="Open navigation" @click="mobileNavOpen = true">
-            <span aria-hidden="true">☰</span>
+            <span aria-hidden="true">&#9776;</span>
           </button>
           <div>
             <p class="header-eyebrow">Control center</p>

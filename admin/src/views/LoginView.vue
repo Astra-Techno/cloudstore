@@ -28,46 +28,58 @@ async function handleLogin() {
 
 <template>
   <div class="login-page">
-    <div class="login-card">
-      <div class="login-brand">
-        <img src="/logo.svg" alt="CloudStore" class="login-logo" />
-        <h1>CloudStore</h1>
-        <p>Admin Panel</p>
+    <div class="login-left">
+      <div class="login-brand-area">
+        <img src="/logo.svg" alt="CloudMarket" class="login-hero-logo" />
+        <h2>Cloud<strong>Market</strong></h2>
+        <p class="login-tagline">Your Store. Your Delivery. Your Customers.</p>
+        <div class="login-features">
+          <div class="login-feature"><span>&#128722;</span> Sell</div>
+          <div class="login-feature"><span>&#128230;</span> Manage</div>
+          <div class="login-feature"><span>&#128690;</span> Deliver</div>
+          <div class="login-feature"><span>&#128200;</span> Grow</div>
+        </div>
       </div>
-
-      <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-        {{ error }}
-      </div>
-
-      <form @submit.prevent="handleLogin">
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input
-            v-model="email"
-            type="email"
-            required
-            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-          />
+    </div>
+    <div class="login-right">
+      <div class="login-card">
+        <div class="login-card-header">
+          <h1>Welcome back</h1>
+          <p>Sign in to your admin dashboard</p>
         </div>
 
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <input
-            v-model="password"
-            type="password"
-            required
-            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-          />
+        <div v-if="error" class="login-error">
+          {{ error }}
         </div>
 
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full bg-red-600 text-white py-2.5 rounded-md hover:bg-red-700 transition disabled:opacity-50 font-semibold"
-        >
-          {{ loading ? 'Signing in...' : 'Sign In' }}
-        </button>
-      </form>
+        <form @submit.prevent="handleLogin">
+          <div class="login-field">
+            <label>Email address</label>
+            <input
+              v-model="email"
+              type="email"
+              required
+              placeholder="admin@yourstore.com"
+            />
+          </div>
+
+          <div class="login-field">
+            <label>Password</label>
+            <input
+              v-model="password"
+              type="password"
+              required
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <button type="submit" :disabled="loading" class="login-btn">
+            {{ loading ? 'Signing in...' : 'Sign In' }}
+          </button>
+        </form>
+
+        <p class="login-footer">Powered by <strong>CloudMarket</strong></p>
+      </div>
     </div>
   </div>
 </template>
@@ -76,38 +88,197 @@ async function handleLogin() {
 .login-page {
   min-height: 100vh;
   display: flex;
+}
+
+.login-left {
+  flex: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #fef2f2 0%, #f8f8fa 50%, #fff 100%);
+  background: linear-gradient(135deg, #E02424 0%, #b91c1c 40%, #7f1d1d 100%);
+  position: relative;
+  overflow: hidden;
 }
+
+.login-left::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 50%),
+              radial-gradient(circle at 70% 80%, rgba(255,255,255,0.05) 0%, transparent 50%);
+}
+
+.login-brand-area {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 40px;
+}
+
+.login-hero-logo {
+  width: 160px;
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.2));
+  margin-bottom: 24px;
+}
+
+.login-brand-area h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+}
+
+.login-brand-area h2 strong {
+  font-weight: 900;
+}
+
+.login-tagline {
+  margin: 8px 0 0;
+  color: rgba(255,255,255,0.75);
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.login-features {
+  display: flex;
+  gap: 20px;
+  margin-top: 40px;
+  justify-content: center;
+}
+
+.login-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.85);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.login-feature span {
+  font-size: 24px;
+}
+
+.login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f8fa;
+}
+
 .login-card {
   width: 100%;
-  max-width: 400px;
-  padding: 40px 32px;
-  background: #fff;
-  border-radius: 16px;
-  border: 1px solid #e5e5ea;
-  box-shadow: 0 8px 32px rgba(220,38,38,.06), 0 2px 8px rgba(0,0,0,.04);
+  max-width: 380px;
+  padding: 20px 32px;
 }
-.login-brand {
-  text-align: center;
+
+.login-card-header {
   margin-bottom: 32px;
 }
-.login-logo {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 12px;
-}
-.login-brand h1 {
+
+.login-card-header h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 900;
   color: #1a1a2e;
-  letter-spacing: -.5px;
+  letter-spacing: -0.8px;
 }
-.login-brand p {
-  margin: 4px 0 0;
-  color: #8a8a9a;
+
+.login-card-header p {
+  margin: 6px 0 0;
+  color: #7a7a8a;
+  font-size: 14px;
+}
+
+.login-error {
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
   font-size: 13px;
+}
+
+.login-field {
+  margin-bottom: 20px;
+}
+
+.login-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: #4a4a5a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e5e5ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #1a1a2e;
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.login-field input:focus {
+  border-color: #E02424;
+  box-shadow: 0 0 0 3px rgba(224,36,36,0.1);
+}
+
+.login-field input::placeholder {
+  color: #b0b0ba;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #E02424 0%, #c41e1e 100%);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(224,36,36,0.25);
+}
+
+.login-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(224,36,36,0.35);
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-footer {
+  margin: 32px 0 0;
+  text-align: center;
+  color: #b0b0ba;
+  font-size: 12px;
+}
+
+.login-footer strong {
+  color: #E02424;
+}
+
+@media (max-width: 900px) {
+  .login-left { display: none; }
+  .login-right { padding: 24px; }
+  .login-card { max-width: 420px; }
 }
 </style>

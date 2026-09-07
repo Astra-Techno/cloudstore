@@ -1,10 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
-  <!-- Cloud shape -->
-  <path d="M160 95c0-22.1-17.9-40-40-40-15.5 0-29 8.8-35.7 21.7C80.1 74.3 75.3 73 70 73c-16.6 0-30 13.4-30 30 0 1.4.1 2.7.3 4C28.4 110.4 20 121.3 20 134c0 16.6 13.4 30 30 30h110c16.6 0 30-13.4 30-30 0-13.5-8.9-24.9-21.2-28.7 1-3.3 1.2-6.8 1.2-10.3z" fill="#DC2626"/>
-  <!-- Shopping bag -->
-  <rect x="76" y="100" width="48" height="44" rx="6" fill="white"/>
-  <path d="M88 106v-8a12 12 0 0 1 24 0v8" stroke="#DC2626" stroke-width="4" stroke-linecap="round"/>
-  <!-- Bag detail lines -->
-  <line x1="88" y1="120" x2="112" y2="120" stroke="#DC2626" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
-  <line x1="92" y1="128" x2="108" y2="128" stroke="#DC2626" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+  <!-- Red cloud -->
+  <path d="M165 92c0-24.3-19.7-44-44-44-17 0-31.8 9.7-39.2 23.8C77 68.5 71.5 67 66 67c-18.2 0-33 14.8-33 33 0 1.5.1 3 .3 4.4C20 108.5 10 120.5 10 135c0 18.2 14.8 33 33 33h121c18.2 0 33-14.8 33-33 0-14.8-9.8-27.4-23.3-31.5 1-3.6 1.3-7.5 1.3-11.5z" fill="#E02424"/>
+  <!-- Store front window -->
+  <rect x="62" y="95" width="76" height="55" rx="6" fill="white"/>
+  <!-- Awning -->
+  <path d="M58 95h84l-4-14H62l-4 14z" fill="white" opacity="0.95"/>
+  <!-- Awning stripes -->
+  <rect x="62" y="82" width="12" height="14" rx="2" fill="white"/>
+  <rect x="76" y="82" width="12" height="14" rx="2" fill="#E02424" opacity="0.3"/>
+  <rect x="90" y="82" width="12" height="14" rx="2" fill="white"/>
+  <rect x="104" y="82" width="12" height="14" rx="2" fill="#E02424" opacity="0.3"/>
+  <rect x="118" y="82" width="12" height="14" rx="2" fill="white"/>
+  <!-- Door -->
+  <rect x="88" y="118" width="24" height="32" rx="4" fill="#E02424" opacity="0.15"/>
+  <circle cx="106" cy="134" r="2" fill="#E02424" opacity="0.4"/>
+  <!-- Delivery scooter hint -->
+  <circle cx="152" cy="148" r="10" stroke="white" stroke-width="3" fill="none" opacity="0.6"/>
+  <circle cx="152" cy="148" r="3" fill="white" opacity="0.6"/>
 </svg>

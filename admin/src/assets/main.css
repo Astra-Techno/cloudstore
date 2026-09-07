@@ -5,11 +5,11 @@
 :root {
 	--ink: #1a1a2e;
 	--ink-soft: #4a4a5a;
-	--paper: #f8f8fa;
-	--line: #e5e5ea;
-	--primary: #dc2626;
+	--paper: #f8f9fb;
+	--line: #e8e8ee;
+	--primary: #E02424;
 	--primary-deep: #b91c1c;
-	--primary-light: #fee2e2;
+	--primary-light: #fef2f2;
 	--accent: #ef4444;
 	--white: #ffffff;
 }
@@ -36,10 +36,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 	background: var(--ink); color: #eeeef2; padding: 16px 12px 12px;
 }
 .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 20px; }
-.sidebar-brand img { width: 32px; height: 32px; border-radius: 8px; }
-.brand-mark { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 10px; background: var(--primary); color: #fff; font-size: 15px; font-weight: 900; transform: rotate(-4deg); }
-.brand-name { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.3px; }
-.brand-caption { margin: 2px 0 0; color: #8a8a9a; font-size: 10px; }
+.brand-logo { width: 36px; height: 36px; border-radius: 8px; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(224,36,36,0.3)); }
+.brand-mark { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 10px; background: var(--primary); color: #fff; font-size: 15px; font-weight: 900; }
+.brand-name { margin: 0; font-size: 15px; font-weight: 400; letter-spacing: -.3px; }
+.brand-name strong { font-weight: 900; color: var(--primary); }
+.brand-caption { margin: 2px 0 0; color: #7a7a8a; font-size: 10px; letter-spacing: 0.3px; }
 .sidebar-section-label { padding: 0 10px 8px; color: #6a6a7a; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
 .sidebar-nav { display: grid; gap: 2px; }
 .sidebar-link { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid transparent; border-radius: 10px; color: #9a9aaa; font-size: 13px; font-weight: 600; text-decoration: none; transition: .2s ease; }
