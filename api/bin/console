@@ -1,0 +1,14 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+define('BASE_PATH', dirname(__DIR__));
+
+require BASE_PATH . '/vendor/autoload.php';
+
+use App\Core\Console\Application as ConsoleApplication;
+
+$app = ConsoleApplication::boot(BASE_PATH);
+$exitCode = $app->run($argv);
+exit($exitCode);

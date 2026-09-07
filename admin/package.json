@@ -1,0 +1,31 @@
+{
+  "name": "cloudstore-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@vueuse/core": "^11.0",
+    "axios": "^1.7",
+    "pinia": "^2.2",
+    "vue": "^3.5",
+    "vue-router": "^4.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22",
+    "@vitejs/plugin-vue": "^5.1",
+    "autoprefixer": "^10.4",
+    "postcss": "^8.4",
+    "tailwindcss": "^3.4",
+    "typescript": "~5.5",
+    "vite": "^5.4",
+    "vue-tsc": "^2.1"
+  }
+}

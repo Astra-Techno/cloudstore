@@ -1,0 +1,13 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/
+
+# OS
+desktop.ini
