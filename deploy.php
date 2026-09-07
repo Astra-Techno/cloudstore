@@ -368,7 +368,7 @@ function rrmdir(string $dir): void {
 
 function cleanup(string $tmpDir): void { rrmdir($tmpDir); }
 
-/** Run SQL migration files from api/database/migrations/ */
+/** Run migration files from api/database/migrations/ (supports .php and .sql) */
 function runMigrations(): array {
     $log = [];
     try {
@@ -397,11 +397,14 @@ function runMigrations(): array {
                        ->fetchAll(PDO::FETCH_COLUMN);
 
         $migDir = API_DIR . '/database/migrations';
-        $files  = is_dir($migDir) ? glob($migDir . '/*.sql') : [];
+        // Support both .php and .sql migration files
+        $phpFiles = is_dir($migDir) ? glob($migDir . '/*.php') : [];
+        $sqlFiles = is_dir($migDir) ? glob($migDir . '/*.sql') : [];
+        $files = array_merge($phpFiles, $sqlFiles);
         sort($files);
 
         if (empty($files)) {
-            $log[] = ['status' => 'skip', 'name' => 'No SQL migration files found in api/database/migrations/'];
+            $log[] = ['status' => 'skip', 'name' => 'No migration files found in api/database/migrations/'];
             return $log;
         }
 
@@ -411,7 +414,22 @@ function runMigrations(): array {
                 $log[] = ['status' => 'skip', 'name' => $name];
                 continue;
             }
-            $sql        = file_get_contents($file);
+
+            // Get SQL from file
+            $sql = '';
+            $ext = pathinfo($file, PATHINFO_EXTENSION);
+            if ($ext === 'php') {
+                $migration = require $file;
+                if (is_array($migration) && isset($migration['up'])) {
+                    $sql = $migration['up'];
+                } else {
+                    $log[] = ['status' => 'fail', 'name' => $name, 'error' => ' - Invalid PHP migration format'];
+                    continue;
+                }
+            } else {
+                $sql = file_get_contents($file);
+            }
+
             $statements = array_filter(
                 array_map('trim', explode(';', preg_replace('/--[^\n]*/', '', $sql))),
                 fn($s) => $s !== ''
