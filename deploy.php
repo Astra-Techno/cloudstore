@@ -415,25 +415,34 @@ function runMigrations(): array {
                 continue;
             }
 
-            // Get SQL from file
-            $sql = '';
+            // Get SQL statements from file
+            $statements = [];
             $ext = pathinfo($file, PATHINFO_EXTENSION);
             if ($ext === 'php') {
                 $migration = require $file;
-                if (is_array($migration) && isset($migration['up'])) {
-                    $sql = $migration['up'];
-                } else {
+                if (!is_array($migration) || !isset($migration['up'])) {
                     $log[] = ['status' => 'fail', 'name' => $name, 'error' => ' - Invalid PHP migration format'];
                     continue;
                 }
+                $up = $migration['up'];
+                if (is_array($up)) {
+                    // Array of SQL statements
+                    $statements = array_map('trim', $up);
+                } else {
+                    // Single SQL string - split by semicolons
+                    $statements = array_filter(
+                        array_map('trim', explode(';', preg_replace('/--[^\n]*/', '', $up))),
+                        fn($s) => $s !== ''
+                    );
+                }
             } else {
                 $sql = file_get_contents($file);
+                $statements = array_filter(
+                    array_map('trim', explode(';', preg_replace('/--[^\n]*/', '', $sql))),
+                    fn($s) => $s !== ''
+                );
             }
 
-            $statements = array_filter(
-                array_map('trim', explode(';', preg_replace('/--[^\n]*/', '', $sql))),
-                fn($s) => $s !== ''
-            );
             try {
                 foreach ($statements as $stmt) { $pdo->exec($stmt); }
                 $pdo->prepare("INSERT INTO _migrations (filename) VALUES (?)")->execute([$name]);
