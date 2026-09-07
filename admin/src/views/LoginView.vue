@@ -30,15 +30,7 @@ async function handleLogin() {
   <div class="login-page">
     <div class="login-left">
       <div class="login-brand-area">
-        <img src="/logo.svg" alt="CloudMarket" class="login-hero-logo" />
-        <h2>Cloud<strong>Market</strong></h2>
-        <p class="login-tagline">Your Store. Your Delivery. Your Customers.</p>
-        <div class="login-features">
-          <div class="login-feature"><span>&#128722;</span> Sell</div>
-          <div class="login-feature"><span>&#128230;</span> Manage</div>
-          <div class="login-feature"><span>&#128690;</span> Deliver</div>
-          <div class="login-feature"><span>&#128200;</span> Grow</div>
-        </div>
+        <img src="/logo.png" alt="CloudMarket" class="login-hero-logo" />
       </div>
     </div>
     <div class="login-right">
@@ -95,7 +87,7 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #E02424 0%, #b91c1c 40%, #7f1d1d 100%);
+  background: #fff;
   position: relative;
   overflow: hidden;
 }
@@ -104,8 +96,7 @@ async function handleLogin() {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 50%),
-              radial-gradient(circle at 70% 80%, rgba(255,255,255,0.05) 0%, transparent 50%);
+  background: radial-gradient(circle at 50% 100%, rgba(224,36,36,0.06) 0%, transparent 60%);
 }
 
 .login-brand-area {
@@ -116,52 +107,10 @@ async function handleLogin() {
 }
 
 .login-hero-logo {
-  width: 160px;
+  width: 380px;
+  max-width: 90%;
   height: auto;
-  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.2));
-  margin-bottom: 24px;
-}
-
-.login-brand-area h2 {
-  margin: 0;
-  color: #fff;
-  font-size: 32px;
-  font-weight: 400;
-  letter-spacing: -0.5px;
-}
-
-.login-brand-area h2 strong {
-  font-weight: 900;
-}
-
-.login-tagline {
-  margin: 8px 0 0;
-  color: rgba(255,255,255,0.75);
-  font-size: 14px;
-  letter-spacing: 0.5px;
-}
-
-.login-features {
-  display: flex;
-  gap: 20px;
-  margin-top: 40px;
-  justify-content: center;
-}
-
-.login-feature {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  color: rgba(255,255,255,0.85);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.login-feature span {
-  font-size: 24px;
+  filter: drop-shadow(0 12px 32px rgba(224,36,36,0.15));
 }
 
 .login-right {

@@ -39,7 +39,7 @@ const navItems = [
 
     <aside class="admin-sidebar" :class="{ 'admin-sidebar--open': mobileNavOpen }">
       <div class="sidebar-brand">
-        <img src="/logo.svg" alt="CloudMarket" class="brand-logo" />
+        <img src="/logo.png" alt="CloudMarket" class="brand-logo" />
         <div>
           <p class="brand-name">Cloud<strong>Market</strong></p>
           <p class="brand-caption">Your Store. Your Delivery.</p>
