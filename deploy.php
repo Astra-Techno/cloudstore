@@ -237,7 +237,7 @@ if (!$srcFrontend) {
 }
 
 // Copy root-level scripts from repo (deploy.php, install.php) to keep them updated
-foreach (['install.php'] as $rootFile) {
+foreach (['deploy.php', 'install.php'] as $rootFile) {
     $srcFile = $repoRoot . '/' . $rootFile;
     if (file_exists($srcFile)) {
         copy($srcFile, BASE_DIR . '/' . $rootFile);
