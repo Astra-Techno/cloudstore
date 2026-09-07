@@ -68,6 +68,67 @@ if (!$deployKey || $givenKey !== $deployKey) {
     die(page('Access Denied', '<div class="err-box">403 - Invalid or missing deploy key.<br>Add DEPLOY_KEY to api/.env</div>'));
 }
 
+// -- Seed action (deploy.php?key=XXX&action=seed) -----------------------------
+if (($_GET['action'] ?? '') === 'seed') {
+    $output = '';
+    try {
+        require_once API_DIR . '/vendor/autoload.php';
+
+        $db = new \App\Core\Database\Connection(
+            host: $_ENV['DB_HOST'] ?? '127.0.0.1',
+            port: (int) ($_ENV['DB_PORT'] ?? 3306),
+            database: $_ENV['DB_DATABASE'] ?? 'cloudstore',
+            username: $_ENV['DB_USERNAME'] ?? 'root',
+            password: $_ENV['DB_PASSWORD'] ?? '',
+        );
+
+        // Check if already seeded
+        $existing = $db->query("SELECT COUNT(*) as cnt FROM tenants")->fetch();
+        if ($existing && $existing['cnt'] > 0) {
+            // Truncate all data tables (not _migrations) for re-seed
+            $tables = ['cart_items','carts','order_status_history','order_items','orders','payments',
+                       'driver_assignments','notifications','rate_limits','idempotency_keys',
+                       'delivery_zones','addresses','product_addon_groups','addon_items','addon_groups',
+                       'product_variants','product_images','products','categories',
+                       'otp_codes','drivers','customers','admin_permissions','admins',
+                       'app_tokens','tenant_capabilities','tenant_branding','tenants'];
+            $db->query("SET FOREIGN_KEY_CHECKS=0");
+            foreach ($tables as $t) {
+                $db->query("TRUNCATE TABLE `{$t}`");
+            }
+            $db->query("SET FOREIGN_KEY_CHECKS=1");
+            $output .= "<div class='rowwarn'><span class='ic'>!</span><span>Cleared existing data for re-seed</span></div>";
+        }
+
+        $tenantSeeder = new \Database\Seeders\TenantSeeder();
+        $results = $tenantSeeder->run($db);
+        foreach ($results as $r) {
+            $output .= "<div class='rowok'><span class='ic'>+</span><span>Tenant: {$r['tenant']} ({$r['slug']})<br><code style='font-size:11px'>Token: {$r['app_token']}</code></span></div>";
+        }
+
+        $adminSeeder = new \Database\Seeders\AdminSeeder();
+        $admins = $adminSeeder->run($db);
+        foreach ($admins as $a) {
+            $t = $a['tenant'] ?? 'Platform';
+            $output .= "<div class='rowok'><span class='ic'>+</span><span>[{$t}] {$a['name']} ({$a['email']}) — {$a['role']}</span></div>";
+        }
+
+        $catalogSeeder = new \Database\Seeders\CatalogSeeder();
+        $catalogSeeder->run($db);
+        $output .= "<div class='rowok'><span class='ic'>+</span><span>Catalogs seeded (categories, products, images, addons)</span></div>";
+
+        $zoneSeeder = new \Database\Seeders\DeliveryZoneSeeder();
+        $zoneSeeder->run($db);
+        $output .= "<div class='rowok'><span class='ic'>+</span><span>Delivery zones seeded</span></div>";
+
+        $output .= "<div class='banner ok'>Seeding complete! Default password: <strong>Admin@123</strong></div>";
+    } catch (\Throwable $e) {
+        $output .= "<div class='banner err'>Seed failed: " . htmlspecialchars($e->getMessage()) . "</div>";
+    }
+
+    die(page('Seed', $output));
+}
+
 // -- Config -------------------------------------------------------------------
 $repo   = $_ENV['GITHUB_REPO']   ?? '';
 $branch = $_ENV['GITHUB_BRANCH'] ?? 'master';
