@@ -268,6 +268,14 @@ $apiFiles = rcopy($srcApi, API_DIR, ['.env']);
 log_step('OK', 'API updated - ' . count($apiFiles) . ' file(s)', 'ok');
 log_step('.', render_file_list($apiFiles, API_DIR, 'api'), 'muted');
 
+// Update vendor/composer from repo (platform_check, autoload maps, etc.)
+$repoVendorComposer = $srcApi . '/vendor/composer';
+$destVendorComposer = API_DIR . '/vendor/composer';
+if (is_dir($repoVendorComposer) && is_dir($destVendorComposer)) {
+    $vcFiles = rcopy($repoVendorComposer, $destVendorComposer, []);
+    log_step('.', 'Updated vendor/composer - ' . count($vcFiles) . ' file(s)', 'muted');
+}
+
 // =============================================================================
 // STEP 4 - Clean + replace frontend files
 // =============================================================================
