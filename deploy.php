@@ -68,6 +68,83 @@ if (!$deployKey || $givenKey !== $deployKey) {
     die(page('Access Denied', '<div class="err-box">403 - Invalid or missing deploy key.<br>Add DEPLOY_KEY to api/.env</div>'));
 }
 
+// -- Debug action (deploy.php?key=XXX&action=debug) ---------------------------
+if (($_GET['action'] ?? '') === 'debug') {
+    $output = '';
+    try {
+        require_once API_DIR . '/vendor/autoload.php';
+
+        $db = new \App\Core\Database\Connection(
+            host: $_ENV['DB_HOST'] ?? '127.0.0.1',
+            port: (int) ($_ENV['DB_PORT'] ?? 3306),
+            database: $_ENV['DB_DATABASE'] ?? 'cloudstore',
+            username: $_ENV['DB_USERNAME'] ?? 'root',
+            password: $_ENV['DB_PASSWORD'] ?? '',
+        );
+
+        // Check PHP version
+        $output .= "<div class='rowok'><span class='ic'>i</span><span>PHP: " . phpversion() . "</span></div>";
+
+        // Check if tables exist
+        $tables = ['coupons', 'promotions', 'bundles', 'bundle_items', 'coupon_usage'];
+        foreach ($tables as $t) {
+            try {
+                $row = $db->fetchOne("SELECT COUNT(*) as cnt FROM {$t}");
+                $output .= "<div class='rowok'><span class='ic'>+</span><span>Table {$t}: {$row['cnt']} rows</span></div>";
+            } catch (\Throwable $e) {
+                $output .= "<div class='rowwarn'><span class='ic'>!</span><span>Table {$t}: " . htmlspecialchars($e->getMessage()) . "</span></div>";
+            }
+        }
+
+        // Check tenants
+        $tenants = $db->fetchAll('SELECT id, name, slug FROM tenants ORDER BY id');
+        $output .= "<div class='rowok'><span class='ic'>i</span><span>Tenants: " . count($tenants) . "</span></div>";
+        foreach ($tenants as $t) {
+            $coupons = $db->fetchOne("SELECT COUNT(*) as cnt FROM coupons WHERE tenant_id = :tid", ['tid' => $t['id']]);
+            $promos = $db->fetchOne("SELECT COUNT(*) as cnt FROM promotions WHERE tenant_id = :tid", ['tid' => $t['id']]);
+            $bundles = $db->fetchOne("SELECT COUNT(*) as cnt FROM bundles WHERE tenant_id = :tid", ['tid' => $t['id']]);
+            $output .= "<div class='rowok'><span class='ic'>·</span><span>{$t['name']} (id={$t['id']}): coupons={$coupons['cnt']}, promos={$promos['cnt']}, bundles={$bundles['cnt']}</span></div>";
+        }
+
+        // Check Offer module files
+        $files = [
+            'api/src/Modules/Offer/Controller/AdminOfferController.php',
+            'api/src/Modules/Offer/Controller/PublicOfferController.php',
+            'api/src/Modules/Offer/Repository/CouponRepository.php',
+            'api/src/Modules/Offer/Repository/PromotionRepository.php',
+            'api/src/Modules/Offer/Repository/BundleRepository.php',
+            'api/src/Modules/Offer/Service/CouponService.php',
+            'api/src/Modules/Offer/Service/PromotionEngine.php',
+            'api/src/Modules/Offer/Service/DiscountCalculator.php',
+            'api/database/Seeders/OfferSeeder.php',
+        ];
+        foreach ($files as $f) {
+            $fullPath = BASE_DIR . '/' . $f;
+            $exists = file_exists($fullPath);
+            $cls = $exists ? 'rowok' : 'rowwarn';
+            $ic = $exists ? '+' : '!';
+            $size = $exists ? filesize($fullPath) . ' bytes' : 'MISSING';
+            $output .= "<div class='{$cls}'><span class='ic'>{$ic}</span><span>{$f}: {$size}</span></div>";
+        }
+
+        // Check migrations table
+        try {
+            $migrations = $db->fetchAll('SELECT migration FROM _migrations ORDER BY migration');
+            $output .= "<div class='rowok'><span class='ic'>i</span><span>Migrations: " . count($migrations) . " total</span></div>";
+            foreach ($migrations as $m) {
+                $output .= "<div class='rowok'><span class='ic'>·</span><span>{$m['migration']}</span></div>";
+            }
+        } catch (\Throwable $e) {
+            $output .= "<div class='rowwarn'><span class='ic'>!</span><span>Migrations: " . htmlspecialchars($e->getMessage()) . "</span></div>";
+        }
+
+    } catch (\Throwable $e) {
+        $output .= "<div class='banner err'>Debug failed: " . htmlspecialchars($e->getMessage()) . "<br><pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre></div>";
+    }
+
+    die(page('Debug', $output));
+}
+
 // -- Seed action (deploy.php?key=XXX&action=seed) -----------------------------
 if (($_GET['action'] ?? '') === 'seed') {
     $output = '';
