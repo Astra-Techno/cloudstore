@@ -449,12 +449,7 @@ final class Application
 
             $debug = $this->container->get(Config::class)->get('APP_DEBUG', 'false') === 'true';
 
-            $errorMessage = $debug ? $e->getMessage() : 'Internal server error.';
-            // Always include detail for admin requests to aid debugging
-            $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-            if (!$debug && str_starts_with($authHeader, 'Bearer ')) {
-                $errorMessage = $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine();
-            }
+            $errorMessage = $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine();
 
             $response = Response::error(
                 message: $errorMessage,
