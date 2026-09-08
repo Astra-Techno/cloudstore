@@ -47,10 +47,13 @@ const form = ref({
 
 async function loadBundles() {
   loading.value = true
+  error.value = ''
   try {
     const { data } = await offersApi.listBundles()
     if (data.success) bundles.value = data.data || []
-  } catch (e) {
+    else error.value = 'API returned: ' + JSON.stringify(data)
+  } catch (e: any) {
+    error.value = 'Load failed: ' + (e.response?.status || '') + ' ' + (e.response?.data?.error?.message || e.message || JSON.stringify(e))
     console.error('Failed to load bundles', e)
   } finally {
     loading.value = false
@@ -185,6 +188,9 @@ onMounted(loadBundles)
       </div>
     </div>
 
+    <div v-else-if="error && !loading" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+      <div class="bg-red-50 text-red-600 p-4 rounded-lg text-sm font-mono">{{ error }}</div>
+    </div>
     <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-400">
       No bundles yet. Create your first combo deal!
     </div>

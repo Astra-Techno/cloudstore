@@ -124,6 +124,13 @@ const navItems = [
       <div class="admin-content">
         <router-view />
       </div>
+
+      <nav class="mobile-dock lg:hidden" aria-label="Quick navigation">
+        <router-link to="/" class="mobile-dock__item"><span>⌂</span><small>Home</small></router-link>
+        <router-link to="/orders" class="mobile-dock__item"><span>▤</span><small>Orders</small></router-link>
+        <router-link to="/products" class="mobile-dock__item"><span>▣</span><small>Catalog</small></router-link>
+        <button class="mobile-dock__item" aria-label="Open all tools" @click="mobileNavOpen = true"><span>⋮</span><small>More</small></button>
+      </nav>
     </main>
   </div>
 </template>

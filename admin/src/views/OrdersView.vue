@@ -14,6 +14,8 @@ const counts = ref<Record<string, number>>({})
 const loading = ref(true)
 const activeTab = ref('new')
 const searchQuery = ref('')
+const actionMessage = ref('')
+const actionError = ref('')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 // Status tab definitions matching the reference design
@@ -175,11 +177,16 @@ async function loadBoard() {
 }
 
 async function quickStatus(order: BoardOrder, newStatus: string) {
+  actionMessage.value = ''
+  actionError.value = ''
   try {
     await ordersApi.updateStatus(order.uuid, newStatus)
     await loadBoard()
+    actionMessage.value = newStatus === 'accepted' ? 'Order accepted and ready for preparation.' : 'Order was declined.'
+    setTimeout(() => actionMessage.value = '', 3500)
   } catch (e) {
     console.error('Failed to update status', e)
+    actionError.value = 'We could not update this order. Please try again.'
   }
 }
 
@@ -204,6 +211,8 @@ onUnmounted(() => {
 
 <template>
   <div class="ob">
+    <div v-if="actionMessage" class="ob-feedback ob-feedback--success" role="status">{{ actionMessage }}</div>
+    <div v-if="actionError" class="ob-feedback ob-feedback--error" role="alert">{{ actionError }}</div>
     <!-- Status tabs bar -->
     <div class="ob-tabs" style="position:relative">
       <button

@@ -91,6 +91,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-edit-page textarea { min-height: 96px; }
 .product-edit-page input:focus, .product-edit-page select:focus, .product-edit-page textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent); }
 
+/* Shared form and dialog treatment for offers, bundles, drivers, zones and catalog. */
+.admin-content input:not([type="checkbox"]):not([type="radio"]), .admin-content select, .admin-content textarea { min-height: 40px; border-color: #d8dbe1; }
+.admin-content textarea { min-height: 84px; }
+.admin-content input:focus, .admin-content select:focus, .admin-content textarea:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent) !important; }
+.admin-content .fixed.inset-0 > .bg-white { border: 1px solid rgba(15,23,42,.08); border-radius: 16px; box-shadow: 0 24px 60px rgba(15,23,42,.24); }
+.admin-content .fixed.inset-0 > .bg-white > :first-child { border-color: #edf0f3; }
+.admin-content .fixed.inset-0 form > :last-child { position: sticky; bottom: -24px; margin: 0 -24px -24px; padding: 16px 24px; background: rgba(255,255,255,.96); backdrop-filter: blur(8px); }
+.admin-content .fixed.inset-0 button { min-height: 38px; }
+.admin-content table tr { transition: background .15s ease; }
+.admin-content table button { min-height: 32px; }
+
+@media (max-width: 640px) {
+  .admin-content > div > .flex.items-center.justify-between.mb-6 { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .admin-content > div > .flex.items-center.justify-between.mb-6 > button { width: 100%; min-height: 44px; }
+  .admin-content .fixed.inset-0 { align-items: flex-end; padding: 0; }
+  .admin-content .fixed.inset-0 > .bg-white { max-height: 92vh; border-radius: 18px 18px 0 0; }
+  .admin-content .fixed.inset-0 form > :last-child { bottom: -24px; }
+}
+
 /* --- Main area --- */
 .admin-main { min-height: 100vh; margin-left: 230px; }
 .admin-header { display: flex; align-items: center; justify-content: space-between; height: 46px; padding: 0 24px; border-bottom: 1px solid var(--line); background: rgba(248,248,250,.92); backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 20; }
@@ -102,6 +121,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .admin-content { max-width: 1400px; margin: 0 auto; padding: 20px 24px 40px; }
 .mobile-menu-button { border: 0; color: var(--ink); background: transparent; font-size: 20px; }
 .mobile-nav-scrim { position: fixed; z-index: 30; inset: 0; background: rgba(20,20,30,.48); }
+.mobile-dock { position: fixed; z-index: 25; right: 12px; bottom: 12px; left: 12px; display: flex; justify-content: space-around; padding: 7px 6px; border: 1px solid rgba(20,20,30,.1); border-radius: 18px; background: rgba(255,255,255,.94); box-shadow: 0 12px 30px rgba(20,20,30,.16); backdrop-filter: blur(12px); }
+.mobile-dock__item { display: grid; min-width: 58px; min-height: 48px; place-items: center; border: 0; border-radius: 12px; color: #626270; background: transparent; font: inherit; text-decoration: none; }.mobile-dock__item span { font-size: 19px; font-weight: 800; line-height: 1; }.mobile-dock__item small { margin-top: 3px; font-size: 10px; font-weight: 700; }.mobile-dock__item.router-link-exact-active, .mobile-dock__item.router-link-active { color: #fff; background: var(--primary); }
 @media (max-width: 1023px) {
 	.admin-sidebar { transform: translateX(-100%); transition: transform .25s ease; box-shadow: 18px 0 40px rgba(20,20,30,.2); }
 	.admin-sidebar--open { transform: translateX(0); }
@@ -109,7 +130,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 @media (max-width: 640px) {
 	.admin-header { height: 52px; padding: 0 16px; }
-	.admin-content { padding: 16px 16px 32px; }
+	.admin-content { padding: 16px 16px 104px; }
 	.live-pill { display: none; }
 	.product-edit-header { top: 52px; align-items: flex-start; flex-wrap: wrap; margin: -16px -16px 16px; padding: 10px 16px; }
 	.product-edit-header h1 { width: 100%; order: 2; font-size: 20px; }
@@ -127,6 +148,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ob-card__meta-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 2px; border-top: 1px solid #eef0f2; }
 .ob-meta-pill, .ob-meta-note { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .ob-meta-note { color: #475569; background: #f1f5f9; }
+.ob-feedback { position: sticky; z-index: 15; top: 58px; margin: 0 0 12px; padding: 11px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 20px rgba(15,23,42,.09); }
+.ob-feedback--success { border: 1px solid #bbf7d0; color: #166534; background: #f0fdf4; }
+.ob-feedback--error { border: 1px solid #fecaca; color: #b91c1c; background: #fef2f2; }
 
 @media (max-width: 640px) {
   .list-page-intro { align-items: flex-start; flex-direction: column; }

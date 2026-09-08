@@ -29,6 +29,13 @@ const maxRevenue = computed(() => {
 
 const todayLabel = new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
+const quickActions = [
+  { label: 'Orders', hint: 'Accept & fulfil', path: '/orders', mark: 'OD', tone: 'orders' },
+  { label: 'Catalog', hint: 'Products & stock', path: '/products', mark: 'CT', tone: 'catalog' },
+  { label: 'Offers', hint: 'Coupons & promos', path: '/coupons', mark: '%', tone: 'offers' },
+  { label: 'Delivery', hint: 'Drivers & zones', path: '/drivers', mark: 'DL', tone: 'delivery' },
+]
+
 function formatPrice(paise: number): string {
   return '₹' + (paise / 100).toFixed(2)
 }
@@ -98,6 +105,20 @@ onMounted(async () => {
     </div>
 
     <template v-else-if="stats">
+      <section class="touch-launcher" aria-label="Store tools">
+        <div class="touch-launcher__heading">
+          <div><p>Run your store</p><h2>Quick actions</h2></div>
+          <router-link to="/settings">Store settings</router-link>
+        </div>
+        <div class="touch-launcher__grid">
+          <router-link v-for="action in quickActions" :key="action.path" :to="action.path" class="touch-tile" :class="`touch-tile--${action.tone}`">
+            <span class="touch-tile__mark">{{ action.mark }}</span>
+            <span><strong>{{ action.label }}</strong><small>{{ action.hint }}</small></span>
+            <b aria-hidden="true">›</b>
+          </router-link>
+        </div>
+      </section>
+
       <section class="metric-grid">
         <article class="metric-card metric-card--dark">
           <div class="metric-card__top"><span>Today's revenue</span><span class="metric-icon">₹</span></div>
@@ -267,4 +288,9 @@ onMounted(async () => {
 @keyframes dashboard-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } } @keyframes loading-shimmer { to { background-position: -200% 0; } }
 @media (max-width: 1100px) { .metric-grid { grid-template-columns: repeat(2, 1fr); }.metric-card--dark { grid-column: span 2; }.dashboard-columns { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .dashboard-intro { align-items: flex-start; flex-direction: column; }.dashboard-action { width: 100%; justify-content: space-between; }.metric-grid, .dashboard-loading { grid-template-columns: 1fr; }.metric-card--dark { grid-column: auto; }.pulse-content { flex-direction: column; gap: 26px; padding-top: 30px; }.pulse-ring { width: 132px; height: 132px; flex-basis: 132px; }.pulse-list { width: 100%; }.panel { padding: 20px; } }
+
+.touch-launcher { margin-bottom: 22px; padding: 18px; border: 1px solid #e7e9ee; border-radius: 20px; background: #fff; box-shadow: 0 10px 28px rgba(20,20,30,.05); }
+.touch-launcher__heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }.touch-launcher__heading p { margin: 0 0 3px; color: #7a7a8a; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }.touch-launcher__heading h2 { margin: 0; font-size: 17px; letter-spacing: -.4px; }.touch-launcher__heading a { color: var(--primary); font-size: 12px; font-weight: 800; text-decoration: none; }
+.touch-launcher__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }.touch-tile { position: relative; display: flex; min-height: 94px; align-items: center; gap: 10px; padding: 13px; overflow: hidden; border: 1px solid #edf0f3; border-radius: 15px; color: #1a1a2e; background: #fafbfc; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease; }.touch-tile:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(20,20,30,.1); }.touch-tile__mark { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 11px; color: #fff; background: #1a1a2e; font-size: 11px; font-weight: 900; }.touch-tile strong, .touch-tile small { display: block; }.touch-tile strong { font-size: 13px; }.touch-tile small { margin-top: 3px; color: #6a6a7a; font-size: 10px; }.touch-tile b { position: absolute; right: 10px; bottom: 7px; color: #a0a4af; font-size: 18px; }.touch-tile--orders .touch-tile__mark { background: #2563eb; }.touch-tile--catalog .touch-tile__mark { background: #059669; }.touch-tile--offers .touch-tile__mark { background: #d97706; }.touch-tile--delivery .touch-tile__mark { background: #7c3aed; }
+@media (max-width: 640px) { .touch-launcher { margin: 0 -4px 18px; padding: 15px; border-radius: 18px; }.touch-launcher__grid { grid-template-columns: repeat(2, 1fr); }.touch-tile { min-height: 108px; align-items: flex-start; flex-direction: column; gap: 8px; }.touch-tile__mark { width: 38px; height: 38px; }.touch-tile b { right: 12px; bottom: 9px; } }
 </style>

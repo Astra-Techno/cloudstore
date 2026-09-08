@@ -49,10 +49,13 @@ const form = ref({
 
 async function loadPromotions() {
   loading.value = true
+  error.value = ''
   try {
     const { data } = await offersApi.listPromotions()
     if (data.success) promotions.value = data.data || []
-  } catch (e) {
+    else error.value = 'API returned: ' + JSON.stringify(data)
+  } catch (e: any) {
+    error.value = 'Load failed: ' + (e.response?.status || '') + ' ' + (e.response?.data?.error?.message || e.message || JSON.stringify(e))
     console.error('Failed to load promotions', e)
   } finally {
     loading.value = false
@@ -193,6 +196,9 @@ onMounted(loadPromotions)
         </tbody>
       </table>
 
+      <div v-else-if="error && !loading" class="p-6 text-center">
+        <div class="bg-red-50 text-red-600 p-4 rounded-lg text-sm font-mono">{{ error }}</div>
+      </div>
       <div v-else class="p-12 text-center text-gray-400">No promotions yet. Create your first auto-applied offer!</div>
     </div>
 
