@@ -70,6 +70,24 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/coupons',
+      name: 'coupons',
+      component: () => import('@/views/CouponsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/promotions',
+      name: 'promotions',
+      component: () => import('@/views/PromotionsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/bundles',
+      name: 'bundles',
+      component: () => import('@/views/BundlesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),

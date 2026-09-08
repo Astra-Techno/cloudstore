@@ -11,6 +11,8 @@ use App\Modules\Catalog\Repository\ProductRepository;
 use App\Modules\Catalog\Repository\VariantRepository;
 use App\Modules\Customer\Repository\AddressRepository;
 use App\Modules\Delivery\Service\DeliveryFeeService;
+use App\Modules\Offer\Service\DiscountCalculator;
+use App\Modules\Offer\Repository\CouponRepository;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Exception\InsufficientStockException;
 use App\Modules\Order\Repository\OrderRepository;
@@ -27,6 +29,8 @@ final class CheckoutService
         private readonly AddressRepository $addressRepo,
         private readonly OrderRepository $orderRepo,
         private readonly DeliveryFeeService $deliveryFeeService,
+        private readonly DiscountCalculator $discountCalc,
+        private readonly CouponRepository $couponRepo,
     ) {
     }
 
@@ -153,7 +157,21 @@ final class CheckoutService
             $deliveryFee = $fee;
         }
 
-        $total = $subtotal + $deliveryFee;
+        // Apply discounts (coupons + auto-promotions)
+        $couponCode = $input['coupon_code'] ?? null;
+        $discountResult = $this->discountCalc->calculate(
+            $tenantId, $subtotal, $orderItems, $deliveryFee, $couponCode, $customerId
+        );
+
+        $discountAmount = $discountResult['total_discount'];
+        if ($discountResult['free_delivery']) {
+            $deliveryFee = 0;
+        }
+
+        $total = $subtotal - $discountAmount + $deliveryFee;
+        if ($total < 0) {
+            $total = 0;
+        }
 
         // Determine payment method and initial status
         $paymentMethod = $input['payment_method'] ?? 'cash_on_delivery';
@@ -165,8 +183,8 @@ final class CheckoutService
         try {
             return $this->db->transaction(function () use (
                 $tenantId, $customerId, $cart, $address, $addressSnapshot,
-                $subtotal, $deliveryFee, $total, $orderType, $paymentMethod,
-                $initialStatus, $orderItems, $input, $items
+                $subtotal, $deliveryFee, $total, $discountAmount, $couponCode, $discountResult,
+                $orderType, $paymentMethod, $initialStatus, $orderItems, $input, $items
             ) {
                 foreach ($items as $item) {
                     $stockMode = $item['variant_id'] !== null ? $item['variant_stock_mode'] : $item['stock_mode'];
@@ -195,13 +213,25 @@ final class CheckoutService
                 'order_type' => $orderType,
                 'subtotal' => $subtotal,
                 'delivery_fee' => $deliveryFee,
+                'discount_amount' => $discountAmount,
                 'total' => $total,
+                'coupon_code' => $couponCode,
                 'payment_method' => $paymentMethod,
                 'payment_status' => $paymentMethod === 'cash_on_delivery' ? 'cod' : 'pending',
                 'notes' => $input['notes'] ?? null,
                 'address_snapshot' => $addressSnapshot,
                 'scheduled_at' => $input['scheduled_at'] ?? null,
             ]);
+
+            // Record coupon usage
+            if ($couponCode !== null && $discountResult['applied_coupon'] !== null) {
+                $coupon = $this->couponRepo->findByCode(strtoupper($couponCode), $tenantId);
+                if ($coupon !== null) {
+                    $this->couponRepo->recordUsage(
+                        (int) $coupon['id'], $customerId, $orderId, $discountResult['coupon_discount']
+                    );
+                }
+            }
 
             foreach ($orderItems as $item) {
                 $item['order_id'] = $orderId;

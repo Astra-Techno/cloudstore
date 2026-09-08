@@ -9,6 +9,7 @@ use Database\Seeders\TenantSeeder;
 use Database\Seeders\AdminSeeder;
 use Database\Seeders\CatalogSeeder;
 use Database\Seeders\DeliveryZoneSeeder;
+use Database\Seeders\OfferSeeder;
 
 final class SeedCommand
 {
@@ -58,6 +59,11 @@ final class SeedCommand
         echo "\nSeeding delivery zones:\n";
         $deliveryZoneSeeder = new DeliveryZoneSeeder();
         $deliveryZoneSeeder->run($connection);
+
+        // Offers seeder
+        echo "\nSeeding offers:\n";
+        $offerSeeder = new OfferSeeder();
+        $offerSeeder->run($connection);
 
         echo "\nIMPORTANT: Save these app tokens. They cannot be retrieved later.\n";
         echo "Default admin password: Admin@123\n";

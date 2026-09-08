@@ -21,6 +21,8 @@ use App\Modules\Notification\Controller\NotificationController;
 use App\Modules\Notification\Controller\AdminNotificationController;
 use App\Modules\Admin\Controller\AdminSettingsController;
 use App\Modules\Admin\Controller\AdminDriverController;
+use App\Modules\Offer\Controller\AdminOfferController;
+use App\Modules\Offer\Controller\PublicOfferController;
 use App\Core\Http\Middleware\TenantMiddleware;
 
 return function (Router $router): void {
@@ -114,6 +116,29 @@ return function (Router $router): void {
 
             // Enhanced dashboard
             $router->get('/dashboard/enhanced', [AdminSettingsController::class, 'dashboardEnhanced']);
+
+            // Coupons
+            $router->get('/coupons', [AdminOfferController::class, 'listCoupons']);
+            $router->post('/coupons', [AdminOfferController::class, 'createCoupon']);
+            $router->get('/coupons/{uuid}', [AdminOfferController::class, 'getCoupon']);
+            $router->put('/coupons/{uuid}', [AdminOfferController::class, 'updateCoupon']);
+            $router->delete('/coupons/{uuid}', [AdminOfferController::class, 'deleteCoupon']);
+
+            // Promotions
+            $router->get('/promotions', [AdminOfferController::class, 'listPromotions']);
+            $router->post('/promotions', [AdminOfferController::class, 'createPromotion']);
+            $router->get('/promotions/{uuid}', [AdminOfferController::class, 'getPromotion']);
+            $router->put('/promotions/{uuid}', [AdminOfferController::class, 'updatePromotion']);
+            $router->delete('/promotions/{uuid}', [AdminOfferController::class, 'deletePromotion']);
+
+            // Bundles
+            $router->get('/bundles', [AdminOfferController::class, 'listBundles']);
+            $router->post('/bundles', [AdminOfferController::class, 'createBundle']);
+            $router->get('/bundles/{uuid}', [AdminOfferController::class, 'getBundle']);
+            $router->put('/bundles/{uuid}', [AdminOfferController::class, 'updateBundle']);
+            $router->delete('/bundles/{uuid}', [AdminOfferController::class, 'deleteBundle']);
+            $router->post('/bundles/{uuid}/items', [AdminOfferController::class, 'addBundleItem']);
+            $router->delete('/bundles/{uuid}/items/{itemId}', [AdminOfferController::class, 'removeBundleItem']);
         });
 
         // Payment webhook (no auth — verified by signature)
@@ -129,6 +154,7 @@ return function (Router $router): void {
             $router->get('/driver/me', [DriverAuthController::class, 'me'], ['middleware.auth.driver']);
 
             // Public catalog
+            $router->get('/offers', [PublicOfferController::class, 'activeOffers']);
             $router->get('/catalog', [PublicCatalogController::class, 'catalog']);
             $router->get('/categories', [PublicCatalogController::class, 'categories']);
             $router->get('/categories/{uuid}/products', [PublicCatalogController::class, 'productsByCategory']);
@@ -148,6 +174,8 @@ return function (Router $router): void {
                 $router->patch('/cart/items/{itemId}', [CartController::class, 'updateItem']);
                 $router->delete('/cart/items/{itemId}', [CartController::class, 'removeItem']);
                 $router->delete('/cart', [CartController::class, 'clear']);
+                $router->post('/cart/apply-coupon', [PublicOfferController::class, 'applyCoupon']);
+                $router->get('/cart/discounts', [PublicOfferController::class, 'cartDiscounts']);
 
                 // Checkout & Orders
                 $router->post('/checkout', [CheckoutController::class, 'createOrder']);
