@@ -170,7 +170,7 @@ onMounted(loadCoupons)
 
       <div v-if="loading" class="p-12 text-center text-gray-400">Loading...</div>
 
-      <table v-else-if="filtered.length" class="w-full text-sm">
+      <table v-else-if="filtered.length" class="mobile-records w-full text-sm">
         <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
           <tr>
             <th class="px-4 py-3 text-left">Code</th>

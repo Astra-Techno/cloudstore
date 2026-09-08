@@ -111,7 +111,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
 
             // Order type
-            Text('Order Type', style: Theme.of(context).textTheme.titleMedium),
+            _sectionTitle(context, '1. Fulfilment', 'Choose delivery or store pickup'),
             const SizedBox(height: 8),
             SegmentedButton<String>(
               segments: const [
@@ -125,7 +125,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             // Address (for delivery)
             if (_orderType == 'delivery') ...[
               const SizedBox(height: 24),
-              Text('Delivery Address', style: Theme.of(context).textTheme.titleMedium),
+              _sectionTitle(context, '2. Delivery address', 'Where should we bring your order?'),
               const SizedBox(height: 8),
               Card(
                 child: ListTile(
@@ -148,7 +148,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
             // Payment method
             const SizedBox(height: 24),
-            Text('Payment Method', style: Theme.of(context).textTheme.titleMedium),
+            _sectionTitle(context, _orderType == 'delivery' ? '3. Payment' : '2. Payment', 'Choose how you would like to pay'),
             const SizedBox(height: 8),
             Card(
               child: RadioGroup<String>(
@@ -173,7 +173,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
             // Notes
             const SizedBox(height: 24),
-            Text('Order Notes', style: Theme.of(context).textTheme.titleMedium),
+            _sectionTitle(context, 'Order notes', 'Optional instructions for the store'),
             const SizedBox(height: 8),
             TextField(
               controller: _notesController,
@@ -186,7 +186,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
             // Summary
             const SizedBox(height: 24),
-            Text('Order Summary', style: Theme.of(context).textTheme.titleMedium),
+            _sectionTitle(context, 'Review order', 'Your final total will include any applicable delivery fee, tax, or offer.'),
             const SizedBox(height: 8),
             Card(
               child: Padding(
@@ -248,6 +248,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _sectionTitle(BuildContext context, String title, String description) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Text(description, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }

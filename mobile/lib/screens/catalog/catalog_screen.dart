@@ -20,6 +20,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
   List<Product> _products = [];
   String? _selectedCategoryUuid;
   bool _loading = true;
+  String _query = '';
+
+  List<Product> get _visibleProducts {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return _products;
+    return _products.where((product) {
+      return product.name.toLowerCase().contains(query) ||
+          (product.description?.toLowerCase().contains(query) ?? false);
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -93,6 +103,30 @@ class _CatalogScreenState extends State<CatalogScreen> {
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: TextField(
+            onChanged: (value) => setState(() => _query = value),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search this category',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear search',
+                      onPressed: () => setState(() => _query = ''),
+                      icon: const Icon(Icons.clear),
+                    ),
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
         // Category tabs
         if (_categories.isNotEmpty)
           SizedBox(
@@ -120,18 +154,21 @@ class _CatalogScreenState extends State<CatalogScreen> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : _products.isEmpty
-                  ? const EmptyState(
+              : _visibleProducts.isEmpty
+                  ? EmptyState(
                       icon: Icons.fastfood_outlined,
-                      title: 'No products in this category',
+                      title: _query.isEmpty
+                          ? 'No products in this category'
+                          : 'No matching products',
+                      subtitle: _query.isEmpty ? null : 'Try a different search term.',
                     )
                   : RefreshIndicator(
                       onRefresh: () => _selectCategory(_selectedCategoryUuid!),
                       child: ListView.builder(
                         padding: const EdgeInsets.all(12),
-                        itemCount: _products.length,
+                        itemCount: _visibleProducts.length,
                         itemBuilder: (context, index) {
-                          final product = _products[index];
+                          final product = _visibleProducts[index];
                           return _ProductCard(product: product);
                         },
                       ),

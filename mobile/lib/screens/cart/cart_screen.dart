@@ -142,6 +142,14 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Delivery fee, taxes, and discounts are confirmed at checkout.',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
