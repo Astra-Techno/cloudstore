@@ -86,7 +86,8 @@ if (($_GET['action'] ?? '') === 'seed') {
         $existing = $db->query("SELECT COUNT(*) as cnt FROM tenants")->fetch();
         if ($existing && $existing['cnt'] > 0) {
             // Truncate all data tables (not _migrations) for re-seed
-            $tables = ['cart_items','carts','order_status_history','order_items','orders','payments',
+            $tables = ['coupon_usage','coupons','promotions','bundle_items','bundles',
+                       'cart_items','carts','order_status_history','order_items','orders','payments','refunds',
                        'driver_assignments','notifications','rate_limits','idempotency_keys',
                        'delivery_zones','addresses','product_addon_groups','addon_items','addon_groups',
                        'product_variants','product_images','products','categories',
@@ -120,6 +121,10 @@ if (($_GET['action'] ?? '') === 'seed') {
         $zoneSeeder = new \Database\Seeders\DeliveryZoneSeeder();
         $zoneSeeder->run($db);
         $output .= "<div class='rowok'><span class='ic'>+</span><span>Delivery zones seeded</span></div>";
+
+        $offerSeeder = new \Database\Seeders\OfferSeeder();
+        $offerSeeder->run($db);
+        $output .= "<div class='rowok'><span class='ic'>+</span><span>Offers seeded (coupons, promotions, bundles)</span></div>";
 
         $output .= "<div class='banner ok'>Seeding complete! Default password: <strong>Admin@123</strong></div>";
     } catch (\Throwable $e) {
