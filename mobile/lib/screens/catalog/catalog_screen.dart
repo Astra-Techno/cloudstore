@@ -5,6 +5,8 @@ import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/loading_overlay.dart';
+import '../../app/providers/bootstrap_provider.dart';
+import 'package:provider/provider.dart';
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -68,8 +70,29 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tenant = context.watch<BootstrapProvider>();
     return Column(
       children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.storefront_rounded, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Order directly from ${tenant.tenantName ?? 'your local store'}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                const Text('Fresh products, pickup or delivery.', style: TextStyle(fontSize: 12)),
+              ])),
+            ],
+          ),
+        ),
         // Category tabs
         if (_categories.isNotEmpty)
           SizedBox(
@@ -131,7 +154,7 @@ class _ProductCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () => context.push('/product/${product.uuid}'),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               Container(
@@ -142,7 +165,7 @@ class _ProductCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.fastfood,
+                  product.pricingMode == 'weight' ? Icons.scale_outlined : Icons.fastfood,
                   color: Theme.of(context).colorScheme.primary,
                   size: 28,
                 ),
@@ -171,6 +194,10 @@ class _ProductCard extends StatelessWidget {
                       showStrike: product.salePrice != null,
                       strikePrice: product.salePrice != null ? product.basePrice : null,
                     ),
+                    if (product.stockMode != 'unlimited' && (product.stockQuantity ?? 0) <= 5) ...[
+                      const SizedBox(height: 5),
+                      Text('Only ${product.stockQuantity} left', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 11, fontWeight: FontWeight.w600)),
+                    ],
                   ],
                 ),
               ),

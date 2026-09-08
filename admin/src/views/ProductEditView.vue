@@ -358,7 +358,7 @@ onMounted(loadProduct)
 
 <template>
   <div class="product-edit-page">
-    <div class="flex items-center gap-4 mb-6">
+    <div class="product-edit-header flex items-center gap-4 mb-6">
       <button @click="router.push('/products')" class="text-sm text-red-600 hover:text-red-800">← Back to Products</button>
       <h1 class="text-2xl font-bold text-gray-900 flex-1">{{ product?.name || 'Edit Product' }}</h1>
       <button @click="showDeleteConfirm = true" class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100">Delete</button>
@@ -374,7 +374,7 @@ onMounted(loadProduct)
 
     <template v-else-if="product">
       <!-- Tabs -->
-      <div class="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
+      <div class="product-edit-tabs flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
         <button v-for="tab in (['details', 'images', 'variants', 'addons'] as const)" :key="tab" @click="activeTab = tab"
           class="px-4 py-2 text-sm font-medium rounded-md transition-colors"
           :class="activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"

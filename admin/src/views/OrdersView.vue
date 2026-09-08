@@ -118,6 +118,15 @@ function statusLabel(status: string): string {
   return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+function fulfilmentLabel(order: BoardOrder): string {
+  return order.order_type === 'pickup' ? 'Pickup' : 'Delivery'
+}
+
+function paymentLabel(order: BoardOrder): string {
+  if (order.payment_method === 'cash_on_delivery') return 'COD'
+  return order.payment_status === 'paid' ? 'Paid online' : 'Online payment pending'
+}
+
 function statusLabelColor(status: string): string {
   const colors: Record<string, string> = {
     confirmed: '#059669',
@@ -250,6 +259,12 @@ onUnmounted(() => {
             <div class="ob-card__total-row">
               <span>Total</span>
               <strong>{{ formatPrice(order.total) }}</strong>
+            </div>
+
+            <div class="ob-card__meta-row">
+              <span class="ob-meta-pill" :class="order.order_type === 'pickup' ? 'ob-meta-pill--pickup' : 'ob-meta-pill--delivery'">{{ fulfilmentLabel(order) }}</span>
+              <span class="ob-meta-pill" :class="order.payment_status === 'paid' ? 'ob-meta-pill--paid' : 'ob-meta-pill--pending'">{{ paymentLabel(order) }}</span>
+              <span v-if="order.notes" class="ob-meta-note" title="Customer has left a note">Note attached</span>
             </div>
 
             <!-- Quick actions for new orders -->

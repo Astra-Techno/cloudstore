@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../app/providers/cart_provider.dart';
 import '../app/providers/notification_provider.dart';
+import '../app/providers/bootstrap_provider.dart';
 import 'catalog/catalog_screen.dart';
 import 'orders/orders_screen.dart';
 import 'cart/cart_screen.dart';
@@ -29,10 +30,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
     final notifications = context.watch<NotificationProvider>();
+    final tenant = context.watch<BootstrapProvider>();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_titles[_currentIndex]),
+            if (_currentIndex == 0 && tenant.tenantName != null)
+              Text(tenant.tenantName!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+          ],
+        ),
         actions: [
           if (notifications.unreadCount > 0)
             Badge(

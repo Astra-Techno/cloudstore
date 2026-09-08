@@ -25,6 +25,8 @@ body {
 }
 
 button, a { -webkit-tap-highlight-color: transparent; }
+button, a, input, select, textarea, [tabindex]:not([tabindex="-1"]) { outline-offset: 3px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 45%, white); }
 
 /* --- Shell --- */
 .admin-shell { background: var(--paper); }
@@ -74,6 +76,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .account-logout, .sidebar-close { border: 0; background: transparent; color: #8a8a9a; cursor: pointer; }
 .account-logout { padding: 6px; font-size: 16px; }
 .account-logout:hover { color: var(--primary); }
+.account-logout { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; padding: 5px 8px; color: #d4d4dc; font-size: 11px; font-weight: 700; }
+
+/* Product editor: clearer hierarchy and a persistent, touch-friendly save area. */
+.product-edit-page { max-width: 1120px; }
+.product-edit-header { position: sticky; z-index: 12; top: 46px; min-height: 64px; margin: -20px -24px 22px; padding: 12px 24px; border-bottom: 1px solid var(--line); background: rgba(248,249,251,.94); backdrop-filter: blur(10px); }
+.product-edit-header h1 { letter-spacing: -.6px; }
+.product-edit-header button { min-height: 40px; }
+.product-edit-tabs { position: sticky; z-index: 10; top: 110px; max-width: 100%; overflow-x: auto; border: 1px solid var(--line); background: #fff !important; box-shadow: 0 3px 10px rgba(20,20,30,.04); }
+.product-edit-tabs button { white-space: nowrap; min-height: 38px; }
+.product-edit-page .space-y-6 > .bg-white { border-color: var(--line); box-shadow: 0 8px 24px rgba(20,20,30,.045); }
+.product-edit-page h2 { letter-spacing: -.25px; }
+.product-edit-page input, .product-edit-page select, .product-edit-page textarea { min-height: 42px; border-color: #d8dbe1; transition: border-color .15s ease, box-shadow .15s ease; }
+.product-edit-page textarea { min-height: 96px; }
+.product-edit-page input:focus, .product-edit-page select:focus, .product-edit-page textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent); }
 
 /* --- Main area --- */
 .admin-main { min-height: 100vh; margin-left: 230px; }
@@ -95,6 +111,32 @@ button, a { -webkit-tap-highlight-color: transparent; }
 	.admin-header { height: 52px; padding: 0 16px; }
 	.admin-content { padding: 16px 16px 32px; }
 	.live-pill { display: none; }
+	.product-edit-header { top: 52px; align-items: flex-start; flex-wrap: wrap; margin: -16px -16px 16px; padding: 10px 16px; }
+	.product-edit-header h1 { width: 100%; order: 2; font-size: 20px; }
+	.product-edit-header button:first-child { padding-left: 0; }
+	.product-edit-header button:last-child { flex: 1; }
+	.product-edit-tabs { top: 132px; width: 100%; }
+}
+
+/* Semantic states: the brand colour is reserved for actions, not outcomes. */
+.status-success, .ob-meta-pill--paid { color: #166534; background: #dcfce7; }
+.status-warning, .ob-meta-pill--pending { color: #92400e; background: #fef3c7; }
+.status-danger { color: #b91c1c; background: #fee2e2; }
+.status-info, .ob-meta-pill--delivery { color: #1d4ed8; background: #dbeafe; }
+.ob-meta-pill--pickup { color: #6d28d9; background: #ede9fe; }
+.ob-card__meta-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 2px; border-top: 1px solid #eef0f2; }
+.ob-meta-pill, .ob-meta-note { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.ob-meta-note { color: #475569; background: #f1f5f9; }
+
+@media (max-width: 640px) {
+  .list-page-intro { align-items: flex-start; flex-direction: column; }
+  .list-primary-action { width: 100%; min-height: 44px; justify-content: center; }
+  .list-stat-rail { grid-template-columns: repeat(2, 1fr); }
+  .list-toolbar { align-items: stretch; flex-direction: column; }
+  .list-search { min-width: 0; min-height: 44px; }
+  .list-filter-label, .list-toolbar-note { margin-left: 0; }
+  .list-table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .list-table { min-width: 680px; }
 }
 
 /* --- Dashboard Enhancement --- */

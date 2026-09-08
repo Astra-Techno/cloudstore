@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import NotificationBell from '@/components/NotificationBell.vue'
+import { settingsApi } from '@/api/settings'
 
 const auth = useAuthStore()
 const router = useRouter()
 const mobileNavOpen = ref(false)
+const storeName = ref('Your store')
 
 function handleLogout() {
   auth.logout()
@@ -16,6 +18,21 @@ function handleLogout() {
 function closeMobileNav() {
   mobileNavOpen.value = false
 }
+
+onMounted(async () => {
+  try {
+    const { data } = await settingsApi.getSettings()
+    storeName.value = data.data?.store?.name || 'Your store'
+    const branding = data.data?.branding
+    if (branding?.primary_color) {
+      document.documentElement.style.setProperty('--primary', branding.primary_color)
+      document.documentElement.style.setProperty('--primary-deep', branding.primary_color)
+    }
+    document.title = `${storeName.value} · CloudMarket`
+  } catch {
+    // Branding is non-critical; retain the CloudMarket fallback.
+  }
+})
 
 const navItems = [
   { label: 'Overview', path: '/', icon: 'overview' },
@@ -44,8 +61,8 @@ const navItems = [
       <div class="sidebar-brand">
         <img src="/logo.png" alt="CloudMarket" class="brand-logo" />
         <div>
-          <p class="brand-name">Cloud<strong>Market</strong></p>
-          <p class="brand-caption">Your Store. Your Delivery.</p>
+          <p class="brand-name">{{ storeName }}</p>
+          <p class="brand-caption">Powered by CloudMarket</p>
         </div>
         <button class="sidebar-close lg:hidden" aria-label="Close navigation" @click="closeMobileNav">
           <span aria-hidden="true">&times;</span>
@@ -82,7 +99,7 @@ const navItems = [
           <span>{{ auth.user?.email }}</span>
         </div>
         <button class="account-logout" aria-label="Sign out" title="Sign out" @click="handleLogout">
-          <span aria-hidden="true">&nearr;</span>
+          <span aria-hidden="true">↪</span><span>Sign out</span>
         </button>
       </div>
     </aside>
