@@ -97,10 +97,10 @@ final class PlatformAdminController
 
         // Get active app token prefix
         $tokenRow = $this->db->fetchOne(
-            "SELECT prefix FROM app_tokens WHERE tenant_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+            "SELECT token_prefix FROM app_tokens WHERE tenant_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
             [$tenant->id]
         );
-        $t['app_token_prefix'] = $tokenRow['prefix'] ?? null;
+        $t['app_token_prefix'] = $tokenRow['token_prefix'] ?? null;
 
         return Response::success($t);
     }
