@@ -75,6 +75,10 @@ final class Response
     {
         http_response_code($this->status);
 
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
         foreach ($this->headers as $name => $value) {
             header("{$name}: {$value}");
         }
