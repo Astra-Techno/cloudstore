@@ -87,6 +87,14 @@ if (file_exists($envFile)) {
     $checks['db'] = 'api/.env not found';
 }
 
+// Clear opcache if available
+if (function_exists('opcache_reset')) {
+    opcache_reset();
+    $checks['opcache'] = 'reset';
+} else {
+    $checks['opcache'] = 'not available';
+}
+
 // Try to boot the framework and resolve the controller
 try {
     require_once $apiDir . '/vendor/autoload.php';
