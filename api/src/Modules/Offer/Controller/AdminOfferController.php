@@ -31,8 +31,8 @@ final class AdminOfferController
     public function listCoupons(Request $request, array $params): Response
     {
         $tenantId = TenantContext::id();
-        $page = max(1, (int) ($request->query('page') ?? 1));
-        $perPage = min(100, max(1, (int) ($request->query('per_page') ?? 20)));
+        $page = max(1, (int) ($request->input('page') ?? 1));
+        $perPage = min(100, max(1, (int) ($request->input('per_page') ?? 20)));
         $offset = ($page - 1) * $perPage;
 
         $coupons = $this->couponRepo->listByTenant($tenantId, $perPage, $offset);
@@ -106,8 +106,8 @@ final class AdminOfferController
     public function listPromotions(Request $request, array $params): Response
     {
         $tenantId = TenantContext::id();
-        $page = max(1, (int) ($request->query('page') ?? 1));
-        $perPage = min(100, max(1, (int) ($request->query('per_page') ?? 20)));
+        $page = max(1, (int) ($request->input('page') ?? 1));
+        $perPage = min(100, max(1, (int) ($request->input('per_page') ?? 20)));
         $offset = ($page - 1) * $perPage;
 
         $promotions = $this->promotionRepo->listByTenant($tenantId, $perPage, $offset);
@@ -231,8 +231,8 @@ final class AdminOfferController
     public function listBundles(Request $request, array $params): Response
     {
         $tenantId = TenantContext::id();
-        $page = max(1, (int) ($request->query('page') ?? 1));
-        $perPage = min(100, max(1, (int) ($request->query('per_page') ?? 20)));
+        $page = max(1, (int) ($request->input('page') ?? 1));
+        $perPage = min(100, max(1, (int) ($request->input('per_page') ?? 20)));
         $offset = ($page - 1) * $perPage;
 
         $bundles = $this->bundleRepo->listByTenant($tenantId, $perPage, $offset);

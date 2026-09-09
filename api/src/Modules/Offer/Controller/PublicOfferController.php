@@ -163,7 +163,7 @@ final class PublicOfferController
             $cartItems[] = array_merge($item, ['line_total' => $lineTotal]);
         }
 
-        $couponCode = $request->query('coupon_code');
+        $couponCode = $request->input('coupon_code');
         $result = $this->discountCalc->calculate($tenantId, $subtotal, $cartItems, 0, $couponCode, $customerId);
 
         return Response::success($result);
