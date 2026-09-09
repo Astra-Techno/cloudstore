@@ -87,4 +87,32 @@ if (file_exists($envFile)) {
     $checks['db'] = 'api/.env not found';
 }
 
+// Try to boot the framework and resolve the controller
+try {
+    require_once $apiDir . '/vendor/autoload.php';
+    $checks['autoload'] = 'OK';
+
+    // Try instantiating the Application
+    $app = \App\Core\Application::boot($apiDir);
+    $checks['app_boot'] = 'OK';
+
+    // Try resolving the controller from container
+    $container = $app->getContainer();
+    $checks['container'] = 'OK';
+
+    $controller = $container->get(\App\Modules\Offer\Controller\AdminOfferController::class);
+    $checks['offer_controller_resolved'] = 'OK';
+} catch (Throwable $e) {
+    $checks['framework_error'] = $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+    $checks['framework_trace'] = array_slice(explode("\n", $e->getTraceAsString()), 0, 10);
+}
+
+// Check Application.php has our error fix
+$appFile = $apiDir . '/src/Core/Application.php';
+if (file_exists($appFile)) {
+    $appContent = file_get_contents($appFile);
+    $checks['app_has_debug_error'] = str_contains($appContent, "basename(\$e->getFile())") ? 'YES' : 'NO - old version';
+    $checks['app_file_size'] = filesize($appFile);
+}
+
 echo json_encode($checks, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
