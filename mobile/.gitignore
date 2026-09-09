@@ -7,7 +7,8 @@
 .svn/
 .DS_Store
 *.swp
-profile
+# Dart DevTools profiling data (not the screens/profile directory)
+/profile
 DerivedData/
 .generated/
 *.pbxuser

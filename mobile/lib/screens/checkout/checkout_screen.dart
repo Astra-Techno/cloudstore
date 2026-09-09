@@ -151,23 +151,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             _sectionTitle(context, _orderType == 'delivery' ? '3. Payment' : '2. Payment', 'Choose how you would like to pay'),
             const SizedBox(height: 8),
             Card(
-              child: RadioGroup<String>(
-                groupValue: _paymentMethod,
-                onChanged: (v) => setState(() => _paymentMethod = v ?? _paymentMethod),
-                child: Column(
-                  children: [
-                    RadioListTile<String>(
-                      value: 'cod',
-                      title: const Text('Cash on Delivery'),
-                      secondary: const Icon(Icons.money),
-                    ),
-                    RadioListTile<String>(
-                      value: 'online',
-                      title: const Text('Online Payment'),
-                      secondary: const Icon(Icons.payment),
-                    ),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  RadioListTile<String>(
+                    value: 'cod',
+                    groupValue: _paymentMethod,
+                    onChanged: (v) => setState(() => _paymentMethod = v ?? _paymentMethod),
+                    title: const Text('Cash on Delivery'),
+                    secondary: const Icon(Icons.money),
+                  ),
+                  RadioListTile<String>(
+                    value: 'online',
+                    groupValue: _paymentMethod,
+                    onChanged: (v) => setState(() => _paymentMethod = v ?? _paymentMethod),
+                    title: const Text('Online Payment'),
+                    secondary: const Icon(Icons.payment),
+                  ),
+                ],
               ),
             ),
 
