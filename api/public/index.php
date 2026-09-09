@@ -32,5 +32,19 @@ if (str_starts_with($requestUri, '/uploads/')) {
 
 use App\Core\Application;
 
-$app = Application::boot(BASE_PATH);
-$app->handleRequest();
+try {
+    $app = Application::boot(BASE_PATH);
+    $app->handleRequest();
+} catch (\Throwable $e) {
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => [
+            'code' => 'INTERNAL_ERROR',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile() . ':' . $e->getLine(),
+            'trace' => array_slice(explode("\n", $e->getTraceAsString()), 0, 10),
+        ],
+    ]);
+}
