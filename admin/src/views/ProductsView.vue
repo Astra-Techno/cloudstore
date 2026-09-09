@@ -158,14 +158,37 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="list-page">
+  <div class="list-page products-list-page">
     <section class="list-page-intro"><div><p class="list-kicker">Catalog studio</p><h1>Products <span>/ your assortment</span></h1><p>Shape what customers discover, compare, and come back for.</p></div><button @click="openCreate" class="list-primary-action"><span>＋</span> Add product</button></section>
     <section class="list-stat-rail"><div><span>Assortment</span><strong>{{ meta?.total ?? products.length }}</strong><small>products in catalog</small></div><div><span>Live now</span><strong>{{ products.filter(product => product.status === 'active').length }}</strong><small>active products</small></div><div><span>Tracked stock</span><strong class="list-stat-accent">{{ products.filter(product => product.stock_mode !== 'unlimited').length }}</strong><small>inventory signals</small></div><div class="list-stat-rail__signal"><span>Catalog health</span><strong>Fresh</strong><small><i></i> Ready for customers</small></div></section>
     <section class="list-toolbar"><label class="list-search"><span aria-hidden="true">⌕</span><input v-model="searchQuery" type="search" placeholder="Search product, category or pricing" /></label><div class="flex items-center gap-2"><button @click="exportCsv" class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Export CSV</button><button @click="bulkToggleStatus('active')" class="px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100">Activate All</button><button @click="bulkToggleStatus('inactive')" class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100">Deactivate All</button></div></section>
 
     <div v-if="loading" class="list-loading">Loading your catalog<span></span></div>
 
-    <div v-else class="list-table-card"><table class="list-table"><thead>
+    <section v-else class="catalog-tile-grid" aria-label="Products">
+      <article v-for="product in products" v-show="matchesSearch(product)" :key="`tile-${product.uuid}`" class="catalog-tile" @click="router.push(`/products/${product.uuid}`)">
+        <div class="catalog-tile__top">
+          <span class="catalog-tile__avatar">{{ product.name.charAt(0).toUpperCase() }}</span>
+          <span class="list-status" :class="product.status === 'active' ? 'list-status--lime' : 'list-status--coral'"><i></i>{{ product.status.replace(/_/g, ' ') }}</span>
+        </div>
+        <div class="catalog-tile__body">
+          <p>{{ product.category_name || 'Uncategorized' }}</p>
+          <h2>{{ product.name }}</h2>
+          <small>{{ product.pricing_mode === 'weight' ? `By ${product.unit}` : `${product.unit} · fixed price` }}</small>
+        </div>
+        <div class="catalog-tile__bottom">
+          <div><strong>{{ formatPrice(product.sale_price ?? product.base_price) }}</strong><small v-if="product.sale_price">was {{ formatPrice(product.base_price) }}</small></div>
+          <span class="catalog-tile__stock">{{ product.stock_mode === 'unlimited' ? 'Unlimited' : `${product.stock_quantity ?? 0} in stock` }}</span>
+        </div>
+        <div class="catalog-tile__actions" @click.stop>
+          <button @click="router.push(`/products/${product.uuid}`)">Edit product</button>
+          <button class="catalog-tile__delete" @click="deleteConfirm = product" aria-label="Delete product">×</button>
+        </div>
+      </article>
+      <div v-if="products.length === 0 || !products.some(matchesSearch)" class="catalog-tile-empty">No products match this search. Try another word or add a new product.</div>
+    </section>
+
+    <div v-if="false" class="list-table-card"><table class="list-table"><thead>
           <tr>
             <th>Product</th><th>Category</th><th>Pricing model</th><th class="text-right">Price</th><th>Status</th><th>Stock</th><th></th>
           </tr>
@@ -173,7 +196,7 @@ onMounted(() => {
             <td class="list-order-id"><span class="product-avatar">{{ product.name.charAt(0).toUpperCase() }}</span><div><strong>{{ product.name }}</strong><small>{{ product.unit }} · {{ product.pricing_mode }}</small></div></td><td class="list-muted">{{ product.category_name || 'Uncategorized' }}</td><td class="list-muted capitalize">{{ product.pricing_mode }}<span v-if="product.pricing_mode === 'weight'"> / {{ product.unit }}</span></td><td class="list-total">
               {{ formatPrice(product.base_price) }}
               <span v-if="product.sale_price" class="product-sale-price">
-                {{ formatPrice(product.sale_price) }}
+                {{ formatPrice(product.sale_price ?? 0) }}
               </span>
             </td><td><span class="list-status" :class="product.status === 'active' ? 'list-status--lime' : 'list-status--coral'"><i></i>{{ product.status.replace(/_/g, ' ') }}</span></td><td class="list-muted">{{ product.stock_mode === 'unlimited' ? '∞ Unlimited' : `${product.stock_quantity ?? 0} units` }}</td><td class="list-action-cell"><button @click="router.push(`/products/${product.uuid}`)" class="list-edit-button">Edit <span>→</span></button><button @click.stop="deleteConfirm = product" class="list-edit-button" style="color:#ef4444;margin-left:8px">Delete</button></td>
           </tr><tr v-if="products.length === 0 || !products.some(matchesSearch)"><td colspan="7" class="list-empty">No products found.</td></tr></tbody></table>

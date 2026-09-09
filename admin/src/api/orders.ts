@@ -43,4 +43,8 @@ export const ordersApi = {
   availableDrivers() {
     return apiClient.get<ApiResponse<Driver[]>>('/admin/drivers/available')
   },
+
+  posCheckout(data: { items: { product_uuid: string; quantity: number }[]; customer_name?: string; customer_phone?: string; payment_method: 'cash' | 'upi' | 'card'; order_type: 'pickup'; notes?: string }) {
+    return apiClient.post<ApiResponse<{ order: Order; items: OrderItem[] }>>('/admin/pos/checkout', data)
+  },
 }

@@ -21,8 +21,10 @@ use App\Modules\Notification\Controller\NotificationController;
 use App\Modules\Notification\Controller\AdminNotificationController;
 use App\Modules\Admin\Controller\AdminSettingsController;
 use App\Modules\Admin\Controller\AdminDriverController;
+use App\Modules\Order\Controller\AdminPosController;
 use App\Modules\Offer\Controller\AdminOfferController;
 use App\Modules\Offer\Controller\PublicOfferController;
+use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Core\Http\Middleware\TenantMiddleware;
 
 return function (Router $router): void {
@@ -41,10 +43,25 @@ return function (Router $router): void {
         $router->get('/admin/me', [AdminAuthController::class, 'me'], ['middleware.auth.admin']);
         $router->post('/admin/change-password', [AdminAuthController::class, 'changePassword'], ['middleware.auth.admin']);
 
+        // Platform admin (super admin — no tenant scope)
+        $router->group('/platform', ['middleware.auth.admin'], function (Router $router) {
+            $router->get('/dashboard', [PlatformAdminController::class, 'dashboard']);
+            $router->get('/tenants', [PlatformAdminController::class, 'listTenants']);
+            $router->post('/tenants', [PlatformAdminController::class, 'createTenant']);
+            $router->get('/tenants/{uuid}', [PlatformAdminController::class, 'getTenant']);
+            $router->put('/tenants/{uuid}', [PlatformAdminController::class, 'updateTenant']);
+            $router->put('/tenants/{uuid}/capabilities', [PlatformAdminController::class, 'updateCapabilities']);
+            $router->get('/tenants/{uuid}/admins', [PlatformAdminController::class, 'listTenantAdmins']);
+            $router->post('/tenants/{uuid}/admins', [PlatformAdminController::class, 'createTenantAdmin']);
+        });
+
         // Admin panel (authenticated)
         $router->group('/admin', ['middleware.auth.admin'], function (Router $router) {
             // Dashboard
             $router->get('/dashboard', [AdminOrderController::class, 'dashboard']);
+
+            // Counter / POS
+            $router->post('/pos/checkout', [AdminPosController::class, 'checkout']);
 
             // Catalog
             $router->get('/categories', [AdminCatalogController::class, 'listCategories']);

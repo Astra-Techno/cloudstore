@@ -1,0 +1,44 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { catalogApi } from '@/api/catalog'
+import { ordersApi } from '@/api/orders'
+import type { Category, Product } from '@/types'
+
+type PosLine = { product: Product; quantity: number }
+const products = ref<Product[]>([]), categories = ref<Category[]>([]), cart = ref<PosLine[]>([])
+const activeCategory = ref('All'), query = ref(''), loading = ref(true), submitting = ref(false)
+const paymentMethod = ref<'cash' | 'upi' | 'card'>('cash'), customerName = ref(''), customerPhone = ref(''), notes = ref('')
+const error = ref(''), message = ref('')
+const visibleProducts = computed(() => products.value.filter(p => {
+  const q = query.value.trim().toLowerCase()
+  return (activeCategory.value === 'All' || p.category_name === activeCategory.value) && (!q || p.name.toLowerCase().includes(q) || p.category_name?.toLowerCase().includes(q))
+}))
+const total = computed(() => cart.value.reduce((sum, line) => sum + (line.product.sale_price ?? line.product.base_price) * line.quantity, 0))
+const count = computed(() => cart.value.reduce((sum, line) => sum + line.quantity, 0))
+const money = (value: number) => `₹${(value / 100).toFixed(2)}`
+const getQuantity = (product: Product) => cart.value.find(line => line.product.uuid === product.uuid)?.quantity || 0
+function add(product: Product) { const line = cart.value.find(item => item.product.uuid === product.uuid); if (line) line.quantity++; else cart.value.push({ product, quantity: 1 }) }
+function change(line: PosLine, amount: number) { line.quantity += amount; if (line.quantity < 1) cart.value = cart.value.filter(item => item !== line) }
+async function checkout() {
+  error.value = ''; message.value = ''
+  if (!cart.value.length) { error.value = 'Add menu items before taking payment.'; return }
+  submitting.value = true
+  try {
+    const { data } = await ordersApi.posCheckout({ items: cart.value.map(line => ({ product_uuid: line.product.uuid, quantity: line.quantity })), customer_name: customerName.value || undefined, customer_phone: customerPhone.value || undefined, payment_method: paymentMethod.value, order_type: 'pickup', notes: notes.value || undefined })
+    if (!data.success) throw new Error(data.error?.message || 'Could not complete the sale.')
+    message.value = `Sale ${data.data?.order.order_number || ''} completed and sent to orders.`
+    cart.value = []; customerName.value = ''; customerPhone.value = ''; notes.value = ''
+  } catch (e) { error.value = e instanceof Error ? e.message : 'Could not complete the sale.' } finally { submitting.value = false }
+}
+onMounted(async () => { try { const [p, c] = await Promise.all([catalogApi.listProducts(1, undefined, 'active'), catalogApi.listCategories()]); products.value = p.data.data || []; categories.value = c.data.data || [] } finally { loading.value = false } })
+</script>
+
+<template>
+  <main class="pos-page">
+    <header class="pos-header"><div><p>COUNTER / POS</p><h1>Make a new sale</h1><span>Tap products, take payment, and send it to the kitchen.</span></div><div class="pos-live"><i></i> Counter open</div></header>
+    <p v-if="message" class="pos-notice pos-notice--ok">{{ message }}</p><p v-if="error" class="pos-notice pos-notice--error">{{ error }}</p>
+    <div class="pos-layout"><section class="pos-menu"><div class="pos-search"><span>⌕</span><input v-model="query" placeholder="Search menu" autofocus /></div><div class="pos-categories"><button :class="{ active: activeCategory === 'All' }" @click="activeCategory = 'All'">All items</button><button v-for="category in categories" :key="category.uuid" :class="{ active: activeCategory === category.name }" @click="activeCategory = category.name">{{ category.name }}</button></div><div v-if="loading" class="pos-empty">Loading menu…</div><div v-else class="pos-products"><button v-for="product in visibleProducts" :key="product.uuid" class="pos-product" :class="{ selected: getQuantity(product) }" @click="add(product)"><span>{{ product.name.charAt(0) }}</span><strong>{{ product.name }}</strong><small>{{ product.category_name || 'Menu item' }}</small><b>{{ money(product.sale_price ?? product.base_price) }}</b><em v-if="getQuantity(product)">{{ getQuantity(product) }}</em></button><p v-if="!visibleProducts.length" class="pos-empty">No menu item found.</p></div></section>
+      <aside class="pos-cart"><div class="pos-cart-head"><div><p>CURRENT SALE</p><h2>{{ count }} {{ count === 1 ? 'item' : 'items' }}</h2></div><button v-if="cart.length" @click="cart = []">Clear</button></div><div class="pos-lines"><div v-if="!cart.length" class="pos-empty"><strong>Your sale is empty</strong><small>Choose menu items from the left.</small></div><article v-for="line in cart" :key="line.product.uuid"><div><strong>{{ line.product.name }}</strong><small>{{ money(line.product.sale_price ?? line.product.base_price) }} each</small></div><div class="pos-stepper"><button @click="change(line, -1)">−</button><b>{{ line.quantity }}</b><button @click="change(line, 1)">+</button></div><strong>{{ money((line.product.sale_price ?? line.product.base_price) * line.quantity) }}</strong></article></div><div class="pos-customer"><label>Customer <small>optional</small></label><div><input v-model="customerName" placeholder="Walk-in customer" /><input v-model="customerPhone" placeholder="Phone number" /></div><input v-model="notes" placeholder="Kitchen note" /></div><div class="pos-payment"><label>Payment</label><div><button v-for="method in ['cash', 'upi', 'card']" :key="method" :class="{ active: paymentMethod === method }" @click="paymentMethod = method as 'cash' | 'upi' | 'card'">{{ method }}</button></div></div><footer class="pos-footer"><div><span>Total payable</span><strong>{{ money(total) }}</strong><small>Pickup · paid now</small></div><button :disabled="submitting || !cart.length" @click="checkout">{{ submitting ? 'Completing…' : `Pay ${money(total)}` }} <b>→</b></button></footer></aside>
+    </div>
+  </main>
+</template>

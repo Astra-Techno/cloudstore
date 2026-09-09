@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import NotificationBell from '@/components/NotificationBell.vue'
@@ -9,6 +9,8 @@ const auth = useAuthStore()
 const router = useRouter()
 const mobileNavOpen = ref(false)
 const storeName = ref('Your store')
+
+const isPlatformAdmin = computed(() => auth.user?.role === 'platform_admin')
 
 function handleLogout() {
   auth.logout()
@@ -20,6 +22,11 @@ function closeMobileNav() {
 }
 
 onMounted(async () => {
+  if (isPlatformAdmin.value) {
+    storeName.value = 'CloudMarket'
+    document.title = 'CloudMarket Platform'
+    return
+  }
   try {
     const { data } = await settingsApi.getSettings()
     storeName.value = data.data?.store?.name || 'Your store'
@@ -34,7 +41,14 @@ onMounted(async () => {
   }
 })
 
-const navItems = [
+const platformNavItems = [
+  { label: 'Dashboard', path: '/', icon: 'overview' },
+  { label: 'Tenants', path: '/tenants', icon: 'customers' },
+  { label: 'Settings', path: '/settings', icon: 'settings' },
+]
+
+const tenantNavItems = [
+  { label: 'Counter', path: '/counter', icon: 'orders' },
   { label: 'Overview', path: '/', icon: 'overview' },
   { label: 'Orders', path: '/orders', icon: 'orders' },
   { label: 'Categories', path: '/categories', icon: 'categories' },
@@ -47,6 +61,8 @@ const navItems = [
   { label: 'Delivery Zones', path: '/delivery-zones', icon: 'zones' },
   { label: 'Settings', path: '/settings', icon: 'settings' },
 ]
+
+const navItems = computed(() => isPlatformAdmin.value ? platformNavItems : tenantNavItems)
 </script>
 
 <template>
@@ -69,7 +85,7 @@ const navItems = [
         </button>
       </div>
 
-      <div class="sidebar-section-label">Manage</div>
+      <div class="sidebar-section-label">{{ isPlatformAdmin ? 'Platform' : 'Manage' }}</div>
       <nav class="sidebar-nav">
         <router-link
           v-for="item in navItems"
@@ -128,7 +144,7 @@ const navItems = [
       </div>
 
       <nav class="mobile-dock lg:hidden" aria-label="Quick navigation">
-        <router-link to="/" class="mobile-dock__item"><span>⌂</span><small>Home</small></router-link>
+        <router-link to="/counter" class="mobile-dock__item"><span>＋</span><small>Sale</small></router-link>
         <router-link to="/orders" class="mobile-dock__item"><span>▤</span><small>Orders</small></router-link>
         <router-link to="/products" class="mobile-dock__item"><span>▣</span><small>Catalog</small></router-link>
         <button class="mobile-dock__item" aria-label="Open all tools" @click="mobileNavOpen = true"><span>⋮</span><small>More</small></button>

@@ -47,6 +47,7 @@ use App\Modules\Order\Service\CheckoutService;
 use App\Modules\Order\Controller\CheckoutController;
 use App\Modules\Order\Controller\OrderController;
 use App\Modules\Order\Controller\AdminOrderController;
+use App\Modules\Order\Controller\AdminPosController;
 use App\Modules\Order\Service\OrderManagementService;
 use App\Modules\Payment\Repository\PaymentRepository;
 use App\Modules\Payment\Repository\RefundRepository;
@@ -372,6 +373,13 @@ final class Application
             $this->container->get(DriverRepository::class),
             $this->container->get(DriverService::class),
             $this->container->get(PaymentService::class),
+        ));
+
+        $this->container->singleton(AdminPosController::class, fn () => new AdminPosController(
+            $this->container->get(Connection::class),
+            $this->container->get(ProductRepository::class),
+            $this->container->get(CustomerRepository::class),
+            $this->container->get(OrderRepository::class),
         ));
 
         // Notification module
