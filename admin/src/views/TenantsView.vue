@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import AppLayout from '@/components/AppLayout.vue'
 import { platformApi } from '@/api/platform'
 
 interface Tenant {
@@ -285,7 +284,6 @@ onMounted(load)
 </script>
 
 <template>
-  <AppLayout>
     <div class="list-page">
       <div class="list-page-intro">
         <div>
@@ -619,5 +617,4 @@ onMounted(load)
         </form>
       </div>
     </div>
-  </AppLayout>
 </template>
