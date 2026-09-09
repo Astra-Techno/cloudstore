@@ -6,11 +6,6 @@ ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
-// Clear opcache to ensure latest code is used
-if (function_exists('opcache_reset')) {
-    opcache_reset();
-}
-
 define('APP_START', microtime(true));
 define('BASE_PATH', dirname(__DIR__));
 
@@ -37,6 +32,8 @@ try {
     $app->handleRequest();
 } catch (\Throwable $e) {
     header('Content-Type: application/json');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
     http_response_code(500);
     echo json_encode([
         'success' => false,

@@ -39,12 +39,12 @@ const navItems = [
   { label: 'Orders', path: '/orders', icon: 'orders' },
   { label: 'Categories', path: '/categories', icon: 'categories' },
   { label: 'Products', path: '/products', icon: 'products' },
-  { label: 'Coupons', path: '/coupons', icon: 'categories' },
-  { label: 'Promotions', path: '/promotions', icon: 'categories' },
-  { label: 'Bundles', path: '/bundles', icon: 'categories' },
+  { label: 'Coupons', path: '/coupons', icon: 'coupons' },
+  { label: 'Promotions', path: '/promotions', icon: 'promotions' },
+  { label: 'Bundles', path: '/bundles', icon: 'bundles' },
   { label: 'Customers', path: '/customers', icon: 'customers' },
-  { label: 'Drivers', path: '/drivers', icon: 'delivery' },
-  { label: 'Delivery Zones', path: '/delivery-zones', icon: 'delivery' },
+  { label: 'Drivers', path: '/drivers', icon: 'drivers' },
+  { label: 'Delivery Zones', path: '/delivery-zones', icon: 'zones' },
   { label: 'Settings', path: '/settings', icon: 'settings' },
 ]
 </script>
@@ -80,7 +80,7 @@ const navItems = [
           @click="closeMobileNav"
         >
           <span class="nav-icon" :class="`nav-icon--${item.icon}`" aria-hidden="true"></span>
-          {{ item.label }}
+          <span class="sidebar-link__label">{{ item.label }}</span>
         </router-link>
       </nav>
 
@@ -111,13 +111,15 @@ const navItems = [
             <span aria-hidden="true">&#9776;</span>
           </button>
           <div>
-            <p class="header-eyebrow">Control center</p>
-            <h2><slot name="header">Admin Panel</slot></h2>
+            <h2>{{ storeName }}</h2>
           </div>
         </div>
         <div class="header-actions">
           <span class="live-pill"><i></i> Live store</span>
           <NotificationBell />
+          <button class="header-logout" @click="handleLogout" title="Sign out">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </header>
 
