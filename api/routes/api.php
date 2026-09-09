@@ -54,6 +54,7 @@ return function (Router $router): void {
             $router->put('/tenants/{uuid}/capabilities', [PlatformAdminController::class, 'updateCapabilities']);
             $router->get('/tenants/{uuid}/admins', [PlatformAdminController::class, 'listTenantAdmins']);
             $router->post('/tenants/{uuid}/admins', [PlatformAdminController::class, 'createTenantAdmin']);
+            $router->post('/tenants/{uuid}/regenerate-token', [PlatformAdminController::class, 'regenerateToken']);
 
             // App builds
             $router->get('/tenants/{uuid}/builds', [BuildController::class, 'listBuilds']);

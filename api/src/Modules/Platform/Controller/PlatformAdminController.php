@@ -95,6 +95,13 @@ final class PlatformAdminController
         // Get admins for this tenant
         $t['admins'] = $this->adminRepo->findByTenant($tenant->id);
 
+        // Get active app token prefix
+        $tokenRow = $this->db->fetchOne(
+            "SELECT prefix FROM app_tokens WHERE tenant_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+            [$tenant->id]
+        );
+        $t['app_token_prefix'] = $tokenRow['prefix'] ?? null;
+
         return Response::success($t);
     }
 
@@ -315,6 +322,29 @@ final class PlatformAdminController
             'total_revenue' => (int) $totalOrders['revenue'],
             'total_customers' => (int) $totalCustomers['cnt'],
             'total_tenant_admins' => (int) $totalAdmins['cnt'],
+        ]);
+    }
+
+    // ── App Token ──
+
+    public function regenerateToken(Request $request, array $params): Response
+    {
+        $this->requirePlatformAdmin($request);
+
+        $tenant = $this->tenantRepo->findByUuid($params['uuid']);
+        if ($tenant === null) {
+            return Response::notFound('Tenant not found.');
+        }
+
+        // Revoke all existing tokens
+        $this->appTokenService->revokeAllForTenant($tenant->id);
+
+        // Generate new token
+        $tokenResult = $this->appTokenService->generate($tenant->id);
+
+        return Response::success([
+            'app_token' => $tokenResult['token'],
+            'prefix' => $tokenResult['prefix'],
         ]);
     }
 

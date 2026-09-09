@@ -18,6 +18,8 @@ export const platformApi = {
   getTenantAdmins: (uuid: string) => apiClient.get(`/platform/tenants/${uuid}/admins`),
   createTenantAdmin: (uuid: string, data: Record<string, unknown>) =>
     apiClient.post(`/platform/tenants/${uuid}/admins`, data),
+  regenerateToken: (uuid: string) =>
+    apiClient.post(`/platform/tenants/${uuid}/regenerate-token`),
 
   // App builds
   getBuilds: (uuid: string) => apiClient.get(`/platform/tenants/${uuid}/builds`),

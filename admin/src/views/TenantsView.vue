@@ -224,14 +224,47 @@ async function loadBuilds(tenantUuid: string) {
   } catch { tenantBuilds.value = [] }
 }
 
-function openBuildModal() {
+function tenantToAppId(slug: string): string {
+  const clean = slug.replace(/[^a-z0-9]/g, '')
+  return `com.cloudmarket.${clean}`
+}
+
+const tokenPrefix = ref('')
+const regeneratingToken = ref(false)
+
+async function openBuildModal() {
   if (!selectedTenant.value) return
+  const slug = selectedTenant.value.slug || selectedTenant.value.name.toLowerCase().replace(/[^a-z0-9]+/g, '')
+  tokenPrefix.value = ''
+
+  // Fetch tenant details to get token prefix
+  try {
+    const { data } = await platformApi.getTenant(selectedTenant.value.id)
+    tokenPrefix.value = data.data?.app_token_prefix || ''
+  } catch { /* ignore */ }
+
   buildForm.value = {
     platform: 'android', app_mode: 'customer', build_type: 'apk',
-    app_name: selectedTenant.value.name, app_id: 'com.cloudmarket.cloudstore',
+    app_name: selectedTenant.value.name, app_id: tenantToAppId(slug),
     app_token: '', primary_color: '#4CAF50',
   }
   showBuildModal.value = true
+}
+
+async function regenerateToken() {
+  if (!selectedTenant.value) return
+  regeneratingToken.value = true
+  try {
+    const { data } = await platformApi.regenerateToken(selectedTenant.value.id)
+    if (data.data?.app_token) {
+      buildForm.value.app_token = data.data.app_token
+      tokenPrefix.value = data.data.prefix || ''
+    }
+  } catch (e: any) {
+    error.value = e.response?.data?.error?.message || 'Failed to regenerate token'
+  } finally {
+    regeneratingToken.value = false
+  }
 }
 
 async function triggerBuild() {
@@ -597,8 +630,13 @@ onMounted(load)
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 mb-1">App Token *</label>
-            <input v-model="buildForm.app_token" required class="w-full border rounded-lg px-3 py-2 font-mono text-xs" placeholder="Tenant's app token for API auth" />
-            <p class="text-xs text-gray-400 mt-1">The token generated when this tenant was created</p>
+            <div class="flex gap-2">
+              <input v-model="buildForm.app_token" required class="flex-1 border rounded-lg px-3 py-2 font-mono text-xs" :placeholder="tokenPrefix ? `Starts with ${tokenPrefix}...` : 'Tenant app token'" />
+              <button type="button" @click="regenerateToken" :disabled="regeneratingToken" class="px-3 py-2 bg-gray-100 border rounded-lg text-xs font-bold hover:bg-gray-200 whitespace-nowrap">
+                {{ regeneratingToken ? 'Generating...' : 'Regenerate' }}
+              </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">{{ buildForm.app_token ? 'Token set — will be injected into the app build' : 'Click Regenerate to create a new token (old one will be revoked)' }}</p>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 mb-1">Primary Color</label>
