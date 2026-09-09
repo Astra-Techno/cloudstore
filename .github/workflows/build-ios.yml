@@ -1,0 +1,259 @@
+name: Build iOS IPA
+
+on:
+  repository_dispatch:
+    types: [build-ios]
+  workflow_dispatch:
+    inputs:
+      app_token:
+        description: 'Tenant app token'
+        required: true
+      api_base_url:
+        description: 'API base URL'
+        required: true
+        default: 'https://market.cloudkart24.com/api/v1'
+      app_mode:
+        description: 'App mode (customer or driver)'
+        required: true
+        default: 'customer'
+        type: choice
+        options:
+          - customer
+          - driver
+      app_name:
+        description: 'App display name'
+        required: true
+        default: 'CloudMarket'
+      bundle_id:
+        description: 'iOS Bundle ID (e.g. com.cloudmarket.store)'
+        required: false
+        default: 'com.cloudmarket.cloudstore'
+      build_type:
+        description: 'Export method'
+        required: true
+        default: 'ad-hoc'
+        type: choice
+        options:
+          - ad-hoc
+          - app-store
+          - development
+      webhook_url:
+        description: 'Webhook URL for build status callback'
+        required: false
+      build_id:
+        description: 'Platform build ID for tracking'
+        required: false
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+
+jobs:
+  build:
+    name: Build iOS
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Parse inputs
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "app_token=${{ github.event.client_payload.app_token }}" >> $GITHUB_OUTPUT
+            echo "api_base_url=${{ github.event.client_payload.api_base_url }}" >> $GITHUB_OUTPUT
+            echo "app_mode=${{ github.event.client_payload.app_mode || 'customer' }}" >> $GITHUB_OUTPUT
+            echo "app_name=${{ github.event.client_payload.app_name || 'CloudMarket' }}" >> $GITHUB_OUTPUT
+            echo "bundle_id=${{ github.event.client_payload.bundle_id || 'com.cloudmarket.cloudstore' }}" >> $GITHUB_OUTPUT
+            echo "build_type=${{ github.event.client_payload.build_type || 'ad-hoc' }}" >> $GITHUB_OUTPUT
+            echo "webhook_url=${{ github.event.client_payload.webhook_url || '' }}" >> $GITHUB_OUTPUT
+            echo "build_id=${{ github.event.client_payload.build_id || '' }}" >> $GITHUB_OUTPUT
+            echo "primary_color=${{ github.event.client_payload.primary_color || '#4CAF50' }}" >> $GITHUB_OUTPUT
+          else
+            echo "app_token=${{ inputs.app_token }}" >> $GITHUB_OUTPUT
+            echo "api_base_url=${{ inputs.api_base_url }}" >> $GITHUB_OUTPUT
+            echo "app_mode=${{ inputs.app_mode }}" >> $GITHUB_OUTPUT
+            echo "app_name=${{ inputs.app_name }}" >> $GITHUB_OUTPUT
+            echo "bundle_id=${{ inputs.bundle_id }}" >> $GITHUB_OUTPUT
+            echo "build_type=${{ inputs.build_type }}" >> $GITHUB_OUTPUT
+            echo "webhook_url=${{ inputs.webhook_url || '' }}" >> $GITHUB_OUTPUT
+            echo "build_id=${{ inputs.build_id || '' }}" >> $GITHUB_OUTPUT
+            echo "primary_color=#4CAF50" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: mobile/ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('mobile/ios/Podfile.lock') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
+      - name: Update bundle identifier
+        if: steps.config.outputs.bundle_id != 'com.cloudmarket.cloudstore'
+        working-directory: mobile/ios
+        run: |
+          BUNDLE_ID="${{ steps.config.outputs.bundle_id }}"
+          # Update project.pbxproj
+          sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.cloudmarket.cloudstore/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID/g" Runner.xcodeproj/project.pbxproj
+
+      - name: Update app display name
+        working-directory: mobile/ios/Runner
+        run: |
+          APP_NAME="${{ steps.config.outputs.app_name }}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" Info.plist
+
+      - name: Install Apple certificate and provisioning profile
+        if: env.P12_BASE64 != ''
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+        run: |
+          # Create keychain
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          # Import certificate
+          echo "$P12_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+          # Install provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROVISION_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
+
+      - name: Get Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        working-directory: mobile/ios
+        run: pod install --repo-update
+
+      - name: Create ExportOptions.plist
+        run: |
+          EXPORT_METHOD="${{ steps.config.outputs.build_type }}"
+          BUNDLE_ID="${{ steps.config.outputs.bundle_id }}"
+          TEAM_ID="${{ secrets.IOS_TEAM_ID }}"
+
+          cat > mobile/ios/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>${EXPORT_METHOD}</string>
+            <key>teamID</key>
+            <string>${TEAM_ID:-PLACEHOLDER}</string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>uploadBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Build iOS (no codesign)
+        if: env.P12_BASE64 == ''
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+        working-directory: mobile
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=APP_TOKEN=${{ steps.config.outputs.app_token }} \
+            --dart-define=API_BASE_URL=${{ steps.config.outputs.api_base_url }} \
+            --dart-define=APP_MODE=${{ steps.config.outputs.app_mode }} \
+            --dart-define=PRIMARY_COLOR=${{ steps.config.outputs.primary_color }}
+
+      - name: Build iOS (signed)
+        if: env.P12_BASE64 != ''
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+        working-directory: mobile
+        run: |
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist \
+            --dart-define=APP_TOKEN=${{ steps.config.outputs.app_token }} \
+            --dart-define=API_BASE_URL=${{ steps.config.outputs.api_base_url }} \
+            --dart-define=APP_MODE=${{ steps.config.outputs.app_mode }} \
+            --dart-define=PRIMARY_COLOR=${{ steps.config.outputs.primary_color }}
+
+      - name: Rename and collect artifacts
+        id: artifacts
+        run: |
+          APP_NAME="${{ steps.config.outputs.app_name }}"
+          MODE="${{ steps.config.outputs.app_mode }}"
+          SAFE_NAME=$(echo "$APP_NAME" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          mkdir -p artifacts
+
+          # Signed IPA
+          if [ -d "mobile/build/ios/ipa" ]; then
+            for ipa in mobile/build/ios/ipa/*.ipa; do
+              [ -f "$ipa" ] && cp "$ipa" "artifacts/${SAFE_NAME}-${MODE}-${TIMESTAMP}.ipa"
+            done
+          fi
+
+          # Unsigned .app bundle (zipped for download)
+          if [ -d "mobile/build/ios/iphoneos/Runner.app" ]; then
+            cd mobile/build/ios/iphoneos
+            zip -r "../../../../artifacts/${SAFE_NAME}-${MODE}-unsigned-${TIMESTAMP}.app.zip" Runner.app
+            cd ../../../../
+          fi
+
+          ls -la artifacts/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-${{ steps.config.outputs.app_mode }}
+          path: artifacts/*
+          retention-days: 30
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          security delete-keychain build.keychain 2>/dev/null || true
+
+      - name: Webhook — notify success
+        if: steps.config.outputs.webhook_url != '' && success()
+        run: |
+          curl -s -X POST "${{ steps.config.outputs.webhook_url }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "build_id": "${{ steps.config.outputs.build_id }}",
+              "status": "completed",
+              "platform": "ios",
+              "run_id": "${{ github.run_id }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }' || true
+
+      - name: Webhook — notify failure
+        if: steps.config.outputs.webhook_url != '' && failure()
+        run: |
+          curl -s -X POST "${{ steps.config.outputs.webhook_url }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "build_id": "${{ steps.config.outputs.build_id }}",
+              "status": "failed",
+              "platform": "ios",
+              "run_id": "${{ github.run_id }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }' || true

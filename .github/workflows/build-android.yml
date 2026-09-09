@@ -1,0 +1,234 @@
+name: Build Android APK/AAB
+
+on:
+  repository_dispatch:
+    types: [build-android]
+  workflow_dispatch:
+    inputs:
+      app_token:
+        description: 'Tenant app token'
+        required: true
+      api_base_url:
+        description: 'API base URL'
+        required: true
+        default: 'https://market.cloudkart24.com/api/v1'
+      app_mode:
+        description: 'App mode (customer or driver)'
+        required: true
+        default: 'customer'
+        type: choice
+        options:
+          - customer
+          - driver
+      app_name:
+        description: 'App display name'
+        required: true
+        default: 'CloudMarket'
+      app_id:
+        description: 'Application ID (e.g. com.cloudmarket.store)'
+        required: false
+        default: 'com.cloudmarket.cloudstore'
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'apk'
+        type: choice
+        options:
+          - apk
+          - appbundle
+          - both
+      webhook_url:
+        description: 'Webhook URL for build status callback'
+        required: false
+      build_id:
+        description: 'Platform build ID for tracking'
+        required: false
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  build:
+    name: Build Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Parse inputs
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "app_token=${{ github.event.client_payload.app_token }}" >> $GITHUB_OUTPUT
+            echo "api_base_url=${{ github.event.client_payload.api_base_url }}" >> $GITHUB_OUTPUT
+            echo "app_mode=${{ github.event.client_payload.app_mode || 'customer' }}" >> $GITHUB_OUTPUT
+            echo "app_name=${{ github.event.client_payload.app_name || 'CloudMarket' }}" >> $GITHUB_OUTPUT
+            echo "app_id=${{ github.event.client_payload.app_id || 'com.cloudmarket.cloudstore' }}" >> $GITHUB_OUTPUT
+            echo "build_type=${{ github.event.client_payload.build_type || 'apk' }}" >> $GITHUB_OUTPUT
+            echo "webhook_url=${{ github.event.client_payload.webhook_url || '' }}" >> $GITHUB_OUTPUT
+            echo "build_id=${{ github.event.client_payload.build_id || '' }}" >> $GITHUB_OUTPUT
+            echo "primary_color=${{ github.event.client_payload.primary_color || '#4CAF50' }}" >> $GITHUB_OUTPUT
+          else
+            echo "app_token=${{ inputs.app_token }}" >> $GITHUB_OUTPUT
+            echo "api_base_url=${{ inputs.api_base_url }}" >> $GITHUB_OUTPUT
+            echo "app_mode=${{ inputs.app_mode }}" >> $GITHUB_OUTPUT
+            echo "app_name=${{ inputs.app_name }}" >> $GITHUB_OUTPUT
+            echo "app_id=${{ inputs.app_id }}" >> $GITHUB_OUTPUT
+            echo "build_type=${{ inputs.build_type }}" >> $GITHUB_OUTPUT
+            echo "webhook_url=${{ inputs.webhook_url || '' }}" >> $GITHUB_OUTPUT
+            echo "build_id=${{ inputs.build_id || '' }}" >> $GITHUB_OUTPUT
+            echo "primary_color=#4CAF50" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Update application ID
+        if: steps.config.outputs.app_id != 'com.cloudmarket.cloudstore'
+        working-directory: mobile/android/app
+        run: |
+          APP_ID="${{ steps.config.outputs.app_id }}"
+          sed -i "s/namespace = \"com.cloudmarket.cloudstore\"/namespace = \"$APP_ID\"/" build.gradle.kts
+          sed -i "s/applicationId = \"com.cloudmarket.cloudstore\"/applicationId = \"$APP_ID\"/" build.gradle.kts
+
+      - name: Update app name in AndroidManifest
+        working-directory: mobile/android/app/src/main
+        run: |
+          APP_NAME="${{ steps.config.outputs.app_name }}"
+          sed -i "s/android:label=\"[^\"]*\"/android:label=\"$APP_NAME\"/" AndroidManifest.xml
+
+      - name: Configure signing
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: mobile/android
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release-keystore.jks
+          cat > key.properties <<PROPS
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=release-keystore.jks
+          PROPS
+
+      - name: Get Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build APK (split per ABI)
+        if: steps.config.outputs.build_type == 'apk' || steps.config.outputs.build_type == 'both'
+        working-directory: mobile
+        run: |
+          flutter build apk --split-per-abi --release \
+            --dart-define=APP_TOKEN=${{ steps.config.outputs.app_token }} \
+            --dart-define=API_BASE_URL=${{ steps.config.outputs.api_base_url }} \
+            --dart-define=APP_MODE=${{ steps.config.outputs.app_mode }} \
+            --dart-define=PRIMARY_COLOR=${{ steps.config.outputs.primary_color }}
+
+      - name: Build App Bundle (AAB)
+        if: steps.config.outputs.build_type == 'appbundle' || steps.config.outputs.build_type == 'both'
+        working-directory: mobile
+        run: |
+          flutter build appbundle --release \
+            --dart-define=APP_TOKEN=${{ steps.config.outputs.app_token }} \
+            --dart-define=API_BASE_URL=${{ steps.config.outputs.api_base_url }} \
+            --dart-define=APP_MODE=${{ steps.config.outputs.app_mode }} \
+            --dart-define=PRIMARY_COLOR=${{ steps.config.outputs.primary_color }}
+
+      - name: Rename artifacts
+        id: artifacts
+        run: |
+          APP_NAME="${{ steps.config.outputs.app_name }}"
+          MODE="${{ steps.config.outputs.app_mode }}"
+          SAFE_NAME=$(echo "$APP_NAME" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          mkdir -p artifacts
+
+          if [ -d "mobile/build/app/outputs/flutter-apk" ]; then
+            for apk in mobile/build/app/outputs/flutter-apk/app-*-release.apk; do
+              if [ -f "$apk" ]; then
+                ABI=$(basename "$apk" | sed 's/app-\(.*\)-release.apk/\1/')
+                cp "$apk" "artifacts/${SAFE_NAME}-${MODE}-${ABI}-${TIMESTAMP}.apk"
+              fi
+            done
+            # Also copy universal APK if exists
+            if [ -f "mobile/build/app/outputs/flutter-apk/app-release.apk" ]; then
+              cp "mobile/build/app/outputs/flutter-apk/app-release.apk" "artifacts/${SAFE_NAME}-${MODE}-universal-${TIMESTAMP}.apk"
+            fi
+          fi
+
+          if [ -f "mobile/build/app/outputs/bundle/release/app-release.aab" ]; then
+            cp "mobile/build/app/outputs/bundle/release/app-release.aab" "artifacts/${SAFE_NAME}-${MODE}-${TIMESTAMP}.aab"
+          fi
+
+          ls -la artifacts/
+          echo "artifact_dir=artifacts" >> $GITHUB_OUTPUT
+
+      - name: Upload APK artifacts
+        if: steps.config.outputs.build_type == 'apk' || steps.config.outputs.build_type == 'both'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ steps.config.outputs.app_mode }}
+          path: artifacts/*.apk
+          retention-days: 30
+
+      - name: Upload AAB artifact
+        if: steps.config.outputs.build_type == 'appbundle' || steps.config.outputs.build_type == 'both'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ steps.config.outputs.app_mode }}
+          path: artifacts/*.aab
+          retention-days: 30
+
+      - name: Webhook — notify success
+        if: steps.config.outputs.webhook_url != '' && success()
+        run: |
+          curl -s -X POST "${{ steps.config.outputs.webhook_url }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "build_id": "${{ steps.config.outputs.build_id }}",
+              "status": "completed",
+              "platform": "android",
+              "run_id": "${{ github.run_id }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }' || true
+
+      - name: Webhook — notify failure
+        if: steps.config.outputs.webhook_url != '' && failure()
+        run: |
+          curl -s -X POST "${{ steps.config.outputs.webhook_url }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "build_id": "${{ steps.config.outputs.build_id }}",
+              "status": "failed",
+              "platform": "android",
+              "run_id": "${{ github.run_id }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }' || true

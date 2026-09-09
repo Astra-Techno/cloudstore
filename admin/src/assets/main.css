@@ -769,3 +769,54 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 	.ob-search input { width: 100%; }
 	.ob-card__options { grid-template-columns: 1fr; gap: 8px; }
 }
+
+/* Settings: task-focused desktop tabs */
+.settings-tabs {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0 0 20px;
+	padding: 5px;
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: #fff;
+	box-shadow: 0 8px 22px rgba(28, 31, 54, .04);
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tab {
+	flex: 1 0 auto;
+	border: 0;
+	border-radius: 10px;
+	padding: 10px 15px;
+	background: transparent;
+	color: #74778a;
+	font: 700 13px/1 var(--font-body);
+	white-space: nowrap;
+	cursor: pointer;
+	transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.settings-tab:hover { color: var(--primary); background: #f4f7ff; }
+.settings-tab--active {
+	color: #fff;
+	background: var(--primary);
+	box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+.settings-tab--active:hover { color: #fff; background: var(--primary); }
+.settings-tab-content > div {
+	animation: settings-panel-in .2s ease both;
+}
+@keyframes settings-panel-in {
+	from { opacity: 0; transform: translateY(4px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+@media (min-width: 1024px) {
+	.settings-tabs { padding: 6px; gap: 6px; }
+	.settings-tab { padding: 12px 16px; }
+	.settings-tab-content { min-height: 265px; }
+}
+@media (max-width: 640px) {
+	.settings-tabs { margin-bottom: 14px; border-radius: 12px; }
+	.settings-tab { flex: 0 0 auto; padding: 9px 12px; font-size: 12px; }
+}

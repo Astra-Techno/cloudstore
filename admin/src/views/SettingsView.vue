@@ -9,6 +9,17 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 const success = ref('')
+const activeTab = ref('store')
+
+const settingsTabs = [
+  { id: 'store', label: 'Store profile' },
+  { id: 'branding', label: 'Branding' },
+  { id: 'orders', label: 'Order rules' },
+  { id: 'fulfilment', label: 'Fulfilment' },
+  { id: 'payments', label: 'Payments' },
+  { id: 'hours', label: 'Business hours' },
+  { id: 'security', label: 'Security' },
+]
 
 const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
@@ -154,9 +165,24 @@ onMounted(loadSettings)
     <div v-if="loading" class="list-loading">Loading settings<span></span></div>
 
     <template v-else-if="settings">
-      <div class="space-y-6">
+      <div class="settings-tabs" role="tablist" aria-label="Store settings sections">
+        <button
+          v-for="tab in settingsTabs"
+          :key="tab.id"
+          type="button"
+          class="settings-tab"
+          :class="{ 'settings-tab--active': activeTab === tab.id }"
+          :aria-selected="activeTab === tab.id"
+          role="tab"
+          @click="activeTab = tab.id"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <div class="settings-tab-content">
         <!-- Store Info -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div v-show="activeTab === 'store'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Store Information</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -172,7 +198,7 @@ onMounted(loadSettings)
         </div>
 
         <!-- Branding -->
-        <div v-if="settings.branding" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div v-if="settings.branding" v-show="activeTab === 'branding'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Branding</h2>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -194,7 +220,7 @@ onMounted(loadSettings)
         </div>
 
         <!-- Order Settings -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div v-show="activeTab === 'orders'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Order & Pricing</h2>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -213,7 +239,7 @@ onMounted(loadSettings)
         </div>
 
         <!-- Fulfillment -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div v-show="activeTab === 'fulfilment'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Fulfillment Options</h2>
           <div class="flex gap-6">
             <label class="flex items-center gap-3 cursor-pointer">
@@ -228,7 +254,7 @@ onMounted(loadSettings)
         </div>
 
         <!-- Payment Methods -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div v-show="activeTab === 'payments'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Payment Methods</h2>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <button v-for="opt in paymentOptions" :key="opt.value" @click="togglePayment(opt.value)"
@@ -241,7 +267,7 @@ onMounted(loadSettings)
         </div>
 
         <!-- Password Change -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div v-show="activeTab === 'security'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Change Password</h2>
           <div v-if="passwordError" class="mb-3 p-2 bg-red-50 border border-red-200 text-red-700 rounded text-sm">{{ passwordError }}</div>
           <div v-if="passwordSuccess" class="mb-3 p-2 bg-green-50 border border-green-200 text-green-700 rounded text-sm">{{ passwordSuccess }}</div>
@@ -267,7 +293,7 @@ onMounted(loadSettings)
         </div>
 
         <!-- Business Hours -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div v-show="activeTab === 'hours'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Business Hours</h2>
           <div class="space-y-3">
             <div v-for="day in days" :key="day" class="flex items-center gap-4 py-2 border-b border-gray-50 last:border-0">
