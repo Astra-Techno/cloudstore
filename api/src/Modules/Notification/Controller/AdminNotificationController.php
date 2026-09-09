@@ -25,6 +25,9 @@ final class AdminNotificationController
             return Response::unauthorized();
         }
 
+        if (!TenantContext::has()) {
+            return Response::success(['notifications' => [], 'unread_count' => 0]);
+        }
         $tenantId = TenantContext::id();
         $page = (int) ($request->query['page'] ?? 1);
         $limit = 50;
@@ -65,6 +68,9 @@ final class AdminNotificationController
             return Response::unauthorized();
         }
 
+        if (!TenantContext::has()) {
+            return Response::success(['read_all' => true]);
+        }
         $this->notificationRepo->markAllRead('admin', (int) $admin['id'], TenantContext::id());
 
         return Response::success(['read_all' => true]);
