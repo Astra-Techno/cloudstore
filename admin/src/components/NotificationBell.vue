@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { notificationsApi, type Notification } from '@/api/notifications'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const isPlatformAdmin = computed(() => auth.user?.role === 'platform_admin')
 
 const notifications = ref<Notification[]>([])
 const unreadCount = ref(0)
@@ -16,6 +20,7 @@ let lastKnownCount = 0
 const hasUnread = computed(() => unreadCount.value > 0)
 
 async function fetchNotifications() {
+  if (isPlatformAdmin.value) return
   try {
     const { data } = await notificationsApi.list()
     if (data.success && data.data) {

@@ -2,13 +2,16 @@
 import { computed, ref, onMounted } from 'vue'
 import { settingsApi } from '@/api/settings'
 import { ordersApi } from '@/api/orders'
+import { platformApi } from '@/api/platform'
 import { useAuthStore } from '@/stores/auth'
 import type { DashboardStats } from '@/types'
 
 const stats = ref<DashboardStats | null>(null)
+const platformStats = ref<Record<string, number> | null>(null)
 const loading = ref(true)
 const auth = useAuthStore()
 const authName = computed(() => auth.user?.name?.split(' ')[0])
+const isPlatformAdmin = computed(() => auth.user?.role === 'platform_admin')
 
 const totalActiveOrders = computed(() => {
   if (!stats.value) return 0
@@ -63,22 +66,29 @@ function formatDay(dateStr: string): string {
 
 onMounted(async () => {
   try {
-    // Try enhanced dashboard first, fallback to basic
-    const { data } = await settingsApi.dashboardEnhanced()
-    if (data.success && data.data) {
-      stats.value = data.data as DashboardStats
+    if (isPlatformAdmin.value) {
+      const { data } = await platformApi.getDashboard()
+      if (data.success && data.data) platformStats.value = data.data
     } else {
-      const basicRes = await ordersApi.dashboard()
-      if (basicRes.data.success && basicRes.data.data) {
-        stats.value = basicRes.data.data
+      // Try enhanced dashboard first, fallback to basic
+      const { data } = await settingsApi.dashboardEnhanced()
+      if (data.success && data.data) {
+        stats.value = data.data as DashboardStats
+      } else {
+        const basicRes = await ordersApi.dashboard()
+        if (basicRes.data.success && basicRes.data.data) {
+          stats.value = basicRes.data.data
+        }
       }
     }
   } catch (e) {
-    try {
-      const { data } = await ordersApi.dashboard()
-      if (data.success && data.data) stats.value = data.data
-    } catch {
-      console.error('Failed to load dashboard')
+    if (!isPlatformAdmin.value) {
+      try {
+        const { data } = await ordersApi.dashboard()
+        if (data.success && data.data) stats.value = data.data
+      } catch {
+        console.error('Failed to load dashboard')
+      }
     }
   } finally {
     loading.value = false
@@ -88,6 +98,83 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard-page">
+    <!-- Platform Admin Dashboard -->
+    <template v-if="isPlatformAdmin">
+      <section class="dashboard-intro">
+        <div>
+          <p class="dashboard-kicker">{{ todayLabel }}</p>
+          <h1>Platform Overview</h1>
+          <p class="dashboard-subtitle">Manage all tenants, builds, and platform operations.</p>
+        </div>
+        <router-link to="/tenants" class="dashboard-action">
+          <span>Manage tenants</span>
+          <span aria-hidden="true">↗</span>
+        </router-link>
+      </section>
+
+      <div v-if="loading" class="dashboard-loading" aria-live="polite">
+        <div v-for="item in 4" :key="item" class="loading-block"></div>
+      </div>
+
+      <template v-else-if="platformStats">
+        <section class="metric-grid">
+          <article class="metric-card metric-card--dark">
+            <div class="metric-card__top"><span>Total Tenants</span><span class="metric-icon">T</span></div>
+            <strong>{{ platformStats.total_tenants }}</strong>
+            <p>{{ platformStats.active_tenants }} active</p>
+            <div class="metric-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </article>
+          <article class="metric-card">
+            <div class="metric-card__top"><span>Total Orders</span><span class="metric-icon metric-icon--coral">↗</span></div>
+            <strong>{{ platformStats.total_orders }}</strong>
+            <p>Across all tenants</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-card__top"><span>Total Revenue</span><span class="metric-icon metric-icon--lime">◎</span></div>
+            <strong>{{ formatPrice(platformStats.total_revenue || 0) }}</strong>
+            <p>Platform-wide revenue</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-card__top"><span>Customers</span><span class="metric-icon metric-icon--blue">✦</span></div>
+            <strong>{{ platformStats.total_customers }}</strong>
+            <p>{{ platformStats.total_tenant_admins }} tenant admins</p>
+          </article>
+        </section>
+
+        <section class="touch-launcher">
+          <div class="touch-launcher__heading">
+            <div><p>Platform tools</p><h2>Quick actions</h2></div>
+          </div>
+          <div class="touch-launcher__grid">
+            <router-link to="/tenants" class="touch-tile touch-tile--orders">
+              <span class="touch-tile__mark">T</span>
+              <span><strong>Tenants</strong><small>Create & manage stores</small></span>
+              <b aria-hidden="true">›</b>
+            </router-link>
+            <router-link to="/tenants" class="touch-tile touch-tile--catalog">
+              <span class="touch-tile__mark">B</span>
+              <span><strong>App Builds</strong><small>Build & share apps</small></span>
+              <b aria-hidden="true">›</b>
+            </router-link>
+            <router-link to="/tenants" class="touch-tile touch-tile--offers">
+              <span class="touch-tile__mark">F</span>
+              <span><strong>Features</strong><small>Toggle capabilities</small></span>
+              <b aria-hidden="true">›</b>
+            </router-link>
+            <router-link to="/settings" class="touch-tile touch-tile--delivery">
+              <span class="touch-tile__mark">S</span>
+              <span><strong>Settings</strong><small>Platform config</small></span>
+              <b aria-hidden="true">›</b>
+            </router-link>
+          </div>
+        </section>
+      </template>
+
+      <div v-else class="dashboard-error"><strong>We couldn't load the dashboard.</strong><span>Refresh the page and try again.</span></div>
+    </template>
+
+    <!-- Tenant Dashboard -->
+    <template v-else>
     <section class="dashboard-intro">
       <div>
         <p class="dashboard-kicker">{{ todayLabel }}</p>
@@ -242,6 +329,7 @@ onMounted(async () => {
     </template>
 
     <div v-else class="dashboard-error"><strong>We couldn't load the dashboard.</strong><span>Refresh the page and try again.</span></div>
+    </template>
   </div>
 </template>
 

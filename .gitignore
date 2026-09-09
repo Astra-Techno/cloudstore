@@ -12,3 +12,10 @@ Thumbs.db
 # OS
 desktop.ini
 hosting/
+
+# Signing keys
+mobile/android/keystore/
+mobile/android/key.properties
+*.jks
+*.keystore
+keystore-base64.txt
