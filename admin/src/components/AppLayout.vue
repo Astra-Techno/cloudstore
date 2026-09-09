@@ -44,7 +44,6 @@ onMounted(async () => {
 const platformNavItems = [
   { label: 'Dashboard', path: '/', icon: 'overview' },
   { label: 'Tenants', path: '/tenants', icon: 'customers' },
-  { label: 'Settings', path: '/settings', icon: 'settings' },
 ]
 
 const tenantNavItems = [
