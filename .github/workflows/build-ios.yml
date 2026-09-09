@@ -67,6 +67,7 @@ jobs:
             echo "webhook_url=${{ github.event.client_payload.webhook_url || '' }}" >> $GITHUB_OUTPUT
             echo "build_id=${{ github.event.client_payload.build_id || '' }}" >> $GITHUB_OUTPUT
             echo "primary_color=${{ github.event.client_payload.primary_color || '#4CAF50' }}" >> $GITHUB_OUTPUT
+            echo "webhook_secret=${{ github.event.client_payload.webhook_secret || '' }}" >> $GITHUB_OUTPUT
           else
             echo "app_token=${{ inputs.app_token }}" >> $GITHUB_OUTPUT
             echo "api_base_url=${{ inputs.api_base_url }}" >> $GITHUB_OUTPUT
@@ -77,6 +78,7 @@ jobs:
             echo "webhook_url=${{ inputs.webhook_url || '' }}" >> $GITHUB_OUTPUT
             echo "build_id=${{ inputs.build_id || '' }}" >> $GITHUB_OUTPUT
             echo "primary_color=#4CAF50" >> $GITHUB_OUTPUT
+            echo "webhook_secret=" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout code
@@ -237,8 +239,10 @@ jobs:
         run: |
           curl -s -X POST "${{ steps.config.outputs.webhook_url }}" \
             -H "Content-Type: application/json" \
+            -H "X-Build-Secret: ${{ steps.config.outputs.webhook_secret }}" \
             -d '{
               "build_id": "${{ steps.config.outputs.build_id }}",
+              "secret": "${{ steps.config.outputs.webhook_secret }}",
               "status": "completed",
               "platform": "ios",
               "run_id": "${{ github.run_id }}",
@@ -250,8 +254,10 @@ jobs:
         run: |
           curl -s -X POST "${{ steps.config.outputs.webhook_url }}" \
             -H "Content-Type: application/json" \
+            -H "X-Build-Secret: ${{ steps.config.outputs.webhook_secret }}" \
             -d '{
               "build_id": "${{ steps.config.outputs.build_id }}",
+              "secret": "${{ steps.config.outputs.webhook_secret }}",
               "status": "failed",
               "platform": "ios",
               "run_id": "${{ github.run_id }}",

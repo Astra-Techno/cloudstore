@@ -30,6 +30,24 @@ interface TenantAdmin {
   created_at: string
 }
 
+interface AppBuild {
+  uuid: string
+  platform: string
+  app_mode: string
+  build_type: string
+  status: string
+  app_name: string
+  app_id: string
+  github_run_url: string | null
+  download_url: string | null
+  share_token: string | null
+  share_url: string | null
+  file_size: number | null
+  error_message: string | null
+  completed_at: string | null
+  created_at: string
+}
+
 const tenants = ref<Tenant[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -40,7 +58,9 @@ const statusFilter = ref('')
 const showCreateModal = ref(false)
 const showDetailModal = ref(false)
 const showAdminModal = ref(false)
+const showBuildModal = ref(false)
 const saving = ref(false)
+const building = ref(false)
 
 // Create form
 const form = ref({
@@ -57,6 +77,11 @@ const createdToken = ref('')
 
 // Admin create form
 const adminForm = ref({ name: '', email: '', password: '', role: 'tenant_owner' })
+
+// Builds
+const tenantBuilds = ref<AppBuild[]>([])
+const buildForm = ref({ platform: 'android', app_mode: 'customer', build_type: 'apk', app_name: '', app_id: 'com.cloudmarket.cloudstore', app_token: '', primary_color: '#4CAF50' })
+const copiedToken = ref('')
 
 const allCapabilities = [
   { key: 'orders', label: 'Orders' },
@@ -134,10 +159,13 @@ async function openDetail(tenant: Tenant) {
   }
   showDetailModal.value = true
 
-  // Load admins
+  // Load admins and builds in parallel
   try {
-    const { data } = await platformApi.getTenantAdmins(tenant.id)
-    tenantAdmins.value = data.data || []
+    const [adminsRes] = await Promise.all([
+      platformApi.getTenantAdmins(tenant.id),
+      loadBuilds(tenant.id),
+    ])
+    tenantAdmins.value = adminsRes.data.data || []
   } catch { tenantAdmins.value = [] }
 }
 
@@ -186,6 +214,63 @@ async function createAdmin() {
   } finally {
     saving.value = false
   }
+}
+
+// ── Builds ──
+
+async function loadBuilds(tenantUuid: string) {
+  try {
+    const { data } = await platformApi.getBuilds(tenantUuid)
+    tenantBuilds.value = data.data || []
+  } catch { tenantBuilds.value = [] }
+}
+
+function openBuildModal() {
+  if (!selectedTenant.value) return
+  buildForm.value = {
+    platform: 'android', app_mode: 'customer', build_type: 'apk',
+    app_name: selectedTenant.value.name, app_id: 'com.cloudmarket.cloudstore',
+    app_token: '', primary_color: '#4CAF50',
+  }
+  showBuildModal.value = true
+}
+
+async function triggerBuild() {
+  if (!selectedTenant.value) return
+  building.value = true
+  error.value = ''
+  try {
+    await platformApi.triggerBuild(selectedTenant.value.id, buildForm.value)
+    showBuildModal.value = false
+    await loadBuilds(selectedTenant.value.id)
+  } catch (e: any) {
+    error.value = e.response?.data?.error?.message || 'Failed to trigger build'
+  } finally {
+    building.value = false
+  }
+}
+
+function buildStatusColor(s: string) {
+  const map: Record<string, string> = {
+    pending: 'bg-gray-100 text-gray-600',
+    queued: 'bg-blue-100 text-blue-700',
+    building: 'bg-yellow-100 text-yellow-800',
+    completed: 'bg-green-100 text-green-800',
+    failed: 'bg-red-100 text-red-800',
+  }
+  return map[s] || 'bg-gray-100 text-gray-600'
+}
+
+function copyShareLink(url: string) {
+  navigator.clipboard.writeText(url)
+  copiedToken.value = url
+  setTimeout(() => copiedToken.value = '', 2000)
+}
+
+function formatFileSize(bytes: number | null) {
+  if (!bytes) return '-'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
 function formatMoney(paise: number) {
@@ -389,6 +474,36 @@ onMounted(load)
           </div>
         </div>
 
+        <!-- App Builds -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide">App Builds</h3>
+            <button class="text-xs font-bold text-red-600 hover:text-red-700" @click="openBuildModal">+ New Build</button>
+          </div>
+          <div v-if="tenantBuilds.length === 0" class="text-sm text-gray-400 py-4 text-center border rounded-xl">No builds yet — trigger one to generate the tenant's mobile app.</div>
+          <div v-else class="space-y-2">
+            <div v-for="b in tenantBuilds" :key="b.uuid" class="p-3 border rounded-xl">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold uppercase px-2 py-0.5 rounded" :class="b.platform === 'android' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'">{{ b.platform }}</span>
+                  <span class="text-xs text-gray-500">{{ b.app_mode }} &middot; {{ b.build_type }}</span>
+                </div>
+                <span class="text-xs font-bold px-2 py-0.5 rounded-full" :class="buildStatusColor(b.status)">{{ b.status }}</span>
+              </div>
+              <p class="text-sm font-semibold">{{ b.app_name }}</p>
+              <p class="text-xs text-gray-400">{{ new Date(b.created_at).toLocaleString() }} &middot; {{ formatFileSize(b.file_size) }}</p>
+              <div class="flex items-center gap-2 mt-2">
+                <a v-if="b.github_run_url" :href="b.github_run_url" target="_blank" class="text-xs text-blue-600 hover:underline">GitHub Run</a>
+                <a v-if="b.download_url" :href="b.download_url" target="_blank" class="text-xs font-bold text-green-600 hover:underline">Download</a>
+                <button v-if="b.share_url && b.status === 'completed'" class="text-xs font-bold text-purple-600 hover:underline" @click="copyShareLink(b.share_url)">
+                  {{ copiedToken === b.share_url ? 'Copied!' : 'Copy Share Link' }}
+                </button>
+                <span v-if="b.error_message" class="text-xs text-red-500 truncate max-w-[200px]" :title="b.error_message">{{ b.error_message }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Admins -->
         <div>
           <div class="flex items-center justify-between mb-3">
@@ -429,6 +544,76 @@ onMounted(load)
             <button type="button" class="flex-1 py-2 border rounded-lg font-bold" @click="showAdminModal = false">Cancel</button>
             <button type="submit" :disabled="saving" class="flex-1 py-2 rounded-lg font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">
               {{ saving ? 'Creating...' : 'Create Admin' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Trigger Build Modal -->
+    <div v-if="showBuildModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" @click.self="showBuildModal = false">
+      <div class="bg-white rounded-2xl w-full max-w-md p-6">
+        <div class="flex items-center justify-between pb-4 border-b mb-4">
+          <h3 class="text-lg font-bold">Build App for {{ selectedTenant?.name }}</h3>
+          <button class="text-gray-400 hover:text-gray-600 text-xl" @click="showBuildModal = false">&times;</button>
+        </div>
+        <form @submit.prevent="triggerBuild" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-500 mb-1">Platform *</label>
+              <select v-model="buildForm.platform" class="w-full border rounded-lg px-3 py-2" @change="buildForm.build_type = buildForm.platform === 'android' ? 'apk' : 'ad-hoc'">
+                <option value="android">Android</option>
+                <option value="ios">iOS</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-500 mb-1">App Mode *</label>
+              <select v-model="buildForm.app_mode" class="w-full border rounded-lg px-3 py-2">
+                <option value="customer">Customer App</option>
+                <option value="driver">Driver App</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1">Build Type</label>
+            <select v-model="buildForm.build_type" class="w-full border rounded-lg px-3 py-2">
+              <template v-if="buildForm.platform === 'android'">
+                <option value="apk">APK</option>
+                <option value="appbundle">App Bundle (AAB)</option>
+                <option value="both">Both (APK + AAB)</option>
+              </template>
+              <template v-else>
+                <option value="ad-hoc">Ad Hoc</option>
+                <option value="app-store">App Store</option>
+                <option value="development">Development</option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1">App Display Name</label>
+            <input v-model="buildForm.app_name" class="w-full border rounded-lg px-3 py-2" placeholder="Store name shown on device" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1">Application ID</label>
+            <input v-model="buildForm.app_id" class="w-full border rounded-lg px-3 py-2" placeholder="com.cloudmarket.cloudstore" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1">App Token *</label>
+            <input v-model="buildForm.app_token" required class="w-full border rounded-lg px-3 py-2 font-mono text-xs" placeholder="Tenant's app token for API auth" />
+            <p class="text-xs text-gray-400 mt-1">The token generated when this tenant was created</p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1">Primary Color</label>
+            <div class="flex items-center gap-2">
+              <input type="color" v-model="buildForm.primary_color" class="w-10 h-10 rounded border cursor-pointer" />
+              <input v-model="buildForm.primary_color" class="flex-1 border rounded-lg px-3 py-2 font-mono text-sm" />
+            </div>
+          </div>
+          <div v-if="error" class="text-sm text-red-600 bg-red-50 p-2 rounded-lg">{{ error }}</div>
+          <div class="flex gap-3 pt-2">
+            <button type="button" class="flex-1 py-2 border rounded-lg font-bold text-gray-600" @click="showBuildModal = false">Cancel</button>
+            <button type="submit" :disabled="building" class="flex-1 py-2 rounded-lg font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">
+              {{ building ? 'Triggering...' : 'Start Build' }}
             </button>
           </div>
         </form>

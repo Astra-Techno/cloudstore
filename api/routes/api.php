@@ -25,6 +25,7 @@ use App\Modules\Order\Controller\AdminPosController;
 use App\Modules\Offer\Controller\AdminOfferController;
 use App\Modules\Offer\Controller\PublicOfferController;
 use App\Modules\Platform\Controller\PlatformAdminController;
+use App\Modules\Platform\Controller\BuildController;
 use App\Core\Http\Middleware\TenantMiddleware;
 
 return function (Router $router): void {
@@ -53,6 +54,11 @@ return function (Router $router): void {
             $router->put('/tenants/{uuid}/capabilities', [PlatformAdminController::class, 'updateCapabilities']);
             $router->get('/tenants/{uuid}/admins', [PlatformAdminController::class, 'listTenantAdmins']);
             $router->post('/tenants/{uuid}/admins', [PlatformAdminController::class, 'createTenantAdmin']);
+
+            // App builds
+            $router->get('/tenants/{uuid}/builds', [BuildController::class, 'listBuilds']);
+            $router->post('/tenants/{uuid}/builds', [BuildController::class, 'triggerBuild']);
+            $router->get('/builds/{buildUuid}', [BuildController::class, 'getBuild']);
         });
 
         // Admin panel (authenticated)
@@ -160,6 +166,12 @@ return function (Router $router): void {
 
         // Payment webhook (no auth — verified by signature)
         $router->post('/webhooks/payment', [PaymentController::class, 'webhook']);
+
+        // Build webhook (no auth — verified by secret)
+        $router->post('/webhooks/build', [BuildController::class, 'webhook']);
+
+        // Public build download (share link)
+        $router->get('/builds/download/{token}', [BuildController::class, 'download']);
 
         // Public/customer routes (tenant-scoped via X-App-Token)
         $router->group('', [TenantMiddleware::class], function (Router $router) {

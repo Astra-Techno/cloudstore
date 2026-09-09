@@ -18,4 +18,10 @@ export const platformApi = {
   getTenantAdmins: (uuid: string) => apiClient.get(`/platform/tenants/${uuid}/admins`),
   createTenantAdmin: (uuid: string, data: Record<string, unknown>) =>
     apiClient.post(`/platform/tenants/${uuid}/admins`, data),
+
+  // App builds
+  getBuilds: (uuid: string) => apiClient.get(`/platform/tenants/${uuid}/builds`),
+  triggerBuild: (uuid: string, data: Record<string, unknown>) =>
+    apiClient.post(`/platform/tenants/${uuid}/builds`, data),
+  getBuild: (buildUuid: string) => apiClient.get(`/platform/builds/${buildUuid}`),
 }
