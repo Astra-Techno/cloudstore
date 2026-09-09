@@ -68,7 +68,7 @@ final class BuildController
 
         // Get tenant's active app token prefix for reference
         $tokenRow = $this->db->fetchOne(
-            "SELECT id, prefix FROM app_tokens WHERE tenant_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+            "SELECT id, token_prefix FROM app_tokens WHERE tenant_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
             [$tenant->id]
         );
 
