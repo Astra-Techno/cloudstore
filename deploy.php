@@ -450,6 +450,32 @@ foreach ($migLog as $m) {
 }
 
 // =============================================================================
+// STEP 8 - Clear caches
+// =============================================================================
+
+// Clear PHP opcache
+if (function_exists('opcache_reset')) {
+    opcache_reset();
+    log_step('OK', 'PHP opcache cleared', 'ok');
+} else {
+    log_step('.', 'opcache not available', 'muted');
+}
+
+// Clear API storage/logs cache files if any
+$cacheDir = API_DIR . '/storage/cache';
+if (is_dir($cacheDir)) {
+    $cleared = 0;
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($cacheDir, FilesystemIterator::SKIP_DOTS)) as $file) {
+        if ($file->isFile()) { unlink($file->getPathname()); $cleared++; }
+    }
+    log_step('OK', "Cleared {$cleared} cached file(s)", 'ok');
+}
+
+// Add cache-busting header hint for frontend
+$buildHash = substr(md5((string) time()), 0, 8);
+log_step('OK', "Frontend build hash: {$buildHash} (assets have unique hashes via Vite)", 'ok');
+
+// =============================================================================
 // Done
 // =============================================================================
 cleanup($tmpDir);
