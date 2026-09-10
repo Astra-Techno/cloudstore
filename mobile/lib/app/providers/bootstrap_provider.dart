@@ -51,7 +51,8 @@ class BootstrapProvider extends ChangeNotifier {
     _tenantName = data['tenant']?['name'] as String?;
     _businessType = data['tenant']?['business_type'] as String?;
 
-    final branding = data['branding'] as Map<String, dynamic>?;
+    final brandingRaw = data['branding'];
+    final branding = brandingRaw is Map ? Map<String, dynamic>.from(brandingRaw) : null;
     if (branding != null && branding['primary_color'] != null) {
       final hex = branding['primary_color'].toString().replaceFirst('#', '');
       if (hex.length == 6) {
@@ -59,8 +60,9 @@ class BootstrapProvider extends ChangeNotifier {
       }
     }
 
-    final features = data['features'] as Map<String, dynamic>? ?? {};
-    _capabilities = features.map((k, v) => MapEntry(k, v == true));
+    final featuresRaw = data['features'];
+    final features = featuresRaw is Map ? Map<String, dynamic>.from(featuresRaw) : <String, dynamic>{};
+    _capabilities = features.map((k, v) => MapEntry(k.toString(), v == true));
 
     _error = null;
     _isLoaded = true;

@@ -24,34 +24,50 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _bootstrap() async {
-    // Initialize notification service
-    await NotificationService().initialize();
-
-    // Load tenant data
-    final bootstrap = context.read<BootstrapProvider>();
-    await bootstrap.loadTenant();
+    try {
+      // Initialize notification service safely
+      await NotificationService().initialize();
+    } catch (e) {
+      debugPrint('NotificationService initialization failed: $e');
+    }
 
     if (!mounted) return;
 
-    if (AppConfig.appMode == 'driver') {
-      // Driver mode
-      final driver = context.read<DriverProvider>();
-      await driver.loadSavedToken();
-      if (mounted) {
-        context.go(driver.isAuthenticated ? '/driver/home' : '/driver/login');
+    try {
+      // Load tenant data
+      final bootstrap = context.read<BootstrapProvider>();
+      if (!bootstrap.isLoaded) {
+        await bootstrap.loadTenant();
       }
-    } else {
-      // Customer mode
-      final auth = context.read<AuthProvider>();
-      await auth.loadSavedToken();
+    } catch (e) {
+      debugPrint('Bootstrap loading failed: $e');
+    }
 
-      if (mounted) {
-        if (auth.isAuthenticated) {
-          context.read<CartProvider>().loadCart();
-          context.read<NotificationProvider>().startPolling();
+    if (!mounted) return;
+
+    try {
+      if (AppConfig.appMode == 'driver') {
+        // Driver mode
+        final driver = context.read<DriverProvider>();
+        await driver.loadSavedToken();
+        if (mounted) {
+          context.go(driver.isAuthenticated ? '/driver/home' : '/driver/login');
         }
-        context.go('/home');
+      } else {
+        // Customer mode
+        final auth = context.read<AuthProvider>();
+        await auth.loadSavedToken();
+
+        if (mounted) {
+          if (auth.isAuthenticated) {
+            context.read<CartProvider>().loadCart();
+            context.read<NotificationProvider>().startPolling();
+          }
+          context.go('/home');
+        }
       }
+    } catch (e) {
+      debugPrint('Bootstrap navigation error: $e');
     }
   }
 

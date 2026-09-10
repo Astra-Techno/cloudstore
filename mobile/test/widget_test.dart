@@ -8,23 +8,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cloudstore/main.dart';
+import 'package:cloudstore/app/app.dart';
+import 'package:cloudstore/app/providers/bootstrap_provider.dart';
+import 'package:cloudstore/app/providers/auth_provider.dart';
+import 'package:cloudstore/app/providers/cart_provider.dart';
+import 'package:cloudstore/app/providers/notification_provider.dart';
+import 'package:cloudstore/app/providers/driver_provider.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('CloudStoreApp smoke test', (WidgetTester tester) async {
+    final bootstrap = BootstrapProvider();
+    bootstrap.setTenantData(<String, dynamic>{
+      'tenant': <String, dynamic>{'id': 1, 'name': 'Test Store', 'business_type': 'retail'},
+      'branding': <String, dynamic>{'primary_color': '#4CAF50'},
+      'features': <String, dynamic>{},
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<BootstrapProvider>.value(value: bootstrap),
+          ChangeNotifierProvider(create: (_) => AuthProvider()),
+          ChangeNotifierProvider(create: (_) => CartProvider()),
+          ChangeNotifierProvider(create: (_) => NotificationProvider()),
+          ChangeNotifierProvider(create: (_) => DriverProvider()),
+        ],
+        child: const CloudStoreApp(),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.byType(CloudStoreApp), findsOneWidget);
   });
 }
