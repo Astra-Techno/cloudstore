@@ -339,21 +339,36 @@ final class BuildController
         $apkSize = 0;
         $zip = new \ZipArchive();
         if ($zip->open($zipPath) === true) {
-            // Find the first APK in the ZIP
+            // Prefer the universal package. Older builds can contain several
+            // ABI-specific APKs, and taking the first archive entry can give a
+            // customer a binary that cannot run on their phone.
+            $apkEntries = [];
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $name = $zip->getNameIndex($i);
                 if (str_ends_with(strtolower($name), '.apk')) {
-                    $finalName = "build_{$buildUuid}.apk";
-                    // Extract to builds dir
-                    $fp = $zip->getStream($name);
-                    if ($fp) {
-                        $outPath = $buildsDir . '/' . $finalName;
-                        file_put_contents($outPath, stream_get_contents($fp));
-                        fclose($fp);
-                        $apkFile = $finalName;
-                        $apkSize = filesize($outPath);
-                    }
-                    break;
+                    $apkEntries[] = $name;
+                }
+            }
+            usort($apkEntries, static function (string $a, string $b): int {
+                $priority = static function (string $name): int {
+                    $name = strtolower($name);
+                    if (str_contains($name, 'universal')) return 0;
+                    if (str_contains($name, 'arm64-v8a')) return 1;
+                    if (str_contains($name, 'armeabi-v7a')) return 2;
+                    return 3;
+                };
+                return $priority($a) <=> $priority($b);
+            });
+
+            if ($apkEntries !== []) {
+                $finalName = "build_{$buildUuid}.apk";
+                $fp = $zip->getStream($apkEntries[0]);
+                if ($fp) {
+                    $outPath = $buildsDir . '/' . $finalName;
+                    file_put_contents($outPath, stream_get_contents($fp));
+                    fclose($fp);
+                    $apkFile = $finalName;
+                    $apkSize = filesize($outPath);
                 }
             }
             $zip->close();

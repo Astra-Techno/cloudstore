@@ -223,7 +223,7 @@ onMounted(loadOrder)
             <p class="text-sm text-gray-500 mt-1">{{ formatDate(order.created_at) }}</p>
           </div>
           <div class="flex items-center gap-3">
-            <button @click="printReceipt" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Print Receipt</button>
+            <button v-if="!['pending_payment', 'confirmed'].includes(order.status)" @click="printReceipt" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Print Receipt</button>
             <span class="px-4 py-1.5 rounded-full text-sm font-medium text-white capitalize" :class="statusColors[order.status] || 'bg-gray-600'">
               {{ order.status.replace(/_/g, ' ') }}
             </span>

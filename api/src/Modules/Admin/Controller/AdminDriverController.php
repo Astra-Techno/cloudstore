@@ -66,6 +66,7 @@ final class AdminDriverController
             'tenant_id' => $tenantId,
             'name' => $data['name'],
             'phone' => $data['phone'],
+            'email' => $data['email'] ?? null,
             'password_hash' => password_hash($data['password'], PASSWORD_ARGON2ID),
             'vehicle_type' => $data['vehicle_type'] ?? null,
             'vehicle_number' => $data['vehicle_number'] ?? null,
@@ -87,7 +88,7 @@ final class AdminDriverController
             return Response::notFound('Driver not found.');
         }
 
-        $allowed = ['name', 'phone', 'vehicle_type', 'vehicle_number', 'status'];
+        $allowed = ['name', 'phone', 'email', 'vehicle_type', 'vehicle_number', 'status'];
         $updateData = [];
 
         foreach ($allowed as $field) {
@@ -135,9 +136,11 @@ final class AdminDriverController
     private function formatDriver(array $driver): array
     {
         return [
-            'id' => $driver['uuid'],
+            'id' => (int) $driver['id'],
+            'uuid' => $driver['uuid'],
             'name' => $driver['name'],
             'phone' => $driver['phone'],
+            'email' => $driver['email'] ?? null,
             'vehicle_type' => $driver['vehicle_type'],
             'vehicle_number' => $driver['vehicle_number'],
             'status' => $driver['status'],

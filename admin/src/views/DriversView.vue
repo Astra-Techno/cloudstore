@@ -8,6 +8,7 @@ interface Driver {
   uuid: string
   name: string
   phone: string
+  email: string | null
   vehicle_type: string | null
   vehicle_number: string | null
   status: string
@@ -29,6 +30,7 @@ const deleting = ref(false)
 const form = ref({
   name: '',
   phone: '',
+  email: '',
   password: '',
   vehicle_type: 'bike',
   vehicle_number: '',
@@ -52,7 +54,7 @@ async function loadDrivers(page = 1) {
 
 function openCreate() {
   editing.value = null
-  form.value = { name: '', phone: '', password: '', vehicle_type: 'bike', vehicle_number: '', status: 'active' }
+  form.value = { name: '', phone: '', email: '', password: '', vehicle_type: 'bike', vehicle_number: '', status: 'active' }
   error.value = ''
   showForm.value = true
 }
@@ -62,6 +64,7 @@ function openEdit(d: Driver) {
   form.value = {
     name: d.name,
     phone: d.phone,
+    email: d.email || '',
     password: '',
     vehicle_type: d.vehicle_type || 'bike',
     vehicle_number: d.vehicle_number || '',
@@ -79,8 +82,9 @@ async function saveDriver() {
       const payload: Record<string, unknown> = {
         name: form.value.name,
         phone: form.value.phone,
+        email: form.value.email || null,
         vehicle_type: form.value.vehicle_type,
-        vehicle_number: form.value.vehicle_number || null,
+        vehicle_number: form.value.vehicle_number ? form.value.vehicle_number.toUpperCase().trim() : null,
         status: form.value.status,
       }
       if (form.value.password) payload.password = form.value.password
@@ -91,9 +95,10 @@ async function saveDriver() {
       const { data } = await apiClient.post<ApiResponse>('/admin/drivers', {
         name: form.value.name,
         phone: form.value.phone,
+        email: form.value.email || null,
         password: form.value.password,
         vehicle_type: form.value.vehicle_type,
-        vehicle_number: form.value.vehicle_number || null,
+        vehicle_number: form.value.vehicle_number ? form.value.vehicle_number.toUpperCase().trim() : null,
         status: form.value.status,
       })
       if (!data.success) { error.value = data.error?.message || 'Failed to create'; return }
@@ -161,7 +166,7 @@ onMounted(loadDrivers)
     <div v-else class="list-table-card">
       <table class="list-table">
         <thead><tr>
-          <th>Driver</th><th>Phone</th><th>Vehicle</th><th>Status</th><th>Availability</th><th>Joined</th><th class="text-right">Actions</th>
+          <th>Driver</th><th>Phone</th><th>Email</th><th>Vehicle</th><th>Status</th><th>Availability</th><th>Joined</th><th class="text-right">Actions</th>
         </tr></thead>
         <tbody>
           <tr v-for="d in drivers" v-show="matchesSearch(d)" :key="d.uuid" class="list-row">
@@ -170,6 +175,7 @@ onMounted(loadDrivers)
               <div><strong>{{ d.name }}</strong><small>{{ d.phone }}</small></div>
             </td>
             <td class="list-muted">{{ d.phone }}</td>
+            <td class="list-muted">{{ d.email || '—' }}</td>
             <td class="list-muted">{{ d.vehicle_type || '—' }} {{ d.vehicle_number || '' }}</td>
             <td><span class="list-status" :class="d.status === 'active' ? 'list-status--lime' : 'list-status--coral'"><i></i>{{ d.status }}</span></td>
             <td><span class="list-status" :class="d.availability === 'available' ? 'list-status--lime' : 'list-status--coral'"><i></i>{{ d.availability }}</span></td>
@@ -179,7 +185,7 @@ onMounted(loadDrivers)
               <button @click="deleteConfirm = d" class="list-edit-button" style="color:#ef4444;margin-left:8px">Delete</button>
             </td>
           </tr>
-          <tr v-if="drivers.length === 0 || !drivers.some(matchesSearch)"><td colspan="7" class="list-empty">No drivers found.</td></tr>
+          <tr v-if="drivers.length === 0 || !drivers.some(matchesSearch)"><td colspan="8" class="list-empty">No drivers found.</td></tr>
         </tbody>
       </table>
     </div>
@@ -218,9 +224,15 @@ onMounted(loadDrivers)
               <input v-model="form.phone" type="tel" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Password {{ editing ? '(leave blank to keep)' : '' }}</label>
-            <input v-model="form.password" type="password" :required="!editing" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email <small class="text-gray-400">(optional)</small></label>
+              <input v-model="form.email" type="email" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="driver@example.com" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Password {{ editing ? '(leave blank to keep)' : '' }}</label>
+              <input v-model="form.password" type="password" :required="!editing" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
+            </div>
           </div>
           <div class="grid grid-cols-3 gap-4 mb-4">
             <div>
@@ -235,7 +247,8 @@ onMounted(loadDrivers)
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
-              <input v-model="form.vehicle_number" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="TN XX AB 1234" />
+              <input v-model="form.vehicle_number" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 uppercase" placeholder="TN 01 AB 1234" @input="form.vehicle_number = form.vehicle_number.toUpperCase()" />
+              <p class="text-xs text-gray-400 mt-1">Format: TN 01 AB 1234</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>

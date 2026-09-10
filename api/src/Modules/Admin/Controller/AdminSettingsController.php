@@ -234,6 +234,28 @@ final class AdminSettingsController
         return $this->getSettings($request, $params);
     }
 
+    // --- Store Live Toggle ---
+
+    public function toggleLive(Request $request, array $params): Response
+    {
+        $tenantId = (int) $request->authClaims['tenant_id'];
+        $data = $request->json();
+
+        $tenant = $this->tenantRepo->findById($tenantId);
+        if ($tenant === null) {
+            return Response::notFound('Tenant not found.');
+        }
+
+        $newStatus = ($data['live'] ?? false) ? 'active' : 'draft';
+
+        $this->db->execute(
+            "UPDATE tenants SET status = ? WHERE id = ?",
+            [$newStatus, $tenantId]
+        );
+
+        return Response::success(['status' => $newStatus, 'live' => $newStatus === 'active']);
+    }
+
     // --- Dashboard Enhanced ---
 
     public function dashboardEnhanced(Request $request, array $params): Response

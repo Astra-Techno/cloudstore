@@ -30,6 +30,9 @@ export const settingsApi = {
   updateSettings(data: Record<string, unknown>) {
     return apiClient.put<ApiResponse<StoreSettings>>('/admin/settings', data)
   },
+  toggleLive(live: boolean) {
+    return apiClient.post<ApiResponse>('/admin/settings/toggle-live', { live })
+  },
 
   // Enhanced Dashboard
   dashboardEnhanced() {

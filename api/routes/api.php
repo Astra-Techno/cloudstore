@@ -138,6 +138,7 @@ return function (Router $router): void {
             // Store settings
             $router->get('/settings', [AdminSettingsController::class, 'getSettings']);
             $router->put('/settings', [AdminSettingsController::class, 'updateSettings']);
+            $router->post('/settings/toggle-live', [AdminSettingsController::class, 'toggleLive']);
 
             // Enhanced dashboard
             $router->get('/dashboard/enhanced', [AdminSettingsController::class, 'dashboardEnhanced']);

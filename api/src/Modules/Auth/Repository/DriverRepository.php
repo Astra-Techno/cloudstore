@@ -40,13 +40,14 @@ final class DriverRepository
     public function create(array $data): int
     {
         $this->db->execute(
-            "INSERT INTO drivers (uuid, tenant_id, name, phone, password_hash, vehicle_type, vehicle_number, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO drivers (uuid, tenant_id, name, phone, email, password_hash, vehicle_type, vehicle_number, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 $data['uuid'],
                 $data['tenant_id'],
                 $data['name'],
                 $data['phone'],
+                $data['email'] ?? null,
                 $data['password_hash'],
                 $data['vehicle_type'] ?? null,
                 $data['vehicle_number'] ?? null,
@@ -73,7 +74,7 @@ final class DriverRepository
     public function findByTenant(int $tenantId): array
     {
         return $this->db->fetchAll(
-            "SELECT id, uuid, name, phone, vehicle_type, vehicle_number, status, availability, last_login_at, created_at
+            "SELECT id, uuid, name, phone, email, vehicle_type, vehicle_number, status, availability, last_login_at, created_at
              FROM drivers WHERE tenant_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
             [$tenantId]
         );

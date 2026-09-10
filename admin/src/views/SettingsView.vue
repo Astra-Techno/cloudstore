@@ -37,6 +37,29 @@ const passwordForm = ref({ current_password: '', new_password: '', confirm_passw
 const passwordSaving = ref(false)
 const passwordError = ref('')
 const passwordSuccess = ref('')
+const togglingLive = ref(false)
+
+async function toggleStoreLive() {
+  if (!settings.value) return
+  togglingLive.value = true
+  error.value = ''
+  try {
+    const goLive = settings.value.store.status !== 'active'
+    const { data } = await settingsApi.toggleLive(goLive)
+    if (data.success && data.data) {
+      const result = data.data as { status: string; live: boolean }
+      settings.value.store.status = result.status
+      success.value = goLive ? 'Store is now LIVE' : 'Store is now offline (draft)'
+      setTimeout(() => success.value = '', 3000)
+    } else {
+      error.value = data.error?.message || 'Failed to toggle store status'
+    }
+  } catch (e) {
+    error.value = 'Failed to toggle store status'
+  } finally {
+    togglingLive.value = false
+  }
+}
 
 async function changePassword() {
   passwordError.value = ''
@@ -192,7 +215,16 @@ onMounted(loadSettings)
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Store Status</label>
-              <span class="inline-block px-3 py-1 rounded-full text-sm" :class="settings.store.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'">{{ settings.store.status }}</span>
+              <div class="flex items-center gap-3">
+                <span class="inline-block px-3 py-1 rounded-full text-sm font-medium" :class="settings.store.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'">{{ settings.store.status === 'active' ? 'LIVE' : 'Offline' }}</span>
+                <button
+                  @click="toggleStoreLive"
+                  :disabled="togglingLive || settings.store.status === 'suspended' || settings.store.status === 'archived'"
+                  class="px-4 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                  :class="settings.store.status === 'active' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'"
+                >{{ togglingLive ? 'Updating...' : (settings.store.status === 'active' ? 'Go Offline' : 'Go Live') }}</button>
+              </div>
+              <p v-if="settings.store.status === 'suspended' || settings.store.status === 'archived'" class="text-xs text-red-500 mt-1">Store is {{ settings.store.status }}. Contact support to change.</p>
             </div>
           </div>
         </div>

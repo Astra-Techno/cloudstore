@@ -114,7 +114,6 @@ jobs:
         working-directory: mobile/android/app
         run: |
           APP_ID="${{ steps.config.outputs.app_id }}"
-          sed -i "s/namespace = \"com.cloudmarket.cloudstore\"/namespace = \"$APP_ID\"/" build.gradle.kts
           sed -i "s/applicationId = \"com.cloudmarket.cloudstore\"/applicationId = \"$APP_ID\"/" build.gradle.kts
 
       - name: Update app name in AndroidManifest
@@ -145,11 +144,13 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      - name: Build APK (split per ABI)
+      - name: Build universal APK
         if: steps.config.outputs.build_type == 'apk' || steps.config.outputs.build_type == 'both'
         working-directory: mobile
         run: |
-          flutter build apk --split-per-abi --release \
+          # A universal APK is intentional: each tenant download must run on
+          # every supported Android device, not just the first ABI archived.
+          flutter build apk --release \
             --dart-define=APP_TOKEN=${{ steps.config.outputs.app_token }} \
             --dart-define=API_BASE_URL=${{ steps.config.outputs.api_base_url }} \
             --dart-define=APP_MODE=${{ steps.config.outputs.app_mode }} \
