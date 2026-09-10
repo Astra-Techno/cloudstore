@@ -24,13 +24,21 @@ final class Request
     {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
         $path = parse_url($uri, PHP_URL_PATH) ?: '/';
+        $headers = self::extractHeaders();
+
+        // Support X-HTTP-Method-Override for shared hosting that blocks PUT/DELETE/PATCH
+        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $override = $headers['x-http-method-override'] ?? null;
+        if ($method === 'POST' && $override !== null && in_array(strtoupper($override), ['PUT', 'DELETE', 'PATCH'], true)) {
+            $method = strtoupper($override);
+        }
 
         return new self(
-            method: strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET'),
+            method: $method,
             uri: $uri,
             path: $path,
             query: $_GET,
-            headers: self::extractHeaders(),
+            headers: $headers,
             rawBody: file_get_contents('php://input') ?: '',
         );
     }

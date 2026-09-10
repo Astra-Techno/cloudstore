@@ -47,7 +47,7 @@ final class CorsMiddleware
 
         header("Access-Control-Allow-Origin: {$origin}");
         header('Access-Control-Allow-Credentials: true');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-App-Token, X-Idempotency-Key');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-App-Token, X-Idempotency-Key, X-HTTP-Method-Override');
         header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
         header('Access-Control-Max-Age: 86400');
     }
@@ -56,7 +56,7 @@ final class CorsMiddleware
     {
         header("Access-Control-Allow-Origin: {$origin}");
         header('Access-Control-Allow-Credentials: true');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-App-Token, X-Idempotency-Key');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-App-Token, X-Idempotency-Key, X-HTTP-Method-Override');
         header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
         header('Access-Control-Max-Age: 86400');
 

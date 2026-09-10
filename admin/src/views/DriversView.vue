@@ -8,7 +8,6 @@ interface Driver {
   uuid: string
   name: string
   phone: string
-  email: string | null
   vehicle_type: string | null
   vehicle_number: string | null
   status: string
@@ -30,7 +29,6 @@ const deleting = ref(false)
 const form = ref({
   name: '',
   phone: '',
-  email: '',
   password: '',
   vehicle_type: 'bike',
   vehicle_number: '',
@@ -54,7 +52,7 @@ async function loadDrivers(page = 1) {
 
 function openCreate() {
   editing.value = null
-  form.value = { name: '', phone: '', email: '', password: '', vehicle_type: 'bike', vehicle_number: '', status: 'active' }
+  form.value = { name: '', phone: '', password: '', vehicle_type: 'bike', vehicle_number: '', status: 'active' }
   error.value = ''
   showForm.value = true
 }
@@ -64,7 +62,6 @@ function openEdit(d: Driver) {
   form.value = {
     name: d.name,
     phone: d.phone,
-    email: d.email || '',
     password: '',
     vehicle_type: d.vehicle_type || 'bike',
     vehicle_number: d.vehicle_number || '',
@@ -82,7 +79,6 @@ async function saveDriver() {
       const payload: Record<string, unknown> = {
         name: form.value.name,
         phone: form.value.phone,
-        email: form.value.email || null,
         vehicle_type: form.value.vehicle_type,
         vehicle_number: form.value.vehicle_number || null,
         status: form.value.status,
@@ -95,7 +91,6 @@ async function saveDriver() {
       const { data } = await apiClient.post<ApiResponse>('/admin/drivers', {
         name: form.value.name,
         phone: form.value.phone,
-        email: form.value.email || null,
         password: form.value.password,
         vehicle_type: form.value.vehicle_type,
         vehicle_number: form.value.vehicle_number || null,
@@ -172,7 +167,7 @@ onMounted(loadDrivers)
           <tr v-for="d in drivers" v-show="matchesSearch(d)" :key="d.uuid" class="list-row">
             <td class="list-order-id">
               <span class="product-avatar">{{ d.name.charAt(0).toUpperCase() }}</span>
-              <div><strong>{{ d.name }}</strong><small>{{ d.email || 'No email' }}</small></div>
+              <div><strong>{{ d.name }}</strong><small>{{ d.phone }}</small></div>
             </td>
             <td class="list-muted">{{ d.phone }}</td>
             <td class="list-muted">{{ d.vehicle_type || '—' }} {{ d.vehicle_number || '' }}</td>
@@ -223,15 +218,9 @@ onMounted(loadDrivers)
               <input v-model="form.phone" type="tel" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input v-model="form.email" type="email" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Password {{ editing ? '(leave blank to keep)' : '' }}</label>
-              <input v-model="form.password" type="password" :required="!editing" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
-            </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Password {{ editing ? '(leave blank to keep)' : '' }}</label>
+            <input v-model="form.password" type="password" :required="!editing" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
           </div>
           <div class="grid grid-cols-3 gap-4 mb-4">
             <div>

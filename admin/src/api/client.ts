@@ -13,6 +13,15 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // Tunnel PUT/DELETE/PATCH as POST to avoid shared hosting WAF blocks
+  const method = config.method?.toUpperCase()
+  if (method === 'PUT' || method === 'DELETE' || method === 'PATCH') {
+    config.headers['X-HTTP-Method-Override'] = method
+    config.method = 'post'
+    if (method === 'DELETE' && !config.data) {
+      config.data = {}
+    }
+  }
   return config
 })
 

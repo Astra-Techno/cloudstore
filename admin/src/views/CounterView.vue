@@ -30,7 +30,17 @@ async function checkout() {
     cart.value = []; customerName.value = ''; customerPhone.value = ''; notes.value = ''
   } catch (e) { error.value = e instanceof Error ? e.message : 'Could not complete the sale.' } finally { submitting.value = false }
 }
-onMounted(async () => { try { const [p, c] = await Promise.all([catalogApi.listProducts(1, undefined, 'active'), catalogApi.listCategories()]); products.value = p.data.data || []; categories.value = c.data.data || [] } finally { loading.value = false } })
+async function loadAllProducts() {
+  let page = 1, all: Product[] = []
+  while (true) {
+    const { data } = await catalogApi.listProducts(page, undefined, 'active')
+    all = all.concat(data.data || [])
+    if (!data.meta || page >= data.meta.last_page) break
+    page++
+  }
+  return all
+}
+onMounted(async () => { try { const [p, c] = await Promise.all([loadAllProducts(), catalogApi.listCategories()]); products.value = p; categories.value = c.data.data || [] } finally { loading.value = false } })
 </script>
 
 <template>

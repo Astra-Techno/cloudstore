@@ -96,6 +96,11 @@ function openEdit(c: Coupon) {
 async function save() {
   saving.value = true
   error.value = ''
+  if (form.value.starts_at && form.value.expires_at && form.value.expires_at <= form.value.starts_at) {
+    error.value = 'Expiry date must be after start date'
+    saving.value = false
+    return
+  }
   try {
     const payload = { ...form.value }
     if (editing.value) {

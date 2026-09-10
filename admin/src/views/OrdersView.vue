@@ -125,8 +125,10 @@ function fulfilmentLabel(order: BoardOrder): string {
 }
 
 function paymentLabel(order: BoardOrder): string {
-  if (order.payment_method === 'cash_on_delivery') return 'COD'
-  return order.payment_status === 'paid' ? 'Paid online' : 'Online payment pending'
+  const m = order.payment_method || ''
+  if (m === 'cod' || m === 'cash_on_delivery' || m.startsWith('pos_')) return m.startsWith('pos_') ? 'POS ' + m.replace('pos_', '').toUpperCase() : 'COD'
+  if (m === 'online') return order.payment_status === 'paid' ? 'Paid online' : 'Online payment pending'
+  return order.payment_status === 'paid' ? 'Paid' : m.replace(/_/g, ' ') || 'Unknown'
 }
 
 function statusLabelColor(status: string): string {

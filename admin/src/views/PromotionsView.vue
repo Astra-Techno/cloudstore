@@ -94,6 +94,11 @@ function openEdit(p: Promotion) {
 async function save() {
   saving.value = true
   error.value = ''
+  if (form.value.starts_at && form.value.expires_at && form.value.expires_at <= form.value.starts_at) {
+    error.value = 'Expiry date must be after start date'
+    saving.value = false
+    return
+  }
   try {
     if (editing.value) {
       await offersApi.updatePromotion(editing.value.uuid, form.value)
