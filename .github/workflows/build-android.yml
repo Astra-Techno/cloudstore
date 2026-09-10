@@ -98,15 +98,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Cache Gradle
+      - name: Cache Gradle & Pub
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+            ~/.pub-cache
+          key: gradle-pub-${{ runner.os }}-${{ hashFiles('mobile/pubspec.lock', 'mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
-            gradle-${{ runner.os }}-
+            gradle-pub-${{ runner.os }}-
 
       - name: Update application ID
         if: steps.config.outputs.app_id != 'com.cloudmarket.cloudstore'

@@ -28,6 +28,8 @@ Local.xcconfig
 .pub-cache/
 .pub/
 /build/
+android/build/
+*.hprof
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
