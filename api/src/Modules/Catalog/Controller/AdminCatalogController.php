@@ -86,7 +86,8 @@ final class AdminCatalogController
         $status = $request->input('status');
         $search = $request->input('search');
 
-        $result = $this->catalogService->getProducts($tenantId, $page, $perPage, $status, $search);
+        $includeVariants = $request->input('include_variants') === '1';
+        $result = $this->catalogService->getProducts($tenantId, $page, $perPage, $status, $search, $includeVariants);
 
         return Response::success($result['items'], $result['meta']);
     }

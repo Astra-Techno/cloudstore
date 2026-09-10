@@ -66,23 +66,29 @@ class ProductVariant {
   final int id;
   final String uuid;
   final String name;
-  final int priceAdjustment;
+  final int price;
+  final int? weightGrams;
   final String status;
 
   ProductVariant({
     required this.id,
     required this.uuid,
     required this.name,
-    required this.priceAdjustment,
+    required this.price,
+    this.weightGrams,
     required this.status,
   });
+
+  /// For backward compat — treat price as adjustment when product is fixed-price
+  int get priceAdjustment => price;
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
     return ProductVariant(
       id: json['id'] as int,
       uuid: json['uuid'] as String,
       name: json['name'] as String,
-      priceAdjustment: json['price_adjustment'] as int? ?? 0,
+      price: json['price'] as int? ?? json['price_adjustment'] as int? ?? 0,
+      weightGrams: json['weight_grams'] as int?,
       status: json['status'] as String? ?? 'active',
     );
   }

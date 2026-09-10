@@ -9,6 +9,7 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Catalog\Repository\ProductRepository;
+use App\Modules\Catalog\Repository\VariantRepository;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
 use Ramsey\Uuid\Uuid;
@@ -19,6 +20,7 @@ final class AdminPosController
     public function __construct(
         private readonly Connection $db,
         private readonly ProductRepository $productRepo,
+        private readonly VariantRepository $variantRepo,
         private readonly CustomerRepository $customerRepo,
         private readonly OrderRepository $orderRepo,
     ) {
@@ -71,12 +73,27 @@ final class AdminPosController
                     if ($product['stock_mode'] === 'limited_stock' && !$this->productRepo->decrementStock((int) $product['id'], $tenantId, $quantity)) {
                         throw new \RuntimeException("Insufficient stock for {$product['name']}.");
                     }
-                    $unitPrice = (int) ($product['sale_price'] ?? $product['base_price']);
+
+                    // Resolve variant if provided (for weight-based products)
+                    $variant = null;
+                    $variantId = null;
+                    $variantSnapshot = null;
+                    if (!empty($line['variant_uuid'])) {
+                        $variant = $this->variantRepo->findByUuid($line['variant_uuid']);
+                        if ($variant !== null && (int) $variant['product_id'] === (int) $product['id'] && $variant['status'] === 'active') {
+                            $variantId = (int) $variant['id'];
+                            $variantSnapshot = json_encode(['name' => $variant['name'], 'price' => $variant['price'], 'weight_grams' => $variant['weight_grams']]);
+                        }
+                    }
+
+                    $unitPrice = $variant ? (int) $variant['price'] : (int) ($product['sale_price'] ?? $product['base_price']);
                     $lineTotal = $unitPrice * $quantity;
                     $subtotal += $lineTotal;
                     $orderItems[] = [
                         'product_id' => (int) $product['id'],
+                        'variant_id' => $variantId,
                         'product_snapshot' => json_encode(['name' => $product['name'], 'slug' => $product['slug'], 'pricing_mode' => $product['pricing_mode'], 'unit' => $product['unit']]),
+                        'variant_snapshot' => $variantSnapshot,
                         'quantity' => $quantity,
                         'unit_price' => $unitPrice,
                         'line_total' => $lineTotal,

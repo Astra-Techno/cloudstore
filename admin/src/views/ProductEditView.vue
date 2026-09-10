@@ -217,6 +217,58 @@ function imageUrl(url: string): string {
   return url
 }
 
+// Weight presets for weight-based products
+const weightPresets = [
+  { label: '250g', grams: 250 },
+  { label: '500g', grams: 500 },
+  { label: '1 Kg', grams: 1000 },
+  { label: '2 Kg', grams: 2000 },
+]
+
+function autoCalcWeightPrice() {
+  if (form.value.pricing_mode === 'weight' && variantForm.value.weight_grams > 0) {
+    variantForm.value.price = Math.round(form.value.base_price * variantForm.value.weight_grams / 1000 * 100) / 100
+  }
+}
+
+async function addWeightPreset(preset: { label: string; grams: number }) {
+  variantSaving.value = true
+  try {
+    const pricePerKg = form.value.base_price * 100 // base_price is in rupees, convert to paise
+    await catalogApi.createVariant(productUuid, {
+      name: preset.label,
+      price: Math.round(pricePerKg * preset.grams / 1000),
+      weight_grams: preset.grams,
+      stock_mode: 'unlimited',
+    })
+    await loadProduct()
+  } catch (e) {
+    error.value = 'Failed to add weight variant'
+  } finally {
+    variantSaving.value = false
+  }
+}
+
+async function addAllWeightPresets() {
+  variantSaving.value = true
+  try {
+    const pricePerKg = form.value.base_price * 100
+    for (const preset of weightPresets) {
+      await catalogApi.createVariant(productUuid, {
+        name: preset.label,
+        price: Math.round(pricePerKg * preset.grams / 1000),
+        weight_grams: preset.grams,
+        stock_mode: 'unlimited',
+      })
+    }
+    await loadProduct()
+  } catch (e) {
+    error.value = 'Failed to add weight variants'
+  } finally {
+    variantSaving.value = false
+  }
+}
+
 // Variants
 function openVariantCreate() {
   editingVariant.value = null
@@ -424,8 +476,9 @@ onMounted(loadProduct)
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Pricing</h2>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Base Price (₹)</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.pricing_mode === 'weight' ? 'Price per Kg (₹)' : 'Base Price (₹)' }}</label>
               <input v-model.number="form.base_price" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
+              <p v-if="form.pricing_mode === 'weight'" class="text-xs text-amber-600 mt-1">Customers will choose from weight variants (250g, 500g, 1kg, etc.)</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Sale Price (₹)</label>
@@ -531,19 +584,33 @@ onMounted(loadProduct)
             <button @click="openVariantCreate" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">+ Add Variant</button>
           </div>
 
-          <div v-if="!product.variants?.length" class="text-center py-8 text-gray-400">
+          <!-- Quick weight presets for weight-based products -->
+          <div v-if="form.pricing_mode === 'weight' && !product.variants?.length" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p class="text-sm text-amber-800 mb-3">This is a weight-based product ({{ formatPrice(form.base_price * 100) }}/kg). Add standard weight options:</p>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="w in weightPresets" :key="w.grams" @click="addWeightPreset(w)" :disabled="variantSaving" class="px-3 py-1.5 text-sm font-medium bg-white border border-amber-300 rounded-lg hover:bg-amber-100">
+                {{ w.label }} — {{ formatPrice(Math.round(form.base_price * 100 * w.grams / 1000)) }}
+              </button>
+              <button @click="addAllWeightPresets" :disabled="variantSaving" class="px-3 py-1.5 text-sm font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-700">
+                Add All
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!product.variants?.length && form.pricing_mode !== 'weight'" class="text-center py-8 text-gray-400">
             <p class="text-sm">No variants. Add size or weight options for this product.</p>
           </div>
 
-          <table v-else class="w-full">
+          <table v-if="product.variants?.length" class="w-full">
             <thead>
               <tr class="text-left text-xs text-gray-500 uppercase border-b">
-                <th class="pb-2">Name</th><th class="pb-2">SKU</th><th class="pb-2 text-right">Price</th><th class="pb-2">Stock</th><th class="pb-2">Status</th><th class="pb-2"></th>
+                <th class="pb-2">Name</th><th v-if="form.pricing_mode === 'weight'" class="pb-2">Weight</th><th class="pb-2">SKU</th><th class="pb-2 text-right">Price</th><th class="pb-2">Stock</th><th class="pb-2">Status</th><th class="pb-2"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="v in product.variants" :key="v.id" class="border-b border-gray-50 hover:bg-gray-50">
                 <td class="py-3 font-medium">{{ v.name }}</td>
+                <td v-if="form.pricing_mode === 'weight'" class="py-3 text-sm text-gray-500">{{ v.weight_grams ? (v.weight_grams >= 1000 ? (v.weight_grams / 1000) + ' kg' : v.weight_grams + 'g') : '—' }}</td>
                 <td class="py-3 text-sm text-gray-500">{{ v.sku || '—' }}</td>
                 <td class="py-3 text-right font-medium">{{ formatPrice(v.price) }}</td>
                 <td class="py-3 text-sm">{{ v.stock_mode === 'unlimited' ? '∞' : v.stock_quantity }}</td>
@@ -625,10 +692,21 @@ onMounted(loadProduct)
         <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ editingVariant ? 'Edit Variant' : 'New Variant' }}</h2>
         <form @submit.prevent="saveVariant" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Variant Name</label>
-            <input v-model="variantForm.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="e.g. 500g, Large" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.pricing_mode === 'weight' ? 'Weight Label' : 'Variant Name' }}</label>
+            <input v-model="variantForm.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" :placeholder="form.pricing_mode === 'weight' ? 'e.g. 250g, 500g, 1 Kg' : 'e.g. Regular, Family Pack'" />
           </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div v-if="form.pricing_mode === 'weight'" class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Weight (grams)</label>
+              <input v-model.number="variantForm.weight_grams" type="number" min="1" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" @input="autoCalcWeightPrice" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Price (₹) <span class="text-xs text-gray-400">auto-calculated</span></label>
+              <input v-model.number="variantForm.price" type="number" step="0.01" min="0" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
+              <p v-if="variantForm.weight_grams > 0" class="text-xs text-gray-400 mt-1">{{ formatPrice(form.base_price * 100) }}/kg × {{ variantForm.weight_grams }}g = {{ formatPrice(Math.round(form.base_price * 100 * variantForm.weight_grams / 1000)) }}</p>
+            </div>
+          </div>
+          <div v-else class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
               <input v-model.number="variantForm.price" type="number" step="0.01" min="0" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
@@ -643,7 +721,7 @@ onMounted(loadProduct)
               <label class="block text-sm font-medium text-gray-700 mb-1">SKU</label>
               <input v-model="variantForm.sku" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>
-            <div>
+            <div v-if="form.pricing_mode !== 'weight'">
               <label class="block text-sm font-medium text-gray-700 mb-1">Weight (grams)</label>
               <input v-model.number="variantForm.weight_grams" type="number" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
             </div>

@@ -17,10 +17,11 @@ export const catalogApi = {
   },
 
   // Products
-  listProducts(page = 1, search?: string, status?: string) {
+  listProducts(page = 1, search?: string, status?: string, includeVariants = false) {
     const params: Record<string, string | number> = { page }
     if (search) params.search = search
     if (status) params.status = status
+    if (includeVariants) params.include_variants = 1
     return apiClient.get<ApiResponse<Product[]>>('/admin/products', { params })
   },
   getProduct(uuid: string) {

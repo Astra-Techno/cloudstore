@@ -251,7 +251,58 @@ final class CatalogSeeder
         $addonRepo->createItem(['uuid' => Uuid::uuid4()->toString(), 'group_id' => $spiceGroup, 'name' => 'Hot', 'price' => 0, 'sort_order' => 2]);
         $addonRepo->createItem(['uuid' => Uuid::uuid4()->toString(), 'group_id' => $spiceGroup, 'name' => 'Extra Hot', 'price' => 0, 'sort_order' => 3]);
 
-        echo "  Seeded catalog: Jeyam Mutton (16 products, 2 addon groups, images)\n";
+        // ── Category: Fresh Meat (weight-based) ──
+        $meatCat = $catRepo->create([
+            'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
+            'name' => 'Fresh Meat', 'slug' => 'fresh-meat', 'sort_order' => 6,
+            'description' => 'Premium fresh cuts — order by weight',
+            'image_url' => 'https://placehold.co/400x300/8B0000/white?text=Fresh+Meat',
+        ]);
+
+        // Mutton (Goat) — ₹800/kg
+        $p = $prodRepo->create([
+            'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
+            'category_id' => $meatCat, 'name' => 'Fresh Mutton', 'slug' => 'fresh-mutton',
+            'description' => 'Premium bone-in goat meat, freshly cut. Ideal for curries, biryani, and roasts.',
+            'short_description' => 'Bone-in goat meat — ₹800/kg',
+            'base_price' => 80000, 'pricing_mode' => 'weight', 'unit' => 'kg',
+            'product_type' => 'variable', 'is_featured' => 1,
+        ]);
+        $this->addImage($db, $p, 'fresh-mutton.jpg');
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '250g', 'price' => 20000, 'weight_grams' => 250, 'sort_order' => 0]);
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '500g', 'price' => 40000, 'weight_grams' => 500, 'sort_order' => 1]);
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '1 Kg', 'price' => 80000, 'weight_grams' => 1000, 'sort_order' => 2]);
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '2 Kg', 'price' => 160000, 'weight_grams' => 2000, 'sort_order' => 3]);
+
+        // Chicken — ₹250/kg
+        $p = $prodRepo->create([
+            'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
+            'category_id' => $meatCat, 'name' => 'Fresh Chicken', 'slug' => 'fresh-chicken',
+            'description' => 'Farm-fresh whole chicken, cleaned and cut to order.',
+            'short_description' => 'Whole chicken — ₹250/kg',
+            'base_price' => 25000, 'pricing_mode' => 'weight', 'unit' => 'kg',
+            'product_type' => 'variable', 'is_featured' => 1,
+        ]);
+        $this->addImage($db, $p, 'fresh-chicken.jpg');
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '500g', 'price' => 12500, 'weight_grams' => 500, 'sort_order' => 0]);
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '1 Kg', 'price' => 25000, 'weight_grams' => 1000, 'sort_order' => 1]);
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '2 Kg', 'price' => 50000, 'weight_grams' => 2000, 'sort_order' => 2]);
+
+        // Fish — ₹500/kg
+        $p = $prodRepo->create([
+            'uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tid,
+            'category_id' => $meatCat, 'name' => 'Fresh Fish (Seer)', 'slug' => 'fresh-fish-seer',
+            'description' => 'Premium seer fish (vanjaram), cleaned and sliced.',
+            'short_description' => 'Seer fish — ₹500/kg',
+            'base_price' => 50000, 'pricing_mode' => 'weight', 'unit' => 'kg',
+            'product_type' => 'variable',
+        ]);
+        $this->addImage($db, $p, 'fresh-fish.jpg');
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '250g', 'price' => 12500, 'weight_grams' => 250, 'sort_order' => 0]);
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '500g', 'price' => 25000, 'weight_grams' => 500, 'sort_order' => 1]);
+        $varRepo->create(['uuid' => Uuid::uuid4()->toString(), 'product_id' => $p, 'name' => '1 Kg', 'price' => 50000, 'weight_grams' => 1000, 'sort_order' => 2]);
+
+        echo "  Seeded catalog: Jeyam Mutton (19 products incl. 3 weight-based, 2 addon groups, images)\n";
     }
 
     // ── Hotel ABC — Full-Service Indian Restaurant ──

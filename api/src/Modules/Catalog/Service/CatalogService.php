@@ -118,11 +118,17 @@ final class CatalogService
         return $product;
     }
 
-    public function getProducts(int $tenantId, int $page = 1, int $perPage = 50, ?string $status = null, ?string $search = null): array
+    public function getProducts(int $tenantId, int $page = 1, int $perPage = 50, ?string $status = null, ?string $search = null, bool $includeVariants = false): array
     {
         $offset = ($page - 1) * $perPage;
         $products = $this->productRepo->findAll($tenantId, $perPage, $offset, $status, $search);
         $total = $this->productRepo->count($tenantId, $status, $search);
+
+        if ($includeVariants) {
+            foreach ($products as &$product) {
+                $product['variants'] = $this->variantRepo->findByProduct((int) $product['id']);
+            }
+        }
 
         return [
             'items' => $products,

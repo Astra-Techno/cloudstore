@@ -46,9 +46,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   int get _calculatedPrice {
     if (_product == null) return 0;
-    int price = _product!.effectivePrice;
-    if (_selectedVariant != null) {
-      price += _selectedVariant!.priceAdjustment;
+    int price;
+    if (_product!.pricingMode == 'weight' && _selectedVariant != null) {
+      // Weight product: variant price IS the full price for that weight
+      price = _selectedVariant!.price;
+    } else if (_selectedVariant != null) {
+      // Fixed product with variant: variant price is the full price
+      price = _selectedVariant!.price;
+    } else {
+      price = _product!.effectivePrice;
     }
     for (final group in _product!.addonGroups) {
       for (final item in group.items) {
@@ -154,19 +160,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ],
 
-                      // Variants
+                      // Variants / Weight selection
                       if (_product!.variants.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        Text('Choose Variant', style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          _product!.pricingMode == 'weight' ? 'Choose Weight' : 'Choose Variant',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           children: _product!.variants.map((v) {
                             final isSelected = _selectedVariant?.id == v.id;
+                            final label = _product!.pricingMode == 'weight'
+                                ? '${v.name} — ${PriceText.format(v.price)}'
+                                : '${v.name} (${PriceText.format(v.price)})';
                             return ChoiceChip(
-                              label: Text(
-                                '${v.name} ${v.priceAdjustment > 0 ? "(+${PriceText.format(v.priceAdjustment)})" : ""}',
-                              ),
+                              label: Text(label),
                               selected: isSelected,
                               onSelected: (_) => setState(() => _selectedVariant = v),
                             );
