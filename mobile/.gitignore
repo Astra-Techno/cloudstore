@@ -29,6 +29,7 @@ Local.xcconfig
 .pub/
 /build/
 android/build/
+android/.kotlin/
 *.hprof
 .dart_tool/
 .flutter-plugins
