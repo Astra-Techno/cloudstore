@@ -26,4 +26,6 @@ export const platformApi = {
   triggerBuild: (uuid: string, data: Record<string, unknown>) =>
     apiClient.post(`/platform/tenants/${uuid}/builds`, data),
   getBuild: (buildUuid: string) => apiClient.get(`/platform/builds/${buildUuid}`),
+  fetchArtifact: (buildUuid: string) =>
+    apiClient.post(`/platform/builds/${buildUuid}/fetch-artifact`),
 }

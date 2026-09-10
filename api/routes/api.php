@@ -60,6 +60,7 @@ return function (Router $router): void {
             $router->get('/tenants/{uuid}/builds', [BuildController::class, 'listBuilds']);
             $router->post('/tenants/{uuid}/builds', [BuildController::class, 'triggerBuild']);
             $router->get('/builds/{buildUuid}', [BuildController::class, 'getBuild']);
+            $router->post('/builds/{buildUuid}/fetch-artifact', [BuildController::class, 'fetchArtifact']);
         });
 
         // Admin panel (authenticated)

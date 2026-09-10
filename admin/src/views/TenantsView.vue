@@ -81,6 +81,7 @@ const adminForm = ref({ name: '', email: '', password: '', role: 'tenant_owner' 
 const tenantBuilds = ref<AppBuild[]>([])
 const buildForm = ref({ platform: 'android', app_mode: 'customer', build_type: 'apk', app_name: '', app_id: 'com.cloudmarket.cloudstore', app_token: '', primary_color: '#4CAF50' })
 const copiedToken = ref('')
+const fetchingBuild = ref('')
 
 const allCapabilities = [
   { key: 'orders', label: 'Orders' },
@@ -297,6 +298,22 @@ function copyShareLink(url: string) {
   navigator.clipboard.writeText(url)
   copiedToken.value = url
   setTimeout(() => copiedToken.value = '', 2000)
+}
+
+async function fetchBuildArtifact(buildUuid: string) {
+  fetchingBuild.value = buildUuid
+  try {
+    const res = await platformApi.fetchArtifact(buildUuid)
+    const updated = res.data?.data?.build
+    if (updated) {
+      const idx = tenantBuilds.value.findIndex(b => b.uuid === buildUuid)
+      if (idx !== -1) Object.assign(tenantBuilds.value[idx], updated)
+    }
+  } catch (e: any) {
+    alert(e.response?.data?.error?.message || 'Failed to fetch artifact')
+  } finally {
+    fetchingBuild.value = ''
+  }
 }
 
 function formatFileSize(bytes: number | null) {
@@ -523,9 +540,12 @@ onMounted(load)
               </div>
               <p class="text-sm font-semibold">{{ b.app_name }}</p>
               <p class="text-xs text-gray-400">{{ new Date(b.created_at).toLocaleString() }} &middot; {{ formatFileSize(b.file_size) }}</p>
-              <div class="flex items-center gap-2 mt-2">
+              <div class="flex items-center gap-2 mt-2 flex-wrap">
                 <a v-if="b.github_run_url" :href="b.github_run_url" target="_blank" class="text-xs text-blue-600 hover:underline">GitHub Run</a>
-                <a v-if="b.download_url" :href="b.download_url" target="_blank" class="text-xs font-bold text-green-600 hover:underline">Download</a>
+                <a v-if="b.share_url && b.status === 'completed'" :href="b.share_url" class="text-xs font-bold text-green-600 hover:underline">Download APK</a>
+                <button v-if="b.status === 'completed' && !b.download_url && b.github_run_url" class="text-xs font-bold text-orange-600 hover:underline" :disabled="fetchingBuild === b.uuid" @click="fetchBuildArtifact(b.uuid)">
+                  {{ fetchingBuild === b.uuid ? 'Fetching...' : 'Fetch APK from GitHub' }}
+                </button>
                 <button v-if="b.share_url && b.status === 'completed'" class="text-xs font-bold text-purple-600 hover:underline" @click="copyShareLink(b.share_url)">
                   {{ copiedToken === b.share_url ? 'Copied!' : 'Copy Share Link' }}
                 </button>
