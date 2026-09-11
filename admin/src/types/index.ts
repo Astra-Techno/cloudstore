@@ -217,6 +217,8 @@ export interface StoreSettings {
   preparation_time_default: number
   min_order_amount: number
   tax_rate: number
+  delivery_charge_fixed: number
+  service_charge_percent: number
   delivery_enabled: boolean
   pickup_enabled: boolean
   payment_methods: string[]
