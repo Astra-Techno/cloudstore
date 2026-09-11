@@ -101,7 +101,7 @@ final class DriverRepository
     public function delete(int $id, int $tenantId): void
     {
         $this->db->execute(
-            "DELETE FROM drivers WHERE id = ? AND tenant_id = ?",
+            "UPDATE drivers SET deleted_at = NOW() WHERE id = ? AND tenant_id = ?",
             [$id, $tenantId]
         );
     }

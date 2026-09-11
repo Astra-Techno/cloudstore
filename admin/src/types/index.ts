@@ -211,7 +211,6 @@ export interface StoreSettings {
   branding: {
     primary_color?: string
     logo_url?: string | null
-    tagline?: string | null
   } | null
   business_hours: Record<string, { open: boolean; start: string; end: string }>
   preparation_time_default: number

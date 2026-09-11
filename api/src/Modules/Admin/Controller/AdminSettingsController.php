@@ -223,11 +223,10 @@ final class AdminSettingsController
         if (isset($data['branding'])) {
             $brandingData = $data['branding'];
             $this->db->execute(
-                "UPDATE tenant_branding SET primary_color = ?, logo_url = ?, tagline = ? WHERE tenant_id = ?",
+                "UPDATE tenant_branding SET primary_color = ?, logo_url = ? WHERE tenant_id = ?",
                 [
                     $brandingData['primary_color'] ?? '#2563eb',
                     $brandingData['logo_url'] ?? null,
-                    $brandingData['tagline'] ?? null,
                     $tenantId,
                 ]
             );

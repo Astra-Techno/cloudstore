@@ -91,6 +91,7 @@ final class CustomerAuthController
             return Response::unauthorized('Account is not active.');
         }
 
+        $isNew = $customer['last_login_at'] === null;
         $this->customerRepo->updateLastLogin((int) $customer['id']);
 
         $token = $this->jwtService->issue([
@@ -107,7 +108,7 @@ final class CustomerAuthController
                 'phone' => $customer['phone'],
                 'email' => $customer['email'],
             ],
-            'is_new' => $customer['last_login_at'] === null,
+            'is_new' => $isNew,
         ]);
     }
 

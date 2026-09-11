@@ -30,7 +30,7 @@ const paymentOptions = [
   { value: 'card', label: 'Card Payment' },
 ]
 
-const defaultBranding = { primary_color: '#000000', tagline: '', logo_url: '' }
+const defaultBranding = { primary_color: '#000000', logo_url: '' }
 
 // Password change
 const passwordForm = ref({ current_password: '', new_password: '', confirm_password: '' })
@@ -241,10 +241,6 @@ onMounted(loadSettings)
                 <input v-model="settings.branding.primary_color" type="color" class="w-10 h-10 rounded border border-gray-300 cursor-pointer" />
                 <input v-model="settings.branding.primary_color" type="text" class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
               </div>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
-              <input v-model="settings.branding.tagline" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Your store tagline" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>

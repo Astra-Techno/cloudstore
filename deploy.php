@@ -129,10 +129,10 @@ if (($_GET['action'] ?? '') === 'debug') {
 
         // Check migrations table
         try {
-            $migrations = $db->fetchAll('SELECT migration FROM _migrations ORDER BY migration');
+            $migrations = $db->fetchAll('SELECT filename FROM _migrations ORDER BY filename');
             $output .= "<div class='rowok'><span class='ic'>i</span><span>Migrations: " . count($migrations) . " total</span></div>";
             foreach ($migrations as $m) {
-                $output .= "<div class='rowok'><span class='ic'>·</span><span>{$m['migration']}</span></div>";
+                $output .= "<div class='rowok'><span class='ic'>·</span><span>{$m['filename']}</span></div>";
             }
         } catch (\Throwable $e) {
             $output .= "<div class='rowwarn'><span class='ic'>!</span><span>Migrations: " . htmlspecialchars($e->getMessage()) . "</span></div>";
