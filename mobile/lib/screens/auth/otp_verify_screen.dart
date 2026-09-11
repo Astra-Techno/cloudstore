@@ -31,7 +31,11 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
     if (success && mounted) {
       context.read<CartProvider>().loadCart();
       context.read<NotificationProvider>().startPolling();
-      context.go('/home');
+      if (auth.needsOnboarding) {
+        context.go('/onboarding');
+      } else {
+        context.go('/home');
+      }
     }
   }
 

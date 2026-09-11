@@ -71,6 +71,21 @@ final class CustomerRepository
         return (int) $this->db->lastInsertId();
     }
 
+    public function update(int $id, array $data): void
+    {
+        $fields = [];
+        $values = [];
+        foreach ($data as $key => $value) {
+            $fields[] = "{$key} = ?";
+            $values[] = $value;
+        }
+        $values[] = $id;
+        $this->db->execute(
+            "UPDATE customers SET " . implode(', ', $fields) . " WHERE id = ?",
+            $values
+        );
+    }
+
     public function updateLastLogin(int $id): void
     {
         $this->db->execute("UPDATE customers SET last_login_at = NOW() WHERE id = ?", [$id]);

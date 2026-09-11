@@ -182,6 +182,7 @@ return function (Router $router): void {
             $router->post('/customer/otp/request', [CustomerAuthController::class, 'requestOtp']);
             $router->post('/customer/otp/verify', [CustomerAuthController::class, 'verifyOtp']);
             $router->get('/customer/me', [CustomerAuthController::class, 'me'], ['middleware.auth.customer']);
+            $router->put('/customer/me', [CustomerAuthController::class, 'updateProfile'], ['middleware.auth.customer']);
             $router->post('/driver/login', [DriverAuthController::class, 'login']);
             $router->get('/driver/me', [DriverAuthController::class, 'me'], ['middleware.auth.driver']);
 

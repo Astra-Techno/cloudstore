@@ -7,6 +7,7 @@ class BootstrapProvider extends ChangeNotifier {
   String? _tenantName;
   String? _businessType;
   Color? _primaryColor;
+  String? _logoUrl;
   Map<String, bool> _capabilities = {};
   bool _isLoaded = false;
   String? _error;
@@ -15,6 +16,7 @@ class BootstrapProvider extends ChangeNotifier {
   String? get tenantName => _tenantName;
   String? get businessType => _businessType;
   Color? get primaryColor => _primaryColor;
+  String? get logoUrl => _logoUrl;
   Map<String, bool> get capabilities => _capabilities;
   bool get isLoaded => _isLoaded;
   String? get error => _error;
@@ -53,11 +55,14 @@ class BootstrapProvider extends ChangeNotifier {
 
     final brandingRaw = data['branding'];
     final branding = brandingRaw is Map ? Map<String, dynamic>.from(brandingRaw) : null;
-    if (branding != null && branding['primary_color'] != null) {
-      final hex = branding['primary_color'].toString().replaceFirst('#', '');
-      if (hex.length == 6) {
-        _primaryColor = Color(int.parse('FF$hex', radix: 16));
+    if (branding != null) {
+      if (branding['primary_color'] != null) {
+        final hex = branding['primary_color'].toString().replaceFirst('#', '');
+        if (hex.length == 6) {
+          _primaryColor = Color(int.parse('FF$hex', radix: 16));
+        }
       }
+      _logoUrl = branding['logo_url'] as String?;
     }
 
     final featuresRaw = data['features'];

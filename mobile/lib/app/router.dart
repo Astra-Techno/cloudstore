@@ -4,6 +4,7 @@ import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/otp_verify_screen.dart';
+import '../screens/auth/onboarding_screen.dart';
 import '../screens/catalog/product_detail_screen.dart';
 import '../screens/checkout/checkout_screen.dart';
 import '../screens/orders/orders_screen.dart';
@@ -36,6 +37,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/otp-verify',
       builder: (context, state) => OtpVerifyScreen(phone: state.extra as String),
+    ),
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => const OnboardingScreen(),
     ),
     GoRoute(
       path: '/product/:uuid',

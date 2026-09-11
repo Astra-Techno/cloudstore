@@ -132,4 +132,41 @@ final class CustomerAuthController
             'email' => $customer['email'],
         ]);
     }
+
+    public function updateProfile(Request $request, array $params): Response
+    {
+        $claims = $request->authClaims ?? null;
+        if ($claims === null) {
+            return Response::unauthorized();
+        }
+
+        $customer = $this->customerRepo->findByUuid($claims['sub']);
+        if ($customer === null) {
+            return Response::unauthorized();
+        }
+
+        $data = $request->json();
+        $update = [];
+
+        if (isset($data['name']) && is_string($data['name']) && trim($data['name']) !== '') {
+            $update['name'] = trim($data['name']);
+        }
+        if (isset($data['email']) && is_string($data['email']) && trim($data['email']) !== '') {
+            $update['email'] = trim($data['email']);
+        }
+
+        if ($update === []) {
+            return Response::error('Nothing to update.', 'NO_CHANGES', 422);
+        }
+
+        $this->customerRepo->update((int) $customer['id'], $update);
+        $customer = $this->customerRepo->findById((int) $customer['id']);
+
+        return Response::success([
+            'id' => $customer['uuid'],
+            'name' => $customer['name'],
+            'phone' => $customer['phone'],
+            'email' => $customer['email'],
+        ]);
+    }
 }

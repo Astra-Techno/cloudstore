@@ -8,14 +8,19 @@ class AuthProvider extends ChangeNotifier {
   String? _token;
   Customer? _customer;
   bool _isAuthenticated = false;
+  bool _isNewCustomer = false;
   bool _isLoading = false;
   String? _error;
 
   String? get token => _token;
   Customer? get customer => _customer;
   bool get isAuthenticated => _isAuthenticated;
+  bool get isNewCustomer => _isNewCustomer;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  bool get needsOnboarding =>
+      _isAuthenticated && (_isNewCustomer || _customer?.name == null || _customer!.name.isEmpty);
 
   Future<void> loadSavedToken() async {
     final savedToken = await _storage.read(key: 'auth_token');
@@ -64,6 +69,7 @@ class AuthProvider extends ChangeNotifier {
         _token = authData['token'] as String;
         _customer = Customer.fromJson(authData['customer']);
         _isAuthenticated = true;
+        _isNewCustomer = authData['is_new'] == true;
 
         ApiClient().setAuthToken(_token!);
         await _storage.write(key: 'auth_token', value: _token);
@@ -108,6 +114,39 @@ class AuthProvider extends ChangeNotifier {
     ApiClient().clearAuthToken();
     await _storage.delete(key: 'auth_token');
     notifyListeners();
+  }
+
+  Future<bool> updateProfile({String? name, String? email}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final payload = <String, dynamic>{};
+      if (name != null && name.trim().isNotEmpty) payload['name'] = name.trim();
+      if (email != null && email.trim().isNotEmpty) payload['email'] = email.trim();
+
+      final response = await ApiClient().put('/customer/me', data: payload);
+      final data = response.data;
+
+      if (data['success'] == true && data['data'] != null) {
+        _customer = Customer.fromJson(data['data']);
+        _isNewCustomer = false;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _error = data['error']?['message'] ?? 'Update failed';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Failed to update profile';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   void clearError() {

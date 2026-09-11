@@ -48,7 +48,7 @@ class ProfileScreen extends StatelessWidget {
                     radius: 32,
                     backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                     child: Text(
-                      (customer?.name ?? 'U')[0].toUpperCase(),
+                      ((customer?.name.isNotEmpty == true ? customer!.name : 'U'))[0].toUpperCase(),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -62,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          customer?.name ?? 'Customer',
+                          customer?.name.isNotEmpty == true ? customer!.name : 'Customer',
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),

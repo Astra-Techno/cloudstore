@@ -62,8 +62,10 @@ class _SplashScreenState extends State<SplashScreen> {
           if (auth.isAuthenticated) {
             context.read<CartProvider>().loadCart();
             context.read<NotificationProvider>().startPolling();
+            context.go('/home');
+          } else {
+            context.go('/login');
           }
-          context.go('/home');
         }
       }
     } catch (e) {
@@ -80,11 +82,27 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              AppConfig.appMode == 'driver' ? Icons.delivery_dining : Icons.storefront,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            if (bootstrap.logoUrl != null && bootstrap.logoUrl!.isNotEmpty && AppConfig.appMode != 'driver')
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.network(
+                  bootstrap.logoUrl!,
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.storefront,
+                    size: 80,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              )
+            else
+              Icon(
+                AppConfig.appMode == 'driver' ? Icons.delivery_dining : Icons.storefront,
+                size: 80,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             const SizedBox(height: 16),
             Text(
               bootstrap.tenantName ?? 'CloudStore',

@@ -34,12 +34,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(_titles[_currentIndex]),
-            if (_currentIndex == 0 && tenant.tenantName != null)
-              Text(tenant.tenantName!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+            if (_currentIndex == 0 && tenant.logoUrl != null && tenant.logoUrl!.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  tenant.logoUrl!,
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_currentIndex == 0 ? (tenant.tenantName ?? _titles[_currentIndex]) : _titles[_currentIndex]),
+                if (_currentIndex == 0 && tenant.tenantName != null && tenant.businessType != null)
+                  Text(tenant.businessType!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+              ],
+            ),
           ],
         ),
         actions: [

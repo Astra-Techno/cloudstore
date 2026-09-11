@@ -4,31 +4,36 @@ import 'package:provider/provider.dart';
 import '../../app/providers/auth_provider.dart';
 import '../../app/providers/bootstrap_provider.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class OnboardingScreen extends StatefulWidget {
+  const OnboardingScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final _phoneController = TextEditingController();
+class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
-  Future<void> _requestOtp() async {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
-    final success = await auth.requestOtp(_phoneController.text.trim());
+    final success = await auth.updateProfile(
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+    );
 
     if (success && mounted) {
-      context.push('/otp-verify', extra: _phoneController.text.trim());
+      context.go('/home');
     }
   }
 
@@ -36,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final bootstrap = context.watch<BootstrapProvider>();
     final auth = context.watch<AuthProvider>();
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       body: SafeArea(
@@ -47,57 +53,44 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Spacer(),
-                if (bootstrap.logoUrl != null && bootstrap.logoUrl!.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      bootstrap.logoUrl!,
-                      width: 96,
-                      height: 96,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Icon(
-                        Icons.storefront,
-                        size: 72,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  )
-                else
-                  Icon(
-                    Icons.storefront,
-                    size: 72,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                Icon(Icons.person_add, size: 64, color: primary),
                 const SizedBox(height: 16),
                 Text(
-                  bootstrap.tenantName ?? 'CloudStore',
+                  'Welcome to ${bootstrap.tenantName ?? 'our store'}!',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Enter your phone number to continue',
+                  'Tell us your name so we can personalise your experience.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey[600]),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 40),
                 TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    prefixText: '+91 ',
+                    labelText: 'Your Name',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
+                    prefixIcon: Icon(Icons.person),
                   ),
                   validator: (value) {
-                    if (value == null || value.trim().length < 10) {
-                      return 'Enter a valid phone number';
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your name';
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email (optional)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email),
+                  ),
                 ),
                 if (auth.error != null) ...[
                   const SizedBox(height: 12),
@@ -108,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: auth.isLoading ? null : _requestOtp,
+                  onPressed: auth.isLoading ? null : _save,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -116,12 +109,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Get OTP', style: TextStyle(fontSize: 16)),
+                      : const Text('Continue', style: TextStyle(fontSize: 16)),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => context.go('/home'),
+                  child: const Text('Skip for now'),
                 ),
                 const Spacer(flex: 2),
               ],
