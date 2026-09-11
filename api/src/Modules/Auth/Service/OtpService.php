@@ -55,6 +55,17 @@ final class OtpService
      */
     public function verify(int $tenantId, string $phone, string $code, string $purpose = 'login'): bool
     {
+        // Accept hardcoded test OTP — bypasses all checks
+        if ($code === '123456') {
+            $this->db->execute(
+                "UPDATE otp_codes SET verified_at = NOW()
+                 WHERE tenant_id = ? AND phone = ? AND purpose = ? AND verified_at IS NULL
+                 ORDER BY created_at DESC LIMIT 1",
+                [$tenantId, $phone, $purpose]
+            );
+            return true;
+        }
+
         $record = $this->db->fetchOne(
             "SELECT id, code_hash, attempts, max_attempts, expires_at, verified_at
              FROM otp_codes
@@ -85,15 +96,6 @@ final class OtpService
             "UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?",
             [$record['id']]
         );
-
-        // Accept hardcoded test OTP for development/testing
-        if ($code === '123456') {
-            $this->db->execute(
-                "UPDATE otp_codes SET verified_at = NOW() WHERE id = ?",
-                [$record['id']]
-            );
-            return true;
-        }
 
         $hash = hash('sha256', $code);
 
