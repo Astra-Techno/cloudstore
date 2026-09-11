@@ -40,9 +40,12 @@ final class CartController
             return Response::success(['cart' => null, 'items' => []]);
         }
 
-        $items = $this->cartRepo->getItems((int) $cart['id']);
+        $items = $this->formatItems($this->cartRepo->getItems((int) $cart['id']));
 
-        return Response::success(['cart' => $cart, 'items' => $items]);
+        return Response::success([
+            'items' => $items,
+            'subtotal' => array_sum(array_column($items, 'line_total')),
+        ]);
     }
 
     public function addItem(Request $request, array $params): Response
@@ -108,9 +111,9 @@ final class CartController
             'notes' => $data['notes'] ?? null,
         ]);
 
-        $items = $this->cartRepo->getItems($cartId);
+        $items = $this->formatItems($this->cartRepo->getItems($cartId));
 
-        return Response::success(['cart_id' => $cartId, 'items' => $items], status: 201);
+        return Response::success(['cart_id' => $cartId, 'items' => $items, 'subtotal' => array_sum(array_column($items, 'line_total'))], status: 201);
     }
 
     public function updateItem(Request $request, array $params): Response
@@ -139,9 +142,9 @@ final class CartController
         $itemId = (int) $params['itemId'];
         $this->cartRepo->updateItemQuantity($itemId, (int) $cart['id'], (int) $data['quantity']);
 
-        $items = $this->cartRepo->getItems((int) $cart['id']);
+        $items = $this->formatItems($this->cartRepo->getItems((int) $cart['id']));
 
-        return Response::success(['items' => $items]);
+        return Response::success(['items' => $items, 'subtotal' => array_sum(array_column($items, 'line_total'))]);
     }
 
     public function removeItem(Request $request, array $params): Response
@@ -162,9 +165,9 @@ final class CartController
         $itemId = (int) $params['itemId'];
         $this->cartRepo->removeItem($itemId, (int) $cart['id']);
 
-        $items = $this->cartRepo->getItems((int) $cart['id']);
+        $items = $this->formatItems($this->cartRepo->getItems((int) $cart['id']));
 
-        return Response::success(['items' => $items]);
+        return Response::success(['items' => $items, 'subtotal' => array_sum(array_column($items, 'line_total'))]);
     }
 
     public function clear(Request $request, array $params): Response
@@ -185,6 +188,26 @@ final class CartController
         $this->cartRepo->clearCart((int) $cart['id']);
 
         return Response::success(['cleared' => true]);
+    }
+
+    private function formatItems(array $rows): array
+    {
+        return array_map(function (array $row): array {
+            $unitPrice = (int) $row['unit_price'];
+            $addonsPrice = (int) ($row['addons_price'] ?? 0);
+            $quantity = (int) $row['quantity'];
+            return [
+                'id' => (int) $row['id'],
+                'product_uuid' => $row['product_uuid'] ?? '',
+                'product_name' => $row['product_name'] ?? 'Product',
+                'variant_name' => $row['variant_name'] ?? null,
+                'variant_uuid' => $row['variant_uuid'] ?? null,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'addons_price' => $addonsPrice,
+                'line_total' => ($unitPrice + $addonsPrice) * $quantity,
+            ];
+        }, $rows);
     }
 
     private function resolveCustomer(Request $request): ?array

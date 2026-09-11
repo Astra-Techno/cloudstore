@@ -35,11 +35,11 @@ final class CartRepository
     public function getItems(int $cartId): array
     {
         return $this->db->fetchAll(
-            "SELECT ci.*, p.name as product_name, p.slug as product_slug, p.base_price, p.sale_price,
-                    p.pricing_mode, p.unit, p.status as product_status, p.stock_mode, p.stock_quantity,
-                    p.tenant_id,
-                    pv.name as variant_name, pv.price as variant_price, pv.status as variant_status,
-                    pv.stock_mode as variant_stock_mode, pv.stock_quantity as variant_stock_quantity
+            "SELECT ci.*, p.uuid as product_uuid, p.name as product_name, p.slug as product_slug,
+                    p.base_price, p.sale_price, p.pricing_mode, p.unit, p.status as product_status,
+                    p.stock_mode, p.stock_quantity, p.tenant_id,
+                    pv.uuid as variant_uuid, pv.name as variant_name, pv.price as variant_price,
+                    pv.status as variant_status
              FROM cart_items ci
              JOIN products p ON p.id = ci.product_id
              LEFT JOIN product_variants pv ON pv.id = ci.variant_id

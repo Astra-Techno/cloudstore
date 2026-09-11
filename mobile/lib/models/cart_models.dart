@@ -7,10 +7,13 @@ class CartData {
   factory CartData.fromJson(Map<String, dynamic> json) {
     final itemsList = json['items'] as List<dynamic>? ?? [];
     final items = itemsList.map((i) => CartItem.fromJson(i)).toList();
-    return CartData(
-      items: items,
-      subtotal: json['subtotal'] as int? ?? items.fold(0, (sum, i) => sum + i.lineTotal),
-    );
+    final rawSubtotal = json['subtotal'];
+    final subtotal = rawSubtotal is int
+        ? rawSubtotal
+        : rawSubtotal is String
+            ? (int.tryParse(rawSubtotal) ?? 0)
+            : items.fold(0, (sum, i) => sum + i.lineTotal);
+    return CartData(items: items, subtotal: subtotal);
   }
 }
 
@@ -38,16 +41,27 @@ class CartItem {
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
+    final unitPrice = _toInt(json['unit_price']);
+    final addonsPrice = _toInt(json['addons_price']);
+    final quantity = _toInt(json['quantity']);
+    final lineTotal = _toInt(json['line_total']);
     return CartItem(
-      id: json['id'] as int,
-      productUuid: json['product_uuid'] as String? ?? '',
-      productName: json['product_name'] as String? ?? 'Product',
-      variantUuid: json['variant_uuid'] as String?,
-      variantName: json['variant_name'] as String?,
-      quantity: json['quantity'] as int,
-      unitPrice: json['unit_price'] as int? ?? 0,
-      addonsPrice: json['addons_price'] as int? ?? 0,
-      lineTotal: json['line_total'] as int? ?? 0,
+      id: _toInt(json['id']),
+      productUuid: json['product_uuid']?.toString() ?? '',
+      productName: json['product_name']?.toString() ?? 'Product',
+      variantUuid: json['variant_uuid']?.toString(),
+      variantName: json['variant_name']?.toString(),
+      quantity: quantity,
+      unitPrice: unitPrice,
+      addonsPrice: addonsPrice,
+      lineTotal: lineTotal > 0 ? lineTotal : (unitPrice + addonsPrice) * quantity,
     );
+  }
+
+  static int _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
   }
 }
