@@ -28,7 +28,7 @@ export const settingsApi = {
     return apiClient.get<ApiResponse<StoreSettings>>('/admin/settings')
   },
   updateSettings(data: Record<string, unknown>) {
-    return apiClient.put<ApiResponse<StoreSettings>>('/admin/settings', data)
+    return apiClient.post<ApiResponse<StoreSettings>>('/admin/settings', data)
   },
   toggleLive(live: boolean) {
     return apiClient.post<ApiResponse>('/admin/settings/toggle-live', { live })
