@@ -115,6 +115,10 @@ jobs:
         run: |
           APP_ID="${{ steps.config.outputs.app_id }}"
           sed -i "s/applicationId = \"com.cloudmarket.cloudstore\"/applicationId = \"$APP_ID\"/" build.gradle.kts
+          # The app ID is tenant-specific, but MainActivity is compiled in the
+          # template package. Keep the manifest reference fully qualified so
+          # Android never tries to load <tenant-app-id>.MainActivity.
+          sed -i 's#android:name="[^"]*MainActivity"#android:name="com.cloudmarket.cloudstore.MainActivity"#' src/main/AndroidManifest.xml
 
       - name: Update app name in AndroidManifest
         working-directory: mobile/android/app/src/main
