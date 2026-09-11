@@ -187,6 +187,8 @@ final class AdminSettingsController
             'preparation_time_default' => $metadata['preparation_time_default'] ?? 30,
             'min_order_amount' => $metadata['min_order_amount'] ?? 0,
             'tax_rate' => $metadata['tax_rate'] ?? 0,
+            'delivery_charge_fixed' => $metadata['delivery_charge_fixed'] ?? 0,
+            'service_charge_percent' => $metadata['service_charge_percent'] ?? 0,
             'delivery_enabled' => $metadata['delivery_enabled'] ?? true,
             'pickup_enabled' => $metadata['pickup_enabled'] ?? true,
             'payment_methods' => $metadata['payment_methods'] ?? ['cod'],
@@ -205,7 +207,7 @@ final class AdminSettingsController
         }
 
         // Update metadata fields
-        $settableKeys = ['business_hours', 'preparation_time_default', 'min_order_amount', 'tax_rate', 'delivery_enabled', 'pickup_enabled', 'payment_methods'];
+        $settableKeys = ['business_hours', 'preparation_time_default', 'min_order_amount', 'tax_rate', 'delivery_charge_fixed', 'service_charge_percent', 'delivery_enabled', 'pickup_enabled', 'payment_methods'];
         foreach ($settableKeys as $key) {
             if (array_key_exists($key, $data)) {
                 $metadata[$key] = $data[$key];

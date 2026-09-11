@@ -41,15 +41,16 @@ final class OrderRepository
     {
         $this->db->execute(
             "INSERT INTO orders (uuid, order_number, tenant_id, customer_id, address_id, status, order_type,
-             subtotal, delivery_fee, tax_amount, discount_amount, total,
+             subtotal, delivery_fee, service_charge, tax_amount, discount_amount, total,
              coupon_code, payment_method, payment_status, notes, address_snapshot, scheduled_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 $data['uuid'], $data['order_number'], $data['tenant_id'], $data['customer_id'],
                 $data['address_id'] ?? null, $data['status'] ?? 'pending_payment',
                 $data['order_type'] ?? 'delivery',
                 $data['subtotal'], $data['delivery_fee'] ?? 0,
-                $data['tax_amount'] ?? 0, $data['discount_amount'] ?? 0, $data['total'],
+                $data['service_charge'] ?? 0, $data['tax_amount'] ?? 0,
+                $data['discount_amount'] ?? 0, $data['total'],
                 $data['coupon_code'] ?? null, $data['payment_method'] ?? null,
                 $data['payment_status'] ?? 'pending', $data['notes'] ?? null,
                 $data['address_snapshot'], $data['scheduled_at'] ?? null,

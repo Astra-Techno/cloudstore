@@ -157,6 +157,18 @@ final class CheckoutService
             $deliveryFee = $fee;
         }
 
+        // Apply fixed delivery charge from settings (if no zone-based fee and order is delivery)
+        $tenantConfig = TenantContext::get()->configuration ?? [];
+        if ($orderType === 'delivery' && $deliveryFee === 0) {
+            $deliveryFee = (int) ($tenantConfig['delivery_charge_fixed'] ?? 0);
+        }
+
+        // Calculate service charge
+        $serviceChargePercent = (float) ($tenantConfig['service_charge_percent'] ?? 0);
+        $serviceCharge = $serviceChargePercent > 0
+            ? (int) round($subtotal * $serviceChargePercent / 100)
+            : 0;
+
         // Apply discounts (coupons + auto-promotions)
         $couponCode = $input['coupon_code'] ?? null;
         $discountResult = $this->discountCalc->calculate(
@@ -168,7 +180,7 @@ final class CheckoutService
             $deliveryFee = 0;
         }
 
-        $total = $subtotal - $discountAmount + $deliveryFee;
+        $total = $subtotal - $discountAmount + $deliveryFee + $serviceCharge;
         if ($total < 0) {
             $total = 0;
         }
@@ -183,7 +195,7 @@ final class CheckoutService
         try {
             return $this->db->transaction(function () use (
                 $tenantId, $customerId, $cart, $address, $addressSnapshot,
-                $subtotal, $deliveryFee, $total, $discountAmount, $couponCode, $discountResult,
+                $subtotal, $deliveryFee, $serviceCharge, $total, $discountAmount, $couponCode, $discountResult,
                 $orderType, $paymentMethod, $initialStatus, $orderItems, $input, $items
             ) {
                 foreach ($items as $item) {
@@ -213,6 +225,7 @@ final class CheckoutService
                 'order_type' => $orderType,
                 'subtotal' => $subtotal,
                 'delivery_fee' => $deliveryFee,
+                'service_charge' => $serviceCharge,
                 'discount_amount' => $discountAmount,
                 'total' => $total,
                 'coupon_code' => $couponCode,

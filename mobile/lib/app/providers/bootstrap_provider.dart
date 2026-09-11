@@ -8,6 +8,8 @@ class BootstrapProvider extends ChangeNotifier {
   String? _businessType;
   Color? _primaryColor;
   String? _logoUrl;
+  int _deliveryChargeFixed = 0;
+  double _serviceChargePercent = 0;
   Map<String, bool> _capabilities = {};
   bool _isLoaded = false;
   String? _error;
@@ -17,6 +19,8 @@ class BootstrapProvider extends ChangeNotifier {
   String? get businessType => _businessType;
   Color? get primaryColor => _primaryColor;
   String? get logoUrl => _logoUrl;
+  int get deliveryChargeFixed => _deliveryChargeFixed;
+  double get serviceChargePercent => _serviceChargePercent;
   Map<String, bool> get capabilities => _capabilities;
   bool get isLoaded => _isLoaded;
   String? get error => _error;
@@ -63,6 +67,16 @@ class BootstrapProvider extends ChangeNotifier {
         }
       }
       _logoUrl = branding['logo_url'] as String?;
+    }
+
+    final chargesRaw = data['charges'];
+    if (chargesRaw is Map) {
+      _deliveryChargeFixed = (chargesRaw['delivery_charge_fixed'] is int)
+          ? chargesRaw['delivery_charge_fixed'] as int
+          : int.tryParse(chargesRaw['delivery_charge_fixed']?.toString() ?? '') ?? 0;
+      _serviceChargePercent = (chargesRaw['service_charge_percent'] is num)
+          ? (chargesRaw['service_charge_percent'] as num).toDouble()
+          : double.tryParse(chargesRaw['service_charge_percent']?.toString() ?? '') ?? 0;
     }
 
     final featuresRaw = data['features'];

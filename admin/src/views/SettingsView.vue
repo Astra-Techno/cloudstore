@@ -132,6 +132,8 @@ async function saveSettings() {
       preparation_time_default: settings.value.preparation_time_default,
       min_order_amount: settings.value.min_order_amount,
       tax_rate: settings.value.tax_rate,
+      delivery_charge_fixed: settings.value.delivery_charge_fixed,
+      service_charge_percent: settings.value.service_charge_percent,
       delivery_enabled: settings.value.delivery_enabled,
       pickup_enabled: settings.value.pickup_enabled,
       payment_methods: settings.value.payment_methods,
@@ -266,6 +268,18 @@ onMounted(loadSettings)
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
               <input v-model.number="settings.tax_rate" type="number" min="0" max="100" step="0.01" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Charge (₹)</label>
+              <input v-model.number="settings.delivery_charge_fixed" type="number" min="0" step="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
+              <p class="text-xs text-gray-400 mt-1">Flat delivery fee in paise (e.g. 5000 = ₹50). Applied when no delivery zone matches.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Service Charge (%)</label>
+              <input v-model.number="settings.service_charge_percent" type="number" min="0" max="100" step="0.5" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
+              <p class="text-xs text-gray-400 mt-1">Percentage of subtotal added as service charge (e.g. 5 = 5%).</p>
             </div>
           </div>
         </div>

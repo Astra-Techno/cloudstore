@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_client.dart';
 import '../../app/providers/cart_provider.dart';
+import '../../app/providers/bootstrap_provider.dart';
 import '../../models/address.dart';
 import '../../widgets/price_text.dart';
 
@@ -89,6 +90,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final bootstrap = context.watch<BootstrapProvider>();
+
+    final deliveryCharge = _orderType == 'delivery' ? bootstrap.deliveryChargeFixed : 0;
+    final serviceCharge = bootstrap.serviceChargePercent > 0
+        ? (cart.subtotal * bootstrap.serviceChargePercent / 100).round()
+        : 0;
+    final estimatedTotal = cart.subtotal + deliveryCharge + serviceCharge;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -209,16 +217,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     )),
                     const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Subtotal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text(
-                          PriceText.format(cart.subtotal),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                      ],
-                    ),
+                    _summaryRow('Subtotal', cart.subtotal),
+                    if (deliveryCharge > 0) _summaryRow('Delivery charge', deliveryCharge),
+                    if (serviceCharge > 0) _summaryRow('Service charge (${bootstrap.serviceChargePercent}%)', serviceCharge),
+                    if (deliveryCharge > 0 || serviceCharge > 0) ...[
+                      const Divider(),
+                      _summaryRow('Estimated Total', estimatedTotal, bold: true),
+                    ],
                   ],
                 ),
               ),
@@ -239,7 +244,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
-                        'Place Order - ${PriceText.format(cart.subtotal)}',
+                        'Place Order - ${PriceText.format(estimatedTotal)}',
                         style: const TextStyle(fontSize: 16),
                       ),
               ),
@@ -247,6 +252,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, int paise, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, fontSize: bold ? 16 : 14)),
+          Text(PriceText.format(paise), style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, fontSize: bold ? 16 : 14)),
+        ],
       ),
     );
   }

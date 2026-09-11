@@ -64,6 +64,10 @@ final class TenantService
                 'favicon_url' => $branding['favicon_url'] ?? null,
             ],
             'features' => $capabilities,
+            'charges' => [
+                'delivery_charge_fixed' => (int) ($tenant->configuration['delivery_charge_fixed'] ?? 0),
+                'service_charge_percent' => (float) ($tenant->configuration['service_charge_percent'] ?? 0),
+            ],
             'localization' => [
                 'currency' => $tenant->currency,
                 'locale' => $tenant->locale,
