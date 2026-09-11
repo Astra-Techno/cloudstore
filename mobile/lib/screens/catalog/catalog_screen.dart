@@ -231,7 +231,7 @@ class _ProductCard extends StatelessWidget {
                       showStrike: product.salePrice != null,
                       strikePrice: product.salePrice != null ? product.basePrice : null,
                     ),
-                    if (product.stockMode != 'unlimited' && (product.stockQuantity ?? 0) <= 5) ...[
+                    if (product.stockMode == 'limited_stock' && product.stockQuantity != null && product.stockQuantity! <= 5) ...[
                       const SizedBox(height: 5),
                       Text('Only ${product.stockQuantity} left', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
