@@ -54,14 +54,14 @@ class ApiClient {
   }
 
   Future<Response> put(String path, {dynamic data}) {
-    return _dio.put(path, data: data);
+    return _dio.post(path, data: data, options: Options(headers: {'X-HTTP-Method-Override': 'PUT'}));
   }
 
   Future<Response> patch(String path, {dynamic data}) {
-    return _dio.patch(path, data: data);
+    return _dio.post(path, data: data, options: Options(headers: {'X-HTTP-Method-Override': 'PATCH'}));
   }
 
   Future<Response> delete(String path) {
-    return _dio.delete(path);
+    return _dio.post(path, options: Options(headers: {'X-HTTP-Method-Override': 'DELETE'}));
   }
 }
