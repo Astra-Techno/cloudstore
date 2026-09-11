@@ -18,8 +18,8 @@ async function handleLogin() {
   try {
     await auth.login(email.value, password.value)
     router.push('/')
-  } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : 'Login failed'
+  } catch (e: any) {
+    error.value = e?.response?.data?.error?.message || (e instanceof Error ? e.message : 'Login failed')
   } finally {
     loading.value = false
   }
