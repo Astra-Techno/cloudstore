@@ -125,6 +125,8 @@ final class AdminPosController
             return Response::success($result, status: 201);
         } catch (\RuntimeException $e) {
             return Response::error($e->getMessage(), 'POS_CHECKOUT_FAILED', 422);
+        } catch (\Throwable $e) {
+            return Response::error('Checkout failed: ' . $e->getMessage(), 'POS_CHECKOUT_ERROR', 500);
         }
     }
 }

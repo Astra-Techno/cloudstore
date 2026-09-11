@@ -237,7 +237,7 @@ onMounted(loadOrder)
           </div>
           <div>
             <div class="text-xs text-gray-500">Payment</div>
-            <div class="text-sm font-medium capitalize">{{ order.payment_method?.replace(/_/g, ' ') }}</div>
+            <div class="text-sm font-medium capitalize">{{ order.payment_method?.startsWith('pos_') ? 'POS ' + order.payment_method.replace('pos_', '').toUpperCase() : order.payment_method?.replace(/_/g, ' ') }}</div>
           </div>
           <div>
             <div class="text-xs text-gray-500">Payment Status</div>

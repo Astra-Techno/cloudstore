@@ -18,7 +18,7 @@ final class ProductRepository
         return $this->db->fetchOne(
             "SELECT p.*, c.name as category_name, c.slug as category_slug
              FROM products p
-             JOIN categories c ON c.id = p.category_id
+             LEFT JOIN categories c ON c.id = p.category_id
              WHERE p.id = ? AND p.tenant_id = ? AND p.deleted_at IS NULL",
             [$id, $tenantId]
         );
@@ -29,7 +29,7 @@ final class ProductRepository
         return $this->db->fetchOne(
             "SELECT p.*, c.name as category_name, c.slug as category_slug
              FROM products p
-             JOIN categories c ON c.id = p.category_id
+             LEFT JOIN categories c ON c.id = p.category_id
              WHERE p.uuid = ? AND p.tenant_id = ? AND p.deleted_at IS NULL",
             [$uuid, $tenantId]
         );
@@ -54,7 +54,7 @@ final class ProductRepository
     {
         $sql = "SELECT p.*, c.name as category_name
                 FROM products p
-                JOIN categories c ON c.id = p.category_id
+                LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.tenant_id = ? AND p.deleted_at IS NULL";
         $params = [$tenantId];
 

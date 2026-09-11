@@ -67,6 +67,11 @@ function openCreate() {
   showForm.value = true
 }
 
+function toLocalDatetime(dt: string | null): string {
+  if (!dt) return ''
+  return dt.replace(' ', 'T').slice(0, 16)
+}
+
 function openEdit(b: Bundle) {
   editing.value = b
   form.value = {
@@ -76,8 +81,8 @@ function openEdit(b: Bundle) {
     original_price: b.original_price,
     image_url: b.image_url || '',
     is_active: b.is_active,
-    starts_at: b.starts_at || '',
-    expires_at: b.expires_at || '',
+    starts_at: toLocalDatetime(b.starts_at),
+    expires_at: toLocalDatetime(b.expires_at),
   }
   error.value = ''
   showForm.value = true
@@ -90,6 +95,14 @@ async function save() {
     error.value = 'Expiry date must be after start date'
     saving.value = false
     return
+  }
+  if (form.value.expires_at && !editing.value) {
+    const now = new Date().toISOString().slice(0, 16)
+    if (form.value.expires_at < now) {
+      error.value = 'Expiry date cannot be in the past'
+      saving.value = false
+      return
+    }
   }
   try {
     if (editing.value) {

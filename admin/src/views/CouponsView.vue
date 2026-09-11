@@ -73,6 +73,12 @@ function openCreate() {
   showForm.value = true
 }
 
+function toLocalDatetime(dt: string | null): string {
+  if (!dt) return ''
+  // Convert "2026-09-10 14:30:00" or ISO to "2026-09-10T14:30" for datetime-local input
+  return dt.replace(' ', 'T').slice(0, 16)
+}
+
 function openEdit(c: Coupon) {
   editing.value = c
   form.value = {
@@ -85,8 +91,8 @@ function openEdit(c: Coupon) {
     max_discount_amount: c.max_discount_amount,
     usage_limit: c.usage_limit,
     per_customer_limit: c.per_customer_limit,
-    starts_at: c.starts_at || '',
-    expires_at: c.expires_at || '',
+    starts_at: toLocalDatetime(c.starts_at),
+    expires_at: toLocalDatetime(c.expires_at),
     is_active: c.is_active,
   }
   error.value = ''
@@ -100,6 +106,14 @@ async function save() {
     error.value = 'Expiry date must be after start date'
     saving.value = false
     return
+  }
+  if (form.value.expires_at && !editing.value) {
+    const now = new Date().toISOString().slice(0, 16)
+    if (form.value.expires_at < now) {
+      error.value = 'Expiry date cannot be in the past'
+      saving.value = false
+      return
+    }
   }
   try {
     const payload = { ...form.value }
