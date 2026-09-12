@@ -10,6 +10,7 @@ use App\Core\Validation\Validator;
 use App\Core\Database\Connection;
 use App\Core\Config\Config;
 use App\Modules\Tenant\Repository\TenantRepository;
+use App\Modules\Tenant\Service\AppTokenService;
 use App\Modules\Auth\Domain\Role;
 use Ramsey\Uuid\Uuid;
 
@@ -19,6 +20,7 @@ final class BuildController
         private readonly Connection $db,
         private readonly TenantRepository $tenantRepo,
         private readonly Config $config,
+        private readonly AppTokenService $appTokenService,
     ) {
     }
 
@@ -56,7 +58,6 @@ final class BuildController
         if (!$validator->validate($data, [
             'platform' => ['required', 'string'],
             'app_mode' => ['required', 'string'],
-            'app_token' => ['required', 'string'],
         ])) {
             return Response::validationError($validator->getErrors());
         }
@@ -66,25 +67,27 @@ final class BuildController
         $buildType = $data['build_type'] ?? ($platform === 'android' ? 'apk' : 'ad-hoc');
         $appName = $data['app_name'] ?? $tenant->name;
         $appId = $data['app_id'] ?? 'com.cloudmarket.cloudstore';
-        $appToken = trim((string) $data['app_token']);
+        $suppliedToken = trim((string) ($data['app_token'] ?? ''));
+        $appToken = $this->appTokenService->getReusableBuildToken($tenant->id);
 
-        // The token is embedded in the white-label app. Verify it belongs to
-        // this active tenant before dispatching an otherwise unusable build.
-        $validToken = $this->db->fetchOne(
-            "SELECT id FROM app_tokens WHERE tenant_id = ? AND token_hash = ? AND status = 'active' LIMIT 1",
-            [$tenant->id, hash('sha256', $appToken)],
-        );
-        if ($validToken === null) {
-            return Response::validationError([
-                'app_token' => ['Generate a new active token for this store before building the app.'],
-            ]);
+        // Legacy installs created before encrypted build credentials require
+        // one validated token entry (or a rotation) to opt in to reuse.
+        if ($appToken === null && $suppliedToken !== '') {
+            $validToken = $this->db->fetchOne(
+                "SELECT id FROM app_tokens WHERE tenant_id = ? AND token_hash = ? AND status = 'active' LIMIT 1",
+                [$tenant->id, hash('sha256', $suppliedToken)],
+            );
+            if ($validToken !== null) {
+                $this->appTokenService->storeReusableBuildToken((int) $validToken['id'], $suppliedToken);
+                $appToken = $suppliedToken;
+            }
         }
 
-        // Get tenant's active app token prefix for reference
-        $tokenRow = $this->db->fetchOne(
-            "SELECT id, token_prefix FROM app_tokens WHERE tenant_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
-            [$tenant->id]
-        );
+        if ($appToken === null) {
+            return Response::validationError([
+                'app_token' => ['This tenant needs one token setup. Click Rotate token once, then future builds will reuse it automatically.'],
+            ]);
+        }
 
         $buildUuid = Uuid::uuid4()->toString();
         $shareToken = bin2hex(random_bytes(24));

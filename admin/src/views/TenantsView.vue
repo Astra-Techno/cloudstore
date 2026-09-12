@@ -691,14 +691,14 @@ onMounted(load)
             <input v-model="buildForm.app_id" class="w-full border rounded-lg px-3 py-2" placeholder="com.cloudmarket.cloudstore" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-gray-500 mb-1">App Token *</label>
+            <label class="block text-xs font-bold text-gray-500 mb-1">Reusable App Token</label>
             <div class="flex gap-2">
-              <input v-model="buildForm.app_token" required class="flex-1 border rounded-lg px-3 py-2 font-mono text-xs" :placeholder="tokenPrefix ? `Starts with ${tokenPrefix}...` : 'Tenant app token'" />
+              <input v-model="buildForm.app_token" class="flex-1 border rounded-lg px-3 py-2 font-mono text-xs" :placeholder="tokenPrefix ? `Active token: ${tokenPrefix}... (reused automatically)` : 'Token setup required only for legacy tenants'" />
               <button type="button" @click="regenerateToken" :disabled="regeneratingToken" class="px-3 py-2 bg-gray-100 border rounded-lg text-xs font-bold hover:bg-gray-200 whitespace-nowrap">
-                {{ regeneratingToken ? 'Generating...' : 'Regenerate' }}
+                {{ regeneratingToken ? 'Rotating...' : 'Rotate token' }}
               </button>
             </div>
-            <p class="text-xs text-gray-400 mt-1">{{ buildForm.app_token ? 'Token set — will be injected into the app build' : 'Click Regenerate to create a new token (old one will be revoked)' }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ tokenPrefix ? 'The active token is reused for every build. Rotate only if it is compromised.' : 'For a legacy tenant, rotate once to enable automatic reuse on future builds.' }}</p>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 mb-1">Primary Color</label>

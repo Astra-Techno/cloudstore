@@ -151,6 +151,7 @@ final class Application
 
         $this->container->singleton(AppTokenService::class, fn () => new AppTokenService(
             $this->container->get(AppTokenRepository::class),
+            $this->container->get(Config::class),
         ));
 
         $this->container->singleton(TenantService::class, fn () => new TenantService(
@@ -479,6 +480,7 @@ final class Application
             $this->container->get(Connection::class),
             $this->container->get(TenantRepository::class),
             $this->container->get(Config::class),
+            $this->container->get(AppTokenService::class),
         ));
         $this->container->singleton(MarketplaceController::class, fn () => new MarketplaceController(
             $this->container->get(Connection::class),

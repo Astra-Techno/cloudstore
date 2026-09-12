@@ -4,7 +4,7 @@ import '../../services/api_client.dart';
 import '../../config/app_config.dart';
 
 class BootstrapProvider extends ChangeNotifier {
-  int? _tenantId;
+  String? _tenantId;
   String? _tenantName;
   String? _businessType;
   Color? _primaryColor;
@@ -20,7 +20,7 @@ class BootstrapProvider extends ChangeNotifier {
   bool _isLoaded = false;
   String? _error;
 
-  int? get tenantId => _tenantId;
+  String? get tenantId => _tenantId;
   String? get tenantName => _tenantName;
   String? get businessType => _businessType;
   Color? get primaryColor => _primaryColor;
@@ -79,13 +79,19 @@ class BootstrapProvider extends ChangeNotifier {
           ? Map<String, dynamic>.from(responseData['error'] as Map)
           : const <String, dynamic>{};
       final code = apiError['code']?.toString();
-      final isUnauthorized = error.response?.statusCode == 401 ||
-          code == 'UNAUTHORIZED';
+      final status = error.response?.statusCode;
+      final isUnauthorized = status == 401 || code == 'UNAUTHORIZED';
       _error = switch (isUnauthorized) {
         true =>
           'This app build is no longer authorised. Please install the latest app from the store.',
         false when code == 'TENANT_ERROR' =>
           'This store is temporarily unavailable. Please try again shortly.',
+        false when status == 404 =>
+          'This app is pointed to an invalid store server. Please install the latest app.',
+        false when status == 422 =>
+          'This app build is missing required store configuration. Please install a newly generated app.',
+        false when status != null && status >= 500 =>
+          'The store server is currently unavailable. Please try again shortly.',
         false when error.type == DioExceptionType.connectionTimeout ||
                 error.type == DioExceptionType.connectionError =>
           'Unable to reach the store server. Check your internet connection and try again.',
@@ -102,7 +108,10 @@ class BootstrapProvider extends ChangeNotifier {
   }
 
   void setTenantData(Map<String, dynamic> data) {
-    _tenantId = data['tenant']?['id'] as int?;
+    // Public bootstrap intentionally exposes the tenant UUID, not the
+    // database integer key. Accept it as a string so a successful response
+    // cannot fail during client-side parsing.
+    _tenantId = data['tenant']?['id']?.toString();
     _tenantName = data['tenant']?['name'] as String?;
     _businessType = data['tenant']?['business_type'] as String?;
 

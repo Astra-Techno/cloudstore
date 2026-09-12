@@ -20,7 +20,7 @@ void main() {
     final bootstrap = BootstrapProvider();
     bootstrap.setTenantData(<String, dynamic>{
       'tenant': <String, dynamic>{
-        'id': 1,
+        'id': 'c0590283-8485-4cec-b5a0-7f7e3640c1c8',
         'name': 'Test Store',
         'business_type': 'retail'
       },
@@ -41,6 +41,7 @@ void main() {
       ),
     );
 
+    expect(bootstrap.tenantId, 'c0590283-8485-4cec-b5a0-7f7e3640c1c8');
     expect(find.byType(CloudStoreApp), findsOneWidget);
   });
 }

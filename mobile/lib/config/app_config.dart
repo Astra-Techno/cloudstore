@@ -8,7 +8,9 @@ class AppConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000/api/v1',
+    // Safe production fallback for a white-label APK. Local emulator builds
+    // should explicitly pass API_BASE_URL=http://10.0.2.2:8000/api/v1.
+    defaultValue: 'https://market.cloudkart24.com/api/v1',
   );
 
   static const String appMode = String.fromEnvironment(

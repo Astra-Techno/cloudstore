@@ -13,12 +13,18 @@ final class AppTokenRepository
     ) {
     }
 
-    public function create(int $tenantId, string $tokenHash, string $tokenPrefix, ?string $expiresAt = null): int
+    public function create(
+        int $tenantId,
+        string $tokenHash,
+        string $tokenCiphertext,
+        string $tokenPrefix,
+        ?string $expiresAt = null,
+    ): int
     {
         $this->db->execute(
-            "INSERT INTO app_tokens (tenant_id, token_hash, token_prefix, status, expires_at)
-             VALUES (?, ?, ?, 'active', ?)",
-            [$tenantId, $tokenHash, $tokenPrefix, $expiresAt]
+            "INSERT INTO app_tokens (tenant_id, token_hash, token_ciphertext, token_prefix, status, expires_at)
+             VALUES (?, ?, ?, ?, 'active', ?)",
+            [$tenantId, $tokenHash, $tokenCiphertext, $tokenPrefix, $expiresAt]
         );
 
         return (int) $this->db->lastInsertId();
@@ -65,6 +71,25 @@ final class AppTokenRepository
             "SELECT id, token_prefix, status, expires_at, last_used_at, created_at, revoked_at
              FROM app_tokens WHERE tenant_id = ? ORDER BY created_at DESC",
             [$tenantId]
+        );
+    }
+
+    public function findActiveByTenant(int $tenantId): ?array
+    {
+        return $this->db->fetchOne(
+            "SELECT id, tenant_id, token_hash, token_ciphertext, token_prefix, status, expires_at
+             FROM app_tokens
+             WHERE tenant_id = ? AND status = 'active'
+             ORDER BY created_at DESC LIMIT 1",
+            [$tenantId],
+        );
+    }
+
+    public function updateCiphertext(int $tokenId, string $tokenCiphertext): void
+    {
+        $this->db->execute(
+            'UPDATE app_tokens SET token_ciphertext = ? WHERE id = ?',
+            [$tokenCiphertext, $tokenId],
         );
     }
 }

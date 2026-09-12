@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:dio/dio.dart';
 import '../config/app_config.dart';
 
@@ -32,7 +34,27 @@ class ApiClient {
         if (_authToken != null) {
           options.headers['Authorization'] = 'Bearer $_authToken';
         }
+        // Deliberately excludes headers and request data: both can contain
+        // credentials, OTPs, customer details, or payment information.
+        developer.log(
+          '${options.method} ${options.uri.path}',
+          name: 'CloudMarket.Api',
+        );
         handler.next(options);
+      },
+      onResponse: (response, handler) {
+        developer.log(
+          '${response.requestOptions.method} ${response.requestOptions.uri.path} -> ${response.statusCode}',
+          name: 'CloudMarket.Api',
+        );
+        handler.next(response);
+      },
+      onError: (error, handler) {
+        developer.log(
+          '${error.requestOptions.method} ${error.requestOptions.uri.path} -> ${error.response?.statusCode ?? error.type.name}',
+          name: 'CloudMarket.Api',
+        );
+        handler.next(error);
       },
     ));
   }
