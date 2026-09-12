@@ -25,9 +25,6 @@ const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
 
 const paymentOptions = [
   { value: 'cod', label: 'Cash on Delivery' },
-  { value: 'online', label: 'Online Payment' },
-  { value: 'upi', label: 'UPI' },
-  { value: 'card', label: 'Card Payment' },
 ]
 
 const defaultBranding = { primary_color: '#000000', logo_url: '' }
@@ -100,6 +97,10 @@ async function loadSettings() {
     if (data.success && data.data) {
       settings.value = {
         ...data.data,
+        // API values are paise; the merchant-facing form always uses rupees.
+        min_order_amount: Number(data.data.min_order_amount || 0) / 100,
+        delivery_charge_fixed: Number(data.data.delivery_charge_fixed || 0) / 100,
+        payment_methods: ['cod'],
         branding: data.data.branding ?? { ...defaultBranding },
       }
     }
@@ -116,7 +117,12 @@ async function saveSettings() {
   error.value = ''
   success.value = ''
 
-  // Validate business hours
+  // Validate business hours and merchant ordering choices.
+  if (!settings.value.delivery_enabled && !settings.value.pickup_enabled) {
+    error.value = 'Enable delivery, pickup, or both so customers can place orders.'
+    saving.value = false
+    return
+  }
   for (const day of days) {
     const h = settings.value.business_hours[day]
     if (h.open && h.start && h.end && h.end <= h.start) {
@@ -130,9 +136,9 @@ async function saveSettings() {
     const { data } = await settingsApi.updateSettings({
       business_hours: settings.value.business_hours,
       preparation_time_default: settings.value.preparation_time_default,
-      min_order_amount: settings.value.min_order_amount,
+      min_order_amount: Math.round(Number(settings.value.min_order_amount || 0) * 100),
       tax_rate: settings.value.tax_rate,
-      delivery_charge_fixed: settings.value.delivery_charge_fixed,
+      delivery_charge_fixed: Math.round(Number(settings.value.delivery_charge_fixed || 0) * 100),
       service_charge_percent: settings.value.service_charge_percent,
       delivery_enabled: settings.value.delivery_enabled,
       pickup_enabled: settings.value.pickup_enabled,
@@ -154,6 +160,7 @@ async function saveSettings() {
 
 function togglePayment(method: string) {
   if (!settings.value) return
+  if (method === 'cod') return
   const idx = settings.value.payment_methods.indexOf(method)
   if (idx >= 0) {
     if (settings.value.payment_methods.length > 1) {
@@ -270,7 +277,7 @@ onMounted(loadSettings)
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Charge (₹)</label>
               <input v-model.number="settings.delivery_charge_fixed" type="number" min="0" step="1" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
-              <p class="text-xs text-gray-400 mt-1">Flat delivery fee in paise (e.g. 5000 = ₹50). Applied when no delivery zone matches.</p>
+              <p class="text-xs text-gray-400 mt-1">Flat delivery fee in rupees. Applied when no delivery zone matches.</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Service Charge (%)</label>
@@ -306,6 +313,7 @@ onMounted(loadSettings)
               {{ opt.label }}
             </button>
           </div>
+          <p class="mt-3 text-xs text-gray-500">Cash on delivery is active. Online, UPI, and card payments will appear only after a payment gateway is connected for this store.</p>
         </div>
 
         <!-- Password Change -->

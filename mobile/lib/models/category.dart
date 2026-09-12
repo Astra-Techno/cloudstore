@@ -4,6 +4,7 @@ class Category {
   final String name;
   final String slug;
   final String? description;
+  final String? imageUrl;
   final String status;
   final int? productCount;
 
@@ -13,6 +14,7 @@ class Category {
     required this.name,
     required this.slug,
     this.description,
+    this.imageUrl,
     required this.status,
     this.productCount,
   });
@@ -24,6 +26,7 @@ class Category {
       name: json['name'] as String,
       slug: json['slug'] as String,
       description: json['description'] as String?,
+      imageUrl: json['image_url'] as String?,
       status: json['status'] as String,
       productCount: json['product_count'] as int?,
     );

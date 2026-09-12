@@ -7,13 +7,11 @@ import '../../models/app_notification.dart';
 class NotificationProvider extends ChangeNotifier {
   List<AppNotification> _notifications = [];
   int _unreadCount = 0;
-  bool _isLoading = false;
   Timer? _pollTimer;
   int _lastKnownCount = -1;
 
   List<AppNotification> get notifications => List.unmodifiable(_notifications);
   int get unreadCount => _unreadCount;
-  bool get isLoading => _isLoading;
 
   void startPolling() {
     _pollTimer?.cancel();

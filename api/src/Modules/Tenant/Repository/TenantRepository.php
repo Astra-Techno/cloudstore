@@ -44,6 +44,18 @@ final class TenantRepository
         return $row ? Tenant::fromRow($row) : null;
     }
 
+    /** A public central-app selection may only target an approved marketplace store. */
+    public function findActiveMarketplaceBySlug(string $slug): ?Tenant
+    {
+        $row = $this->db->fetchOne(
+            "SELECT * FROM tenants WHERE slug = ? AND status = 'active'
+             AND commercial_plan = 'marketplace' AND marketplace_status = 'active'
+             AND deleted_at IS NULL",
+            [$slug],
+        );
+        return $row ? Tenant::fromRow($row) : null;
+    }
+
     public function create(array $data): Tenant
     {
         $this->db->execute(

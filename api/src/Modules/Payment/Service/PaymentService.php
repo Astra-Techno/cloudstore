@@ -37,8 +37,8 @@ final class PaymentService
 
     /**
      * Initiate a payment for an order.
-     * In production, this would call Razorpay/Stripe to create a payment order.
-     * For now, it creates a payment record and returns a simulated gateway order ID.
+     * A real gateway adapter must be configured before an online payment can
+     * be initiated. This service never fabricates a successful payment.
      */
     public function initiatePayment(int $tenantId, int $orderId, int $customerId): array
     {
@@ -51,33 +51,11 @@ final class PaymentService
             return ['error' => 'Order uses cash on delivery.', 'code' => 'INVALID_PAYMENT_METHOD'];
         }
 
-        if ($order['payment_status'] === 'paid') {
-            return ['error' => 'Order is already paid.', 'code' => 'ALREADY_PAID'];
-        }
+        // This deployment does not include a gateway order-creation adapter.
+        // Reject rather than manufacture a gateway reference that cannot charge
+        // the customer. COD remains available through the checkout service.
+        return ['error' => 'Online payments are not configured for this store.', 'code' => 'PAYMENT_NOT_CONFIGURED'];
 
-        $gatewayOrderId = 'pay_' . bin2hex(random_bytes(12));
-
-        $paymentId = $this->paymentRepo->create([
-            'uuid' => Uuid::uuid4()->toString(),
-            'tenant_id' => $tenantId,
-            'order_id' => $orderId,
-            'customer_id' => $customerId,
-            'gateway' => 'razorpay',
-            'gateway_order_id' => $gatewayOrderId,
-            'amount' => (int) $order['total'],
-            'currency' => 'INR',
-            'status' => 'pending',
-        ]);
-
-        $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::PAYMENT_PROCESSING);
-        $this->orderRepo->addStatusHistory($orderId, $order['status'], OrderStatus::PAYMENT_PROCESSING, 'system', null);
-
-        return [
-            'payment_id' => $paymentId,
-            'gateway_order_id' => $gatewayOrderId,
-            'amount' => (int) $order['total'],
-            'currency' => 'INR',
-        ];
     }
 
     /**

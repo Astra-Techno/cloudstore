@@ -34,9 +34,21 @@ final class DriverService
             return ['error' => 'Order is not a delivery order.', 'code' => 'NOT_DELIVERY'];
         }
 
+        if (!in_array($order['status'], [OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY], true)) {
+            return ['error' => 'A driver can only be assigned after the order is accepted.', 'code' => 'ORDER_NOT_READY_FOR_ASSIGNMENT'];
+        }
+
+        $existingAssignment = $this->assignmentRepo->findByOrderId($orderId);
+        if ($existingAssignment !== null) {
+            return ['error' => 'This order already has an active driver assignment.', 'code' => 'DRIVER_ALREADY_ASSIGNED'];
+        }
+
         $driver = $this->driverRepo->findById($driverId);
         if ($driver === null || (int) $driver['tenant_id'] !== $tenantId) {
             return ['error' => 'Driver not found.', 'code' => 'DRIVER_NOT_FOUND'];
+        }
+        if ($driver['availability'] === 'offline') {
+            return ['error' => 'This driver is offline.', 'code' => 'DRIVER_OFFLINE'];
         }
 
         $assignmentId = $this->assignmentRepo->create([
@@ -90,11 +102,15 @@ final class DriverService
         }
 
         return $this->db->transaction(function () use ($assignment, $assignmentId, $newStatus) {
-            $this->assignmentRepo->updateStatus($assignmentId, $newStatus);
-
             $orderId = (int) $assignment['order_id'];
             $tenantId = (int) $assignment['tenant_id'];
             $order = $this->orderRepo->findById($orderId, $tenantId);
+
+            if ($newStatus === 'picked_up' && $order['status'] !== OrderStatus::READY) {
+                return ['error' => 'The order is not ready for pickup.', 'code' => 'ORDER_NOT_READY'];
+            }
+
+            $this->assignmentRepo->updateStatus($assignmentId, $newStatus);
 
             // Map driver assignment status to order status
             $orderStatusMap = [

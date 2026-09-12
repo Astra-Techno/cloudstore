@@ -5,6 +5,8 @@ import '../../models/product.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/auth_provider.dart';
 import '../../widgets/price_text.dart';
+import 'package:go_router/go_router.dart';
+import '../../config/app_config.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String uuid;
@@ -69,10 +71,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _addToCart() async {
     final auth = context.read<AuthProvider>();
     if (!auth.isAuthenticated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please login first')),
-      );
+      context.push('/login');
       return;
+    }
+
+    for (final group in _product!.addonGroups) {
+      final selected = group.items.where((item) => _selectedAddonIds.contains(item.id)).length;
+      if (selected < group.minSelections || selected > group.maxSelections) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Choose ${group.minSelections}-${group.maxSelections} option(s) for ${group.name}')));
+        return;
+      }
     }
 
     setState(() => _adding = true);
@@ -114,18 +122,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product image placeholder
-                      Container(
-                        width: double.infinity,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          Icons.fastfood,
-                          size: 64,
-                          color: Theme.of(context).colorScheme.primary,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 240,
+                          child: _product!.images.isEmpty
+                              ? Container(color: Theme.of(context).colorScheme.primaryContainer, child: Icon(Icons.restaurant_rounded, size: 64, color: Theme.of(context).colorScheme.primary))
+                              : Image.network(AppConfig.assetUrl(_product!.images.first.url), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.primaryContainer, child: Icon(Icons.restaurant_rounded, size: 64, color: Theme.of(context).colorScheme.primary))),
                         ),
                       ),
                       const SizedBox(height: 20),

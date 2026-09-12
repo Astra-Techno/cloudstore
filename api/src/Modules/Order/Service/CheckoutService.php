@@ -40,6 +40,12 @@ final class CheckoutService
      */
     public function createOrder(int $tenantId, int $customerId, array $input): array
     {
+        $tenant = TenantContext::get();
+        $tenantConfig = $tenant->configuration ?? [];
+
+        if (!$this->isStoreOpen($tenantConfig, $tenant->timezone)) {
+            return ['error' => 'This store is currently closed for orders.', 'code' => 'STORE_CLOSED'];
+        }
         $cart = $this->cartRepo->findActiveByCustomer($customerId, $tenantId);
         if ($cart === null) {
             return ['error' => 'No active cart found.', 'code' => 'CART_EMPTY'];
@@ -65,8 +71,19 @@ final class CheckoutService
             }
         }
 
-        // Resolve address
+        // Fulfilment and payment are merchant-owned choices, not client hints.
         $orderType = $input['order_type'] ?? 'delivery';
+        if ($orderType === 'delivery' && !($tenantConfig['delivery_enabled'] ?? true)) {
+            return ['error' => 'This store is not accepting delivery orders.', 'code' => 'DELIVERY_DISABLED'];
+        }
+        if ($orderType === 'pickup' && !($tenantConfig['pickup_enabled'] ?? true)) {
+            return ['error' => 'This store is not accepting pickup orders.', 'code' => 'PICKUP_DISABLED'];
+        }
+        $paymentMethod = $input['payment_method'] ?? 'cash_on_delivery';
+        $paymentSetting = $paymentMethod === 'cash_on_delivery' ? 'cod' : $paymentMethod;
+        if (!in_array($paymentSetting, $tenantConfig['payment_methods'] ?? ['cod'], true)) {
+            return ['error' => 'That payment method is not available for this store.', 'code' => 'PAYMENT_METHOD_DISABLED'];
+        }
         $address = null;
         $addressSnapshot = '{}';
         $deliveryFee = 0;
@@ -128,8 +145,13 @@ final class CheckoutService
             ];
         }
 
+        $minOrderAmount = (int) ($tenantConfig['min_order_amount'] ?? 0);
+        if ($subtotal < $minOrderAmount) {
+            return ['error' => 'Minimum order value is ' . number_format($minOrderAmount / 100, 2) . '.', 'code' => 'MINIMUM_ORDER_NOT_MET'];
+        }
+
         if ($orderType === 'delivery' && $address !== null) {
-            $location = TenantContext::get()->configuration['delivery'] ?? [];
+            $location = $tenantConfig['delivery'] ?? [];
             $tenantLatitude = $location['latitude'] ?? null;
             $tenantLongitude = $location['longitude'] ?? null;
             $addressLatitude = $address['latitude'] ?? null;
@@ -158,7 +180,6 @@ final class CheckoutService
         }
 
         // Apply fixed delivery charge from settings (if no zone-based fee and order is delivery)
-        $tenantConfig = TenantContext::get()->configuration ?? [];
         if ($orderType === 'delivery' && $deliveryFee === 0) {
             $deliveryFee = (int) ($tenantConfig['delivery_charge_fixed'] ?? 0);
         }
@@ -180,13 +201,13 @@ final class CheckoutService
             $deliveryFee = 0;
         }
 
-        $total = $subtotal - $discountAmount + $deliveryFee + $serviceCharge;
+        $taxAmount = (int) round(max(0, $subtotal - $discountAmount) * max(0, (float) ($tenantConfig['tax_rate'] ?? 0)) / 100);
+        $total = $subtotal - $discountAmount + $deliveryFee + $serviceCharge + $taxAmount;
         if ($total < 0) {
             $total = 0;
         }
 
         // Determine payment method and initial status
-        $paymentMethod = $input['payment_method'] ?? 'cash_on_delivery';
         $initialStatus = $paymentMethod === 'cash_on_delivery'
             ? OrderStatus::CONFIRMED
             : OrderStatus::PENDING_PAYMENT;
@@ -195,7 +216,7 @@ final class CheckoutService
         try {
             return $this->db->transaction(function () use (
                 $tenantId, $customerId, $cart, $address, $addressSnapshot,
-                $subtotal, $deliveryFee, $serviceCharge, $total, $discountAmount, $couponCode, $discountResult,
+                $subtotal, $deliveryFee, $serviceCharge, $taxAmount, $total, $discountAmount, $couponCode, $discountResult,
                 $orderType, $paymentMethod, $initialStatus, $orderItems, $input, $items
             ) {
                 foreach ($items as $item) {
@@ -226,6 +247,7 @@ final class CheckoutService
                 'subtotal' => $subtotal,
                 'delivery_fee' => $deliveryFee,
                 'service_charge' => $serviceCharge,
+                'tax_amount' => $taxAmount,
                 'discount_amount' => $discountAmount,
                 'total' => $total,
                 'coupon_code' => $couponCode,
@@ -269,5 +291,50 @@ final class CheckoutService
                 'code' => 'INSUFFICIENT_STOCK',
             ];
         }
+    }
+
+    /**
+     * Business hours are optional.  With no configured schedule the merchant is
+     * treated as open, preserving the behaviour of existing stores.
+     */
+    private function isStoreOpen(array $config, string $timezone): bool
+    {
+        $hours = $config['business_hours'] ?? null;
+        if (!is_array($hours) || $hours === []) {
+            return true;
+        }
+
+        try {
+            $now = new \DateTimeImmutable('now', new \DateTimeZone($timezone));
+        } catch (\Exception) {
+            $now = new \DateTimeImmutable('now', new \DateTimeZone('Asia/Kolkata'));
+        }
+
+        $dayKeys = [strtolower($now->format('l')), strtolower(substr($now->format('l'), 0, 3))];
+        $schedule = null;
+        foreach ($dayKeys as $day) {
+            if (isset($hours[$day]) && is_array($hours[$day])) {
+                $schedule = $hours[$day];
+                break;
+            }
+        }
+        if ($schedule === null) {
+            return true;
+        }
+        if (($schedule['open'] ?? true) === false) {
+            return false;
+        }
+
+        $opensAt = $schedule['open_time'] ?? $schedule['start'] ?? null;
+        $closesAt = $schedule['close_time'] ?? $schedule['end'] ?? null;
+        if (!is_string($opensAt) || !is_string($closesAt)) {
+            return true;
+        }
+
+        $current = $now->format('H:i');
+        // Support both same-day and overnight service windows.
+        return $opensAt <= $closesAt
+            ? $current >= $opensAt && $current <= $closesAt
+            : $current >= $opensAt || $current <= $closesAt;
     }
 }

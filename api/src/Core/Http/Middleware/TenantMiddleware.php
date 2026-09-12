@@ -23,7 +23,17 @@ final class TenantMiddleware
         $appToken = $request->header('x-app-token');
 
         if ($appToken === '') {
-            return Response::unauthorized('Missing app token.');
+            $marketplaceStore = $request->header('x-marketplace-store');
+            if ($marketplaceStore === '') {
+                return Response::unauthorized('Missing app token.');
+            }
+
+            $tenant = $this->tenantRepo->findActiveMarketplaceBySlug($marketplaceStore);
+            if ($tenant === null) {
+                return Response::unauthorized('Marketplace store is not available.');
+            }
+            TenantContext::set($tenant);
+            return null;
         }
 
         $tokenRecord = $this->tokenService->validate($appToken);

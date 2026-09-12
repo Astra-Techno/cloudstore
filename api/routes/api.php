@@ -26,6 +26,7 @@ use App\Modules\Offer\Controller\AdminOfferController;
 use App\Modules\Offer\Controller\PublicOfferController;
 use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Modules\Platform\Controller\BuildController;
+use App\Modules\Platform\Controller\MarketplaceController;
 use App\Core\Http\Middleware\TenantMiddleware;
 
 return function (Router $router): void {
@@ -55,6 +56,8 @@ return function (Router $router): void {
             $router->get('/tenants/{uuid}/admins', [PlatformAdminController::class, 'listTenantAdmins']);
             $router->post('/tenants/{uuid}/admins', [PlatformAdminController::class, 'createTenantAdmin']);
             $router->post('/tenants/{uuid}/regenerate-token', [PlatformAdminController::class, 'regenerateToken']);
+            $router->get('/fees', [PlatformAdminController::class, 'listFeeLedger']);
+            $router->post('/fees/{uuid}/settle', [PlatformAdminController::class, 'settleFeeLedger']);
 
             // App builds
             $router->get('/tenants/{uuid}/builds', [BuildController::class, 'listBuilds']);
@@ -176,6 +179,12 @@ return function (Router $router): void {
 
         // Public build download (share link)
         $router->get('/builds/download/{token}', [BuildController::class, 'download']);
+
+        // Central CloudMarket discovery app. Checkout remains store-scoped:
+        // a customer selects one merchant before starting a cart.
+        $router->get('/marketplace/stores', [MarketplaceController::class, 'stores']);
+        $router->get('/marketplace/stores/{slug}', [MarketplaceController::class, 'store']);
+        $router->get('/marketplace/stores/{slug}/catalog', [MarketplaceController::class, 'catalog']);
 
         // Public/customer routes (tenant-scoped via X-App-Token)
         $router->group('', [TenantMiddleware::class], function (Router $router) {

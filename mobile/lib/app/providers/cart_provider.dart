@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/api_client.dart';
 import '../../models/cart_models.dart';
+import '../../services/api_client.dart';
 
 class CartProvider extends ChangeNotifier {
   List<CartItem> _items = [];
@@ -9,7 +9,7 @@ class CartProvider extends ChangeNotifier {
   String? _error;
 
   List<CartItem> get items => List.unmodifiable(_items);
-  int get itemCount => _items.length;
+  int get itemCount => _items.fold(0, (total, item) => total + item.quantity);
   int get subtotal => _subtotal;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -18,7 +18,6 @@ class CartProvider extends ChangeNotifier {
   Future<void> loadCart() async {
     _isLoading = true;
     notifyListeners();
-
     try {
       final response = await ApiClient().get('/customer/cart');
       final data = response.data;
@@ -29,73 +28,62 @@ class CartProvider extends ChangeNotifier {
       }
       _error = null;
     } catch (_) {
-      // Cart may not exist yet — that's fine
+      _error = 'Unable to refresh your cart. Check your connection and try again.';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> addItem({
-    required String productUuid,
-    String? variantUuid,
-    int quantity = 1,
-    List<int>? addonIds,
-  }) async {
+  Future<bool> addItem({required String productUuid, String? variantUuid, int quantity = 1, List<int>? addonIds}) async {
     _error = null;
     try {
-      final payload = <String, dynamic>{
-        'product_uuid': productUuid,
-        'quantity': quantity,
-      };
+      final payload = <String, dynamic>{'product_uuid': productUuid, 'quantity': quantity};
       if (variantUuid != null) payload['variant_uuid'] = variantUuid;
       if (addonIds != null && addonIds.isNotEmpty) payload['addon_ids'] = addonIds;
-
       final response = await ApiClient().post('/customer/cart/items', data: payload);
-      final data = response.data;
-
-      if (data['success'] == true) {
+      if (response.data['success'] == true) {
         await loadCart();
         return true;
-      } else {
-        _error = data['error']?['message'] ?? 'Failed to add item';
-        notifyListeners();
-        return false;
       }
+      _error = response.data['error']?['message'] ?? 'Unable to add this item.';
     } catch (_) {
-      _error = 'Failed to add item to cart';
-      notifyListeners();
-      return false;
+      _error = 'Unable to add this item. Please try again.';
     }
+    notifyListeners();
+    return false;
   }
 
   Future<bool> updateItem(int itemId, int quantity) async {
     _error = null;
     try {
-      final response = await ApiClient().patch('/customer/cart/items/$itemId', data: {
-        'quantity': quantity,
-      });
+      final response = await ApiClient().patch('/customer/cart/items/$itemId', data: {'quantity': quantity});
       if (response.data['success'] == true) {
         await loadCart();
         return true;
       }
-      return false;
+      _error = response.data['error']?['message'] ?? 'Unable to update this item.';
     } catch (_) {
-      return false;
+      _error = 'Unable to update this item. Please try again.';
     }
+    notifyListeners();
+    return false;
   }
 
   Future<bool> removeItem(int itemId) async {
+    _error = null;
     try {
       final response = await ApiClient().delete('/customer/cart/items/$itemId');
       if (response.data['success'] == true) {
         await loadCart();
         return true;
       }
-      return false;
+      _error = response.data['error']?['message'] ?? 'Unable to remove this item.';
     } catch (_) {
-      return false;
+      _error = 'Unable to remove this item. Please try again.';
     }
+    notifyListeners();
+    return false;
   }
 
   Future<bool> clearCart() async {
@@ -104,12 +92,14 @@ class CartProvider extends ChangeNotifier {
       if (response.data['success'] == true) {
         _items = [];
         _subtotal = 0;
+        _error = null;
         notifyListeners();
         return true;
       }
-      return false;
     } catch (_) {
-      return false;
+      _error = 'Unable to clear your cart. Please try again.';
+      notifyListeners();
     }
+    return false;
   }
 }

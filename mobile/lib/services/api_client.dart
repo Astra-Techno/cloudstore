@@ -5,6 +5,7 @@ class ApiClient {
   late final Dio _dio;
   String? _authToken;
   String? _appToken;
+  String? _marketplaceStore;
 
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -25,6 +26,9 @@ class ApiClient {
         if (_appToken != null) {
           options.headers['X-App-Token'] = _appToken;
         }
+        if (_marketplaceStore != null) {
+          options.headers['X-Marketplace-Store'] = _marketplaceStore;
+        }
         if (_authToken != null) {
           options.headers['Authorization'] = 'Bearer $_authToken';
         }
@@ -35,6 +39,12 @@ class ApiClient {
 
   void setAppToken(String token) {
     _appToken = token;
+    _marketplaceStore = null;
+  }
+
+  void setMarketplaceStore(String slug) {
+    _marketplaceStore = slug;
+    _appToken = null;
   }
 
   void setAuthToken(String token) {

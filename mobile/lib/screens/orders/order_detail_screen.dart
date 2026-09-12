@@ -116,6 +116,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           ),
                         ),
 
+                        if (_order!.orderType == 'delivery' && _parseSnapshot(_order!.addressSnapshot).isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          Text('Delivery address', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Icon(Icons.location_on_outlined, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text([
+                              _parseSnapshot(_order!.addressSnapshot)['address_line_1'],
+                              _parseSnapshot(_order!.addressSnapshot)['address_line_2'],
+                              _parseSnapshot(_order!.addressSnapshot)['landmark'],
+                              _parseSnapshot(_order!.addressSnapshot)['city'],
+                              _parseSnapshot(_order!.addressSnapshot)['postal_code'],
+                            ].where((part) => part != null && part.toString().trim().isNotEmpty).join(', '))),
+                          ]))),
+                        ],
+
+                        if (_order!.notes?.trim().isNotEmpty == true) ...[
+                          const SizedBox(height: 16),
+                          Text('Your instructions', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(_order!.notes!))),
+                        ],
+
                         // Items
                         const SizedBox(height: 16),
                         Text('Items', style: Theme.of(context).textTheme.titleMedium),

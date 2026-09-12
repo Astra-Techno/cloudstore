@@ -3,6 +3,8 @@ import apiClient from './client'
 export const platformApi = {
   // Dashboard
   getDashboard: () => apiClient.get('/platform/dashboard'),
+  getFeeLedger: (status?: 'accrued' | 'settled') => apiClient.get('/platform/fees', { params: { status } }),
+  settleFeeLedger: (uuid: string) => apiClient.post(`/platform/fees/${uuid}/settle`),
 
   // Tenants
   getTenants: (status?: string) => apiClient.get('/platform/tenants', { params: { status } }),

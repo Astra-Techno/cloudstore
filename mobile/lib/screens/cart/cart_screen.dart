@@ -26,9 +26,12 @@ class _CartScreenState extends State<CartScreen> {
     final auth = context.watch<AuthProvider>();
 
     if (!auth.isAuthenticated) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.shopping_cart_outlined,
         title: 'Login to view your cart',
+        subtitle: 'Sign in to add items and place an order.',
+        actionLabel: 'Login',
+        onAction: () => context.push('/login'),
       );
     }
 
@@ -52,10 +55,20 @@ class _CartScreenState extends State<CartScreen> {
           child: RefreshIndicator(
             onRefresh: cart.loadCart,
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: cart.items.length,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              itemCount: cart.items.length + 1,
               itemBuilder: (context, index) {
-                final item = cart.items[index];
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 4, 2, 16),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Your order', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text('${cart.itemCount} ${cart.itemCount == 1 ? 'item' : 'items'} from this store', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    ]),
+                  );
+                }
+                final item = cart.items[index - 1];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(

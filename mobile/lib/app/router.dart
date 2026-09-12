@@ -15,6 +15,7 @@ import '../screens/notifications/notifications_screen.dart';
 import '../screens/driver/driver_login_screen.dart';
 import '../screens/driver/driver_home_screen.dart';
 import '../screens/driver/delivery_detail_screen.dart';
+import '../screens/marketplace/marketplace_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -29,6 +30,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/marketplace',
+      builder: (context, state) => const MarketplaceScreen(),
     ),
     GoRoute(
       path: '/login',

@@ -31,10 +31,14 @@ final class CheckoutController
         $customerId = (int) $customer['id'];
         $tenantId = TenantContext::id();
         $data = $request->json();
+        if (($data['payment_method'] ?? null) === 'cod') {
+            $data['payment_method'] = 'cash_on_delivery';
+        }
 
         $validator = new Validator();
         if (!$validator->validate($data, [
             'payment_method' => ['required', 'string', 'in:cash_on_delivery,online'],
+            'order_type' => ['string', 'in:delivery,pickup'],
         ])) {
             return Response::validationError($validator->getErrors());
         }
@@ -58,7 +62,9 @@ final class CheckoutController
                 'TENANT_MISMATCH' => 403,
                 'PRODUCT_UNAVAILABLE', 'VARIANT_UNAVAILABLE' => 422,
                 'ADDRESS_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_LOCATION_REQUIRED',
-                'DELIVERY_UNAVAILABLE', 'INSUFFICIENT_STOCK' => 422,
+                'DELIVERY_UNAVAILABLE', 'DELIVERY_DISABLED', 'PICKUP_DISABLED',
+                'STORE_CLOSED', 'MINIMUM_ORDER_NOT_MET', 'PAYMENT_METHOD_DISABLED',
+                'INSUFFICIENT_STOCK' => 422,
                 default => 400,
             };
 

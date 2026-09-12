@@ -97,7 +97,13 @@ const router = createRouter({
       path: '/tenants',
       name: 'tenants',
       component: () => import('@/views/TenantsView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, platformOnly: true },
+    },
+    {
+      path: '/marketplace-fees',
+      name: 'marketplace-fees',
+      component: () => import('@/views/MarketplaceFeesView.vue'),
+      meta: { requiresAuth: true, platformOnly: true },
     },
     {
       path: '/settings',
@@ -117,6 +123,9 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login' }
+  }
+  if (to.meta.platformOnly && auth.user?.role !== 'platform_admin') {
+    return { name: 'dashboard' }
   }
   if (to.name === 'login' && auth.isAuthenticated) {
     return { name: 'dashboard' }

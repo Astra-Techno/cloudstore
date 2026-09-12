@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../app/providers/driver_provider.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/status_badge.dart';
+import '../../services/device_actions.dart';
 
 class DeliveryDetailScreen extends StatelessWidget {
   final int assignmentId;
@@ -12,7 +13,8 @@ class DeliveryDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final driver = context.watch<DriverProvider>();
-    final delivery = driver.deliveries.where((d) => d.id == assignmentId).firstOrNull;
+    final delivery =
+        driver.deliveries.where((d) => d.id == assignmentId).firstOrNull;
 
     if (delivery == null) {
       return Scaffold(
@@ -22,7 +24,8 @@ class DeliveryDetailScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(delivery.orderNumber ?? 'Delivery #${delivery.id}')),
+      appBar: AppBar(
+          title: Text(delivery.orderNumber ?? 'Delivery #${delivery.id}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -42,6 +45,36 @@ class DeliveryDetailScreen extends StatelessWidget {
               ),
             ),
 
+            if (delivery.customerPhone != null ||
+                delivery.deliveryAddress != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (delivery.customerPhone != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _callCustomer(context, delivery.customerPhone!),
+                        icon: const Icon(Icons.call_rounded),
+                        label: const Text('Call customer'),
+                      ),
+                    ),
+                  if (delivery.customerPhone != null &&
+                      delivery.deliveryAddress != null)
+                    const SizedBox(width: 10),
+                  if (delivery.deliveryAddress != null)
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: () =>
+                            _openDirections(context, delivery.deliveryAddress!),
+                        icon: const Icon(Icons.navigation_rounded),
+                        label: const Text('Directions'),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+
             // Customer info
             const SizedBox(height: 16),
             Text('Customer', style: Theme.of(context).textTheme.titleMedium),
@@ -56,7 +89,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                     if (delivery.customerPhone != null)
                       _infoRow(Icons.phone, 'Phone', delivery.customerPhone!),
                     if (delivery.deliveryAddress != null)
-                      _infoRow(Icons.location_on, 'Address', delivery.deliveryAddress!),
+                      _infoRow(Icons.location_on, 'Address',
+                          delivery.deliveryAddress!),
                   ],
                 ),
               ),
@@ -128,8 +162,10 @@ class DeliveryDetailScreen extends StatelessWidget {
                   ),
                   child: driver.isLoading
                       ? const SizedBox(
-                          height: 20, width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : Text(
                           delivery.nextStatusLabel!,
@@ -155,11 +191,28 @@ class DeliveryDetailScreen extends StatelessWidget {
             child: Text(label, style: TextStyle(color: Colors.grey[600])),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(value,
+                style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _callCustomer(BuildContext context, String phone) async {
+    final launched = await DeviceActions.call(phone);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the phone app.')));
+    }
+  }
+
+  Future<void> _openDirections(BuildContext context, String address) async {
+    final launched = await DeviceActions.openDirections(address);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open directions.')));
+    }
   }
 
   Widget _timelineItem(String label, String? timestamp, bool isActive) {

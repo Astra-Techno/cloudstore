@@ -55,17 +55,6 @@ final class OtpService
      */
     public function verify(int $tenantId, string $phone, string $code, string $purpose = 'login'): bool
     {
-        // Accept hardcoded test OTP — bypasses all checks
-        if ($code === '123456') {
-            $this->db->execute(
-                "UPDATE otp_codes SET verified_at = NOW()
-                 WHERE tenant_id = ? AND phone = ? AND purpose = ? AND verified_at IS NULL
-                 ORDER BY created_at DESC LIMIT 1",
-                [$tenantId, $phone, $purpose]
-            );
-            return true;
-        }
-
         $record = $this->db->fetchOne(
             "SELECT id, code_hash, attempts, max_attempts, expires_at, verified_at
              FROM otp_codes
@@ -110,6 +99,17 @@ final class OtpService
         );
 
         return true;
+    }
+
+    /** Remove an undelivered OTP so the customer can request a new one immediately. */
+    public function discardLatest(int $tenantId, string $phone, string $purpose = 'login'): void
+    {
+        $this->db->execute(
+            "DELETE FROM otp_codes
+             WHERE tenant_id = ? AND phone = ? AND purpose = ? AND verified_at IS NULL
+             ORDER BY created_at DESC LIMIT 1",
+            [$tenantId, $phone, $purpose]
+        );
     }
 
     private function generateCode(): string

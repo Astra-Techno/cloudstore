@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../services/api_client.dart';
 import '../../models/driver.dart';
 
@@ -50,6 +51,7 @@ class DriverProvider extends ChangeNotifier {
       if (data['success'] == true && data['data'] != null) {
         _token = data['data']['token'] as String;
         _driver = data['data']['driver'] as Map<String, dynamic>;
+        _availability = _driver?['availability'] as String? ?? 'offline';
         _isAuthenticated = true;
         ApiClient().setAuthToken(_token!);
         await _storage.write(key: 'driver_token', value: _token);
@@ -76,6 +78,7 @@ class DriverProvider extends ChangeNotifier {
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
         _driver = data['data'];
+        _availability = _driver?['availability'] as String? ?? 'offline';
         _isAuthenticated = true;
         notifyListeners();
       } else {
@@ -137,6 +140,19 @@ class DriverProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> shareCurrentLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+      final position = await Geolocator.getCurrentPosition();
+      await updateLocation(position.latitude, position.longitude);
+    } catch (_) {
+      // Location is optional: drivers can still accept and complete deliveries.
+    }
+  }
+
   Future<bool> setAvailability(String status) async {
     try {
       final response = await ApiClient().post('/driver/availability', data: {
@@ -144,6 +160,7 @@ class DriverProvider extends ChangeNotifier {
       });
       if (response.data['success'] == true) {
         _availability = status;
+        if (status == 'available') await shareCurrentLocation();
         notifyListeners();
         return true;
       }
@@ -156,8 +173,10 @@ class DriverProvider extends ChangeNotifier {
   void startPolling() {
     _pollTimer?.cancel();
     fetchDeliveries();
+    shareCurrentLocation();
     _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       fetchDeliveries();
+      if (_availability == 'available') shareCurrentLocation();
     });
   }
 

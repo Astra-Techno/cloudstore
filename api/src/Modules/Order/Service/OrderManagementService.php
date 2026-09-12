@@ -7,6 +7,7 @@ namespace App\Modules\Order\Service;
 use App\Core\Database\Connection;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
+use Ramsey\Uuid\Uuid;
 
 final class OrderManagementService
 {
@@ -34,6 +35,15 @@ final class OrderManagementService
             ];
         }
 
+        // Keep the two fulfilment journeys separate. A pickup customer must see
+        // "ready for pickup", while delivery orders progress through a driver.
+        if ($order['order_type'] === 'pickup' && in_array($newStatus, [OrderStatus::READY, OrderStatus::OUT_FOR_DELIVERY, OrderStatus::DELIVERED], true)) {
+            return ['error' => 'Pickup orders must use the pickup status flow.', 'code' => 'PICKUP_STATUS_MISMATCH'];
+        }
+        if ($order['order_type'] === 'delivery' && in_array($newStatus, [OrderStatus::READY_FOR_PICKUP, OrderStatus::PICKED_UP], true)) {
+            return ['error' => 'Delivery orders must use the delivery status flow.', 'code' => 'DELIVERY_STATUS_MISMATCH'];
+        }
+
         $timestampField = match ($newStatus) {
             OrderStatus::ACCEPTED => 'accepted_at',
             OrderStatus::PREPARING => 'preparing_at',
@@ -50,6 +60,20 @@ final class OrderManagementService
 
         if ($newStatus === OrderStatus::CANCELLED && !empty($notes)) {
             $this->db->execute("UPDATE orders SET cancel_reason = ? WHERE id = ?", [$notes, $orderId]);
+        }
+
+        // Marketplace commission is earned only after a merchant completes a
+        // delivery or pickup. Branded merchants never receive a platform fee.
+        if (in_array($newStatus, [OrderStatus::DELIVERED, OrderStatus::PICKED_UP], true)) {
+            $tenant = $this->db->fetchOne('SELECT commercial_plan FROM tenants WHERE id = ?', [$tenantId]);
+            if (($tenant['commercial_plan'] ?? 'branded') === 'marketplace') {
+                $fee = min((int) round((int) $order['total'] * 0.01), 500);
+                $this->db->execute(
+                    'INSERT IGNORE INTO platform_fee_ledger (uuid, tenant_id, order_id, gross_order_value, fee_amount)
+                     VALUES (?, ?, ?, ?, ?)',
+                    [Uuid::uuid4()->toString(), $tenantId, $orderId, (int) $order['total'], $fee],
+                );
+            }
         }
 
         return [

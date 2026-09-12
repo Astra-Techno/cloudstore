@@ -10,6 +10,7 @@ use App\Core\Validation\Validator;
 use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Auth\Service\JwtService;
 use App\Modules\Auth\Service\OtpService;
+use App\Modules\Auth\Service\OtpDeliveryService;
 use App\Modules\Tenant\Domain\TenantContext;
 use Ramsey\Uuid\Uuid;
 
@@ -19,6 +20,7 @@ final class CustomerAuthController
         private readonly CustomerRepository $customerRepo,
         private readonly JwtService $jwtService,
         private readonly OtpService $otpService,
+        private readonly OtpDeliveryService $otpDelivery,
     ) {
     }
 
@@ -43,7 +45,11 @@ final class CustomerAuthController
             return Response::error($result['error'], 'OTP_COOLDOWN', 429);
         }
 
-        // In production, send OTP via SMS/WhatsApp. For now, return in dev mode.
+        if (!$this->otpDelivery->deliver($data['phone'], $result['otp'])) {
+            $this->otpService->discardLatest($tenantId, $data['phone']);
+            return Response::error('Unable to send a verification code. Please try again shortly.', 'OTP_DELIVERY_FAILED', 503);
+        }
+
         $response = ['message' => 'OTP sent successfully.', 'expires_in' => $result['expires_in']];
 
         if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {

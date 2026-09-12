@@ -39,6 +39,14 @@ final class AuthMiddleware
             return Response::forbidden('Access denied for this user type.');
         }
 
+        // Customer and driver credentials are issued by a specific merchant.  A
+        // marketplace store selection must never make a credential from another
+        // merchant usable against the selected tenant's carts, addresses or orders.
+        if (TenantContext::has() && in_array($claims['type'] ?? '', ['customer', 'driver'], true)
+            && (int) ($claims['tenant_id'] ?? 0) !== TenantContext::id()) {
+            return Response::forbidden('This account belongs to a different store. Please sign in to this store.');
+        }
+
         // Check permission (for admin users)
         if ($this->requiredPermission !== null) {
             $permissions = $claims['permissions'] ?? [];

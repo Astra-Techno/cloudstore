@@ -12,6 +12,7 @@ class Product {
   final String stockMode;
   final int? stockQuantity;
   final String? categoryName;
+  final List<ProductImage> images;
   final List<ProductVariant> variants;
   final List<AddonGroup> addonGroups;
 
@@ -29,6 +30,7 @@ class Product {
     required this.stockMode,
     this.stockQuantity,
     this.categoryName,
+    this.images = const [],
     this.variants = const [],
     this.addonGroups = const [],
   });
@@ -50,6 +52,10 @@ class Product {
       stockMode: json['stock_mode'] as String? ?? 'unlimited',
       stockQuantity: json['stock_quantity'] as int?,
       categoryName: json['category_name'] as String?,
+      images: (json['images'] as List<dynamic>?)
+              ?.map((image) => ProductImage.fromJson(Map<String, dynamic>.from(image as Map)))
+              .toList() ??
+          [],
       variants: (json['variants'] as List<dynamic>?)
               ?.map((v) => ProductVariant.fromJson(v))
               .toList() ??
@@ -60,6 +66,18 @@ class Product {
           [],
     );
   }
+}
+
+class ProductImage {
+  final String url;
+  final bool isPrimary;
+
+  ProductImage({required this.url, required this.isPrimary});
+
+  factory ProductImage.fromJson(Map<String, dynamic> json) => ProductImage(
+        url: json['url'] as String? ?? '',
+        isPrimary: json['is_primary'] == true || json['is_primary'] == 1,
+      );
 }
 
 class ProductVariant {

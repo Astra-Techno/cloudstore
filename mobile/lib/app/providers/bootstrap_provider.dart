@@ -10,6 +10,11 @@ class BootstrapProvider extends ChangeNotifier {
   String? _logoUrl;
   int _deliveryChargeFixed = 0;
   double _serviceChargePercent = 0;
+  int _minOrderAmount = 0;
+  double _taxRate = 0;
+  bool _deliveryEnabled = true;
+  bool _pickupEnabled = true;
+  List<String> _paymentMethods = const ['cod'];
   Map<String, bool> _capabilities = {};
   bool _isLoaded = false;
   String? _error;
@@ -21,6 +26,11 @@ class BootstrapProvider extends ChangeNotifier {
   String? get logoUrl => _logoUrl;
   int get deliveryChargeFixed => _deliveryChargeFixed;
   double get serviceChargePercent => _serviceChargePercent;
+  int get minOrderAmount => _minOrderAmount;
+  double get taxRate => _taxRate;
+  bool get deliveryEnabled => _deliveryEnabled;
+  bool get pickupEnabled => _pickupEnabled;
+  List<String> get paymentMethods => List.unmodifiable(_paymentMethods);
   Map<String, bool> get capabilities => _capabilities;
   bool get isLoaded => _isLoaded;
   String? get error => _error;
@@ -29,7 +39,13 @@ class BootstrapProvider extends ChangeNotifier {
     return _capabilities[capability] ?? false;
   }
 
-  Future<void> loadTenant() async {
+  Future<void> loadTenant({bool force = false}) async {
+    if (_isLoaded && !force) return;
+
+    _error = null;
+    _isLoaded = false;
+    notifyListeners();
+
     final api = ApiClient();
     api.setAppToken(AppConfig.appToken);
 
@@ -42,12 +58,23 @@ class BootstrapProvider extends ChangeNotifier {
       if (data['success'] == true && data['data'] != null) {
         setTenantData(data['data']);
       } else {
-        _error = data['error']?['message'] ?? 'Bootstrap failed';
+        final error = data['error'] is Map
+            ? Map<String, dynamic>.from(data['error'] as Map)
+            : const <String, dynamic>{};
+        final code = error['code']?.toString();
+        _error = switch (code) {
+          'UNAUTHORIZED' =>
+            'This store app is not available right now. Please contact the store.',
+          'TENANT_ERROR' =>
+            'This store is temporarily unavailable. Please try again shortly.',
+          _ => error['message']?.toString() ??
+              'Unable to open this store right now.',
+        };
         notifyListeners();
       }
     } catch (e) {
       _error = 'Failed to connect to server';
-      _isLoaded = true;
+      _isLoaded = false;
       notifyListeners();
     }
   }
@@ -58,12 +85,16 @@ class BootstrapProvider extends ChangeNotifier {
     _businessType = data['tenant']?['business_type'] as String?;
 
     final brandingRaw = data['branding'];
-    final branding = brandingRaw is Map ? Map<String, dynamic>.from(brandingRaw) : null;
+    final branding =
+        brandingRaw is Map ? Map<String, dynamic>.from(brandingRaw) : null;
     if (branding != null) {
       if (branding['primary_color'] != null) {
         final hex = branding['primary_color'].toString().replaceFirst('#', '');
         if (hex.length == 6) {
-          _primaryColor = Color(int.parse('FF$hex', radix: 16));
+          final colorValue = int.tryParse('FF$hex', radix: 16);
+          if (colorValue != null) {
+            _primaryColor = Color(colorValue);
+          }
         }
       }
       _logoUrl = branding['logo_url'] as String?;
@@ -73,14 +104,36 @@ class BootstrapProvider extends ChangeNotifier {
     if (chargesRaw is Map) {
       _deliveryChargeFixed = (chargesRaw['delivery_charge_fixed'] is int)
           ? chargesRaw['delivery_charge_fixed'] as int
-          : int.tryParse(chargesRaw['delivery_charge_fixed']?.toString() ?? '') ?? 0;
+          : int.tryParse(
+                  chargesRaw['delivery_charge_fixed']?.toString() ?? '') ??
+              0;
       _serviceChargePercent = (chargesRaw['service_charge_percent'] is num)
           ? (chargesRaw['service_charge_percent'] as num).toDouble()
-          : double.tryParse(chargesRaw['service_charge_percent']?.toString() ?? '') ?? 0;
+          : double.tryParse(
+                  chargesRaw['service_charge_percent']?.toString() ?? '') ??
+              0;
+      _minOrderAmount = (chargesRaw['min_order_amount'] is int)
+          ? chargesRaw['min_order_amount'] as int
+          : int.tryParse(chargesRaw['min_order_amount']?.toString() ?? '') ?? 0;
+      _taxRate = (chargesRaw['tax_rate'] is num)
+          ? (chargesRaw['tax_rate'] as num).toDouble()
+          : double.tryParse(chargesRaw['tax_rate']?.toString() ?? '') ?? 0;
+    }
+
+    final fulfilment = data['fulfilment'];
+    if (fulfilment is Map) {
+      _deliveryEnabled = fulfilment['delivery_enabled'] != false;
+      _pickupEnabled = fulfilment['pickup_enabled'] != false;
+    }
+    final payments = data['payment_methods'];
+    if (payments is List) {
+      _paymentMethods = payments.map((method) => method.toString()).toList();
     }
 
     final featuresRaw = data['features'];
-    final features = featuresRaw is Map ? Map<String, dynamic>.from(featuresRaw) : <String, dynamic>{};
+    final features = featuresRaw is Map
+        ? Map<String, dynamic>.from(featuresRaw)
+        : <String, dynamic>{};
     _capabilities = features.map((k, v) => MapEntry(k.toString(), v == true));
 
     _error = null;

@@ -23,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _bootstrap();
   }
 
-  Future<void> _bootstrap() async {
+  Future<void> _bootstrap({bool force = false}) async {
     try {
       // Initialize notification service safely
       await NotificationService().initialize();
@@ -36,8 +36,8 @@ class _SplashScreenState extends State<SplashScreen> {
     try {
       // Load tenant data
       final bootstrap = context.read<BootstrapProvider>();
-      if (!bootstrap.isLoaded) {
-        await bootstrap.loadTenant();
+      if (!bootstrap.isLoaded || force) {
+        await bootstrap.loadTenant(force: force);
       }
     } catch (e) {
       debugPrint('Bootstrap loading failed: $e');
@@ -45,8 +45,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
+    // A customer/driver token is tenant-scoped. Never proceed into a login
+    // flow when store bootstrap failed, because every subsequent request would
+    // be rejected and the customer would receive misleading errors.
+    if (context.read<BootstrapProvider>().error != null) {
+      return;
+    }
+
     try {
-      if (AppConfig.appMode == 'driver') {
+      if (AppConfig.appMode == 'marketplace') {
+        if (mounted) context.go('/marketplace');
+      } else if (AppConfig.appMode == 'driver') {
         // Driver mode
         final driver = context.read<DriverProvider>();
         await driver.loadSavedToken();
@@ -82,11 +91,13 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (bootstrap.logoUrl != null && bootstrap.logoUrl!.isNotEmpty && AppConfig.appMode != 'driver')
+            if (bootstrap.logoUrl != null &&
+                bootstrap.logoUrl!.isNotEmpty &&
+                AppConfig.appMode != 'driver')
               ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: Image.network(
-                  bootstrap.logoUrl!,
+                  AppConfig.assetUrl(bootstrap.logoUrl!),
                   width: 100,
                   height: 100,
                   fit: BoxFit.contain,
@@ -99,13 +110,15 @@ class _SplashScreenState extends State<SplashScreen> {
               )
             else
               Icon(
-                AppConfig.appMode == 'driver' ? Icons.delivery_dining : Icons.storefront,
+                AppConfig.appMode == 'driver'
+                    ? Icons.delivery_dining
+                    : Icons.storefront,
                 size: 80,
                 color: Theme.of(context).colorScheme.primary,
               ),
             const SizedBox(height: 16),
             Text(
-              bootstrap.tenantName ?? 'CloudStore',
+              bootstrap.tenantName ?? AppConfig.appName,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
@@ -117,7 +130,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: _bootstrap,
+                onPressed: () => _bootstrap(force: true),
                 child: const Text('Retry'),
               ),
             ] else

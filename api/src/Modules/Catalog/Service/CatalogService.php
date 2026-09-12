@@ -17,6 +17,7 @@ final class CatalogService
         private readonly ProductRepository $productRepo,
         private readonly VariantRepository $variantRepo,
         private readonly AddonRepository $addonRepo,
+        private readonly ImageService $imageService,
     ) {
     }
 
@@ -114,6 +115,7 @@ final class CatalogService
 
         $product['variants'] = $this->variantRepo->findByProduct((int) $product['id']);
         $product['addon_groups'] = $this->addonRepo->getGroupsWithItemsForProduct((int) $product['id']);
+        $product['images'] = $this->imageService->getProductImages((int) $product['id']);
 
         return $product;
     }
@@ -126,6 +128,7 @@ final class CatalogService
 
         if ($includeVariants) {
             foreach ($products as &$product) {
+                $product['category_name'] = $category['name'];
                 $product['variants'] = $this->variantRepo->findByProduct((int) $product['id']);
             }
         }
@@ -339,6 +342,7 @@ final class CatalogService
             foreach ($products as &$product) {
                 $product['variants'] = $this->variantRepo->findByProduct((int) $product['id']);
                 $product['addon_groups'] = $this->addonRepo->getGroupsWithItemsForProduct((int) $product['id']);
+                $product['images'] = $this->imageService->getProductImages((int) $product['id']);
             }
 
             $catalog[] = [

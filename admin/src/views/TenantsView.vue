@@ -17,6 +17,8 @@ interface Tenant {
   order_count: number
   total_revenue: number
   capabilities: Record<string, boolean>
+  commercial_plan: 'branded' | 'marketplace'
+  marketplace_status: 'hidden' | 'pending' | 'active' | 'paused'
 }
 
 interface TenantAdmin {
@@ -65,6 +67,7 @@ const building = ref(false)
 const form = ref({
   name: '', slug: '', business_type: 'restaurant', status: 'active',
   contact_email: '', contact_phone: '', address: '',
+  commercial_plan: 'branded', marketplace_status: 'hidden', marketplace_sort_order: 0,
   owner_name: '', owner_email: '', owner_password: '',
 })
 
@@ -125,7 +128,7 @@ async function load() {
 }
 
 function openCreate() {
-  form.value = { name: '', slug: '', business_type: 'restaurant', status: 'active', contact_email: '', contact_phone: '', address: '', owner_name: '', owner_email: '', owner_password: '' }
+  form.value = { name: '', slug: '', business_type: 'restaurant', status: 'active', contact_email: '', contact_phone: '', address: '', commercial_plan: 'branded', marketplace_status: 'hidden', marketplace_sort_order: 0, owner_name: '', owner_email: '', owner_password: '' }
   createdToken.value = ''
   showCreateModal.value = true
 }
@@ -156,6 +159,7 @@ async function openDetail(tenant: Tenant) {
   editForm.value = {
     name: tenant.name, status: tenant.status, business_type: tenant.business_type,
     contact_email: tenant.contact_email || '', contact_phone: tenant.contact_phone || '',
+    commercial_plan: tenant.commercial_plan || 'branded', marketplace_status: tenant.marketplace_status || 'hidden',
   }
   showDetailModal.value = true
 
@@ -377,6 +381,7 @@ onMounted(load)
             <tr>
               <th>Store</th>
               <th>Type</th>
+              <th>Plan</th>
               <th>Status</th>
               <th>Admins</th>
               <th>Orders</th>
@@ -396,6 +401,7 @@ onMounted(load)
                 </div>
               </td>
               <td><span class="text-xs font-bold uppercase tracking-wide text-gray-500">{{ t.business_type.replace('_', ' ') }}</span></td>
+              <td><span class="text-xs font-bold uppercase tracking-wide" :class="t.commercial_plan === 'marketplace' ? 'text-purple-600' : 'text-blue-600'">{{ t.commercial_plan }}</span></td>
               <td><span class="list-status px-2 py-1 rounded-full text-xs font-bold" :class="statusColor(t.status)">{{ t.status }}</span></td>
               <td class="text-center font-bold">{{ t.admin_count }}</td>
               <td class="text-center font-bold">{{ t.order_count }}</td>
@@ -437,6 +443,24 @@ onMounted(load)
               <select v-model="form.status" class="w-full border rounded-lg px-3 py-2">
                 <option value="active">Active</option>
                 <option value="draft">Draft</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-500 mb-1">Commercial Plan</label>
+              <select v-model="form.commercial_plan" class="w-full border rounded-lg px-3 py-2">
+                <option value="branded">Branded storefront — ₹50k</option>
+                <option value="marketplace">Marketplace listing — ₹2k</option>
+              </select>
+            </div>
+            <div v-if="form.commercial_plan === 'marketplace'">
+              <label class="block text-xs font-bold text-gray-500 mb-1">Marketplace Visibility</label>
+              <select v-model="form.marketplace_status" class="w-full border rounded-lg px-3 py-2">
+                <option value="pending">Pending approval</option>
+                <option value="active">Active</option>
+                <option value="hidden">Hidden</option>
+                <option value="paused">Paused</option>
               </select>
             </div>
           </div>
@@ -504,6 +528,24 @@ onMounted(load)
             <div>
               <label class="block text-xs font-bold text-gray-500 mb-1">Phone</label>
               <input v-model="editForm.contact_phone" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-500 mb-1">Commercial Plan</label>
+              <select v-model="editForm.commercial_plan" class="w-full border rounded-lg px-3 py-2">
+                <option value="branded">Branded storefront</option>
+                <option value="marketplace">Marketplace listing</option>
+              </select>
+            </div>
+            <div v-if="editForm.commercial_plan === 'marketplace'">
+              <label class="block text-xs font-bold text-gray-500 mb-1">Marketplace Visibility</label>
+              <select v-model="editForm.marketplace_status" class="w-full border rounded-lg px-3 py-2">
+                <option value="pending">Pending approval</option>
+                <option value="active">Active</option>
+                <option value="hidden">Hidden</option>
+                <option value="paused">Paused</option>
+              </select>
             </div>
           </div>
           <button @click="saveTenant" :disabled="saving" class="px-4 py-2 rounded-lg font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">

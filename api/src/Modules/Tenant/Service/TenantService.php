@@ -67,7 +67,14 @@ final class TenantService
             'charges' => [
                 'delivery_charge_fixed' => (int) ($tenant->configuration['delivery_charge_fixed'] ?? 0),
                 'service_charge_percent' => (float) ($tenant->configuration['service_charge_percent'] ?? 0),
+                'min_order_amount' => (int) ($tenant->configuration['min_order_amount'] ?? 0),
+                'tax_rate' => (float) ($tenant->configuration['tax_rate'] ?? 0),
             ],
+            'fulfilment' => [
+                'delivery_enabled' => (bool) ($tenant->configuration['delivery_enabled'] ?? true),
+                'pickup_enabled' => (bool) ($tenant->configuration['pickup_enabled'] ?? true),
+            ],
+            'payment_methods' => $tenant->configuration['payment_methods'] ?? ['cod'],
             'localization' => [
                 'currency' => $tenant->currency,
                 'locale' => $tenant->locale,

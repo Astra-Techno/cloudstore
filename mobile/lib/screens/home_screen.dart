@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../app/providers/cart_provider.dart';
 import '../app/providers/notification_provider.dart';
 import '../app/providers/bootstrap_provider.dart';
+import '../config/app_config.dart';
 import 'catalog/catalog_screen.dart';
 import 'orders/orders_screen.dart';
 import 'cart/cart_screen.dart';
@@ -40,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: Image.network(
-                  tenant.logoUrl!,
+                  AppConfig.assetUrl(tenant.logoUrl!),
                   width: 32,
                   height: 32,
                   fit: BoxFit.contain,
@@ -52,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_currentIndex == 0 ? (tenant.tenantName ?? _titles[_currentIndex]) : _titles[_currentIndex]),
+                Text(_currentIndex == 0 ? (AppConfig.appMode == 'marketplace' ? 'CloudMarket' : (tenant.tenantName ?? _titles[_currentIndex])) : _titles[_currentIndex]),
                 if (_currentIndex == 0 && tenant.tenantName != null && tenant.businessType != null)
                   Text(tenant.businessType!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
               ],
@@ -60,6 +61,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          if (_currentIndex == 0 && AppConfig.appMode == 'marketplace')
+            IconButton(
+              tooltip: 'Change store',
+              icon: const Icon(Icons.storefront_outlined),
+              onPressed: () => context.go('/marketplace'),
+            ),
           if (notifications.unreadCount > 0)
             Badge(
               label: Text('${notifications.unreadCount}'),
@@ -76,10 +83,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: _screens[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: [
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (cart.itemCount > 0 && _currentIndex != 2)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: FilledButton.icon(
+                  onPressed: () => setState(() => _currentIndex = 2),
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  label: Text('View cart · ${cart.itemCount} ${cart.itemCount == 1 ? 'item' : 'items'}'),
+                ),
+              ),
+            ),
+          NavigationBar(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (index) => setState(() => _currentIndex = index),
+            destinations: [
           const NavigationDestination(
             icon: Icon(Icons.restaurant_menu_outlined),
             selectedIcon: Icon(Icons.restaurant_menu),
@@ -107,6 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
+          ),
+            ],
           ),
         ],
       ),

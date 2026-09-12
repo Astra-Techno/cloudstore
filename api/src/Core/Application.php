@@ -20,6 +20,7 @@ use App\Modules\Tenant\Controller\BootstrapController;
 use App\Modules\Auth\Service\JwtService;
 use App\Modules\Auth\Service\PasswordService;
 use App\Modules\Auth\Service\OtpService;
+use App\Modules\Auth\Service\OtpDeliveryService;
 use App\Modules\Auth\Repository\AdminRepository;
 use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Auth\Repository\DriverRepository;
@@ -62,6 +63,17 @@ use App\Modules\Notification\Controller\NotificationController;
 use App\Modules\Notification\Controller\AdminNotificationController;
 use App\Modules\Admin\Controller\AdminSettingsController;
 use App\Modules\Catalog\Service\ImageService;
+use App\Modules\Offer\Repository\CouponRepository;
+use App\Modules\Offer\Repository\PromotionRepository;
+use App\Modules\Offer\Repository\BundleRepository;
+use App\Modules\Offer\Service\CouponService;
+use App\Modules\Offer\Service\PromotionEngine;
+use App\Modules\Offer\Service\DiscountCalculator;
+use App\Modules\Offer\Controller\AdminOfferController;
+use App\Modules\Offer\Controller\PublicOfferController;
+use App\Modules\Platform\Controller\PlatformAdminController;
+use App\Modules\Platform\Controller\BuildController;
+use App\Modules\Platform\Controller\MarketplaceController;
 use App\Core\Http\Middleware\CorsMiddleware;
 use App\Core\Http\Middleware\RateLimitMiddleware;
 
@@ -169,6 +181,10 @@ final class Application
             $this->container->get(Connection::class),
         ));
 
+        $this->container->singleton(OtpDeliveryService::class, fn () => new OtpDeliveryService(
+            $this->container->get(Config::class),
+        ));
+
         $this->container->singleton(AdminRepository::class, fn () => new AdminRepository(
             $this->container->get(Connection::class),
         ));
@@ -191,6 +207,7 @@ final class Application
             $this->container->get(CustomerRepository::class),
             $this->container->get(JwtService::class),
             $this->container->get(OtpService::class),
+            $this->container->get(OtpDeliveryService::class),
         ));
 
         $this->container->singleton(DriverAuthController::class, fn () => new DriverAuthController(
@@ -238,16 +255,17 @@ final class Application
             $this->container->get(Connection::class),
         ));
 
+        $this->container->singleton(ImageService::class, fn () => new ImageService(
+            $this->container->get(Connection::class),
+            $this->basePath,
+        ));
+
         $this->container->singleton(CatalogService::class, fn () => new CatalogService(
             $this->container->get(CategoryRepository::class),
             $this->container->get(ProductRepository::class),
             $this->container->get(VariantRepository::class),
             $this->container->get(AddonRepository::class),
-        ));
-
-        $this->container->singleton(ImageService::class, fn () => new ImageService(
-            $this->container->get(Connection::class),
-            $this->basePath,
+            $this->container->get(ImageService::class),
         ));
 
         $this->container->singleton(AdminCatalogController::class, fn () => new AdminCatalogController(
@@ -257,6 +275,42 @@ final class Application
 
         $this->container->singleton(PublicCatalogController::class, fn () => new PublicCatalogController(
             $this->container->get(CatalogService::class),
+        ));
+
+        // Offers module
+        $this->container->singleton(CouponRepository::class, fn () => new CouponRepository(
+            $this->container->get(Connection::class),
+        ));
+        $this->container->singleton(PromotionRepository::class, fn () => new PromotionRepository(
+            $this->container->get(Connection::class),
+        ));
+        $this->container->singleton(BundleRepository::class, fn () => new BundleRepository(
+            $this->container->get(Connection::class),
+        ));
+        $this->container->singleton(CouponService::class, fn () => new CouponService(
+            $this->container->get(CouponRepository::class),
+        ));
+        $this->container->singleton(PromotionEngine::class, fn () => new PromotionEngine(
+            $this->container->get(PromotionRepository::class),
+        ));
+        $this->container->singleton(DiscountCalculator::class, fn () => new DiscountCalculator(
+            $this->container->get(CouponService::class),
+            $this->container->get(PromotionEngine::class),
+        ));
+        $this->container->singleton(AdminOfferController::class, fn () => new AdminOfferController(
+            $this->container->get(Connection::class),
+            $this->container->get(CouponRepository::class),
+            $this->container->get(CouponService::class),
+            $this->container->get(PromotionRepository::class),
+            $this->container->get(BundleRepository::class),
+        ));
+        $this->container->singleton(PublicOfferController::class, fn () => new PublicOfferController(
+            $this->container->get(CouponService::class),
+            $this->container->get(DiscountCalculator::class),
+            $this->container->get(PromotionRepository::class),
+            $this->container->get(BundleRepository::class),
+            $this->container->get(CartRepository::class),
+            $this->container->get(CustomerRepository::class),
         ));
 
         // Customer / Address module
@@ -307,6 +361,8 @@ final class Application
             $this->container->get(AddressRepository::class),
             $this->container->get(OrderRepository::class),
             $this->container->get(DeliveryFeeService::class),
+            $this->container->get(DiscountCalculator::class),
+            $this->container->get(CouponRepository::class),
         ));
 
         $this->container->singleton(CheckoutController::class, fn () => new CheckoutController(
@@ -408,6 +464,25 @@ final class Application
             $this->container->get(OrderRepository::class),
             $this->container->get(TenantRepository::class),
             $this->container->get(BrandingRepository::class),
+        ));
+
+        // Platform module
+        $this->container->singleton(PlatformAdminController::class, fn () => new PlatformAdminController(
+            $this->container->get(Connection::class),
+            $this->container->get(TenantRepository::class),
+            $this->container->get(CapabilityRepository::class),
+            $this->container->get(AdminRepository::class),
+            $this->container->get(PasswordService::class),
+            $this->container->get(AppTokenService::class),
+        ));
+        $this->container->singleton(BuildController::class, fn () => new BuildController(
+            $this->container->get(Connection::class),
+            $this->container->get(TenantRepository::class),
+            $this->container->get(Config::class),
+        ));
+        $this->container->singleton(MarketplaceController::class, fn () => new MarketplaceController(
+            $this->container->get(Connection::class),
+            $this->container->get(CatalogService::class),
         ));
 
         // Production middleware

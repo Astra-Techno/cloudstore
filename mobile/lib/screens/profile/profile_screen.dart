@@ -75,6 +75,13 @@ class ProfileScreen extends StatelessWidget {
                             customer!.email!,
                             style: TextStyle(color: Colors.grey[600]),
                           ),
+                        const SizedBox(height: 7),
+                        TextButton.icon(
+                          onPressed: () => _editProfile(context, auth),
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: const Text('Edit profile'),
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 28)),
+                        ),
                       ],
                     ),
                   ),
@@ -165,5 +172,33 @@ class ProfileScreen extends StatelessWidget {
       trailing: trailing ?? const Icon(Icons.chevron_right),
       onTap: onTap,
     );
+  }
+
+  Future<void> _editProfile(BuildContext context, AuthProvider auth) async {
+    final name = TextEditingController(text: auth.customer?.name ?? '');
+    final email = TextEditingController(text: auth.customer?.email ?? '');
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Edit profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 18),
+          TextField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Name', prefixIcon: Icon(Icons.person_outline))),
+          const SizedBox(height: 12),
+          TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email (optional)', prefixIcon: Icon(Icons.email_outlined))),
+          const SizedBox(height: 20),
+          FilledButton(onPressed: () async {
+            final ok = await auth.updateProfile(name: name.text, email: email.text);
+            if (sheetContext.mounted && ok) Navigator.pop(sheetContext, true);
+          }, child: const Text('Save changes')),
+        ]),
+      ),
+    );
+    name.dispose();
+    email.dispose();
+    if (saved == true && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
   }
 }

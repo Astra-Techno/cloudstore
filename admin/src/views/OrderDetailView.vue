@@ -165,6 +165,11 @@ const canRefund = computed(() => {
   return order.value?.payment_status === 'paid' && order.value?.status !== 'cancelled'
 })
 
+const visibleTransitions = computed(() => allowedTransitions.value.filter((transition) => {
+  if (order.value?.order_type === 'pickup') return !['ready', 'out_for_delivery', 'delivered'].includes(transition)
+  return !['ready_for_pickup', 'picked_up'].includes(transition)
+}))
+
 function printReceipt() {
   const w = window.open('', '_blank', 'width=400,height=600')
   if (!w || !order.value) return
@@ -260,16 +265,16 @@ onMounted(loadOrder)
       <div v-if="success" class="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{{ success }}</div>
 
       <!-- Actions -->
-      <div v-if="allowedTransitions.length > 0 || canAssignDriver || canRefund" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div v-if="visibleTransitions.length > 0 || canAssignDriver || canRefund" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-3">Actions</h2>
 
         <!-- Status notes -->
-        <div v-if="allowedTransitions.length" class="mb-3">
+        <div v-if="visibleTransitions.length" class="mb-3">
           <input v-model="statusNotes" type="text" placeholder="Optional notes for status change..." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <button v-for="transition in allowedTransitions" :key="transition" @click="updateStatus(transition)" :disabled="updating"
+          <button v-for="transition in visibleTransitions" :key="transition" @click="updateStatus(transition)" :disabled="updating"
             class="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             :class="transition === 'cancelled' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-red-100 text-red-700 hover:bg-red-200'"
           >{{ transition.replace(/_/g, ' ') }}</button>

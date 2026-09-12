@@ -5,7 +5,6 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cloudstore/app/app.dart';
@@ -20,7 +19,11 @@ void main() {
   testWidgets('CloudStoreApp smoke test', (WidgetTester tester) async {
     final bootstrap = BootstrapProvider();
     bootstrap.setTenantData(<String, dynamic>{
-      'tenant': <String, dynamic>{'id': 1, 'name': 'Test Store', 'business_type': 'retail'},
+      'tenant': <String, dynamic>{
+        'id': 1,
+        'name': 'Test Store',
+        'business_type': 'retail'
+      },
       'branding': <String, dynamic>{'primary_color': '#4CAF50'},
       'features': <String, dynamic>{},
     });

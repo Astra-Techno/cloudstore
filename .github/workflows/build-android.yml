@@ -13,13 +13,14 @@ on:
         required: true
         default: 'https://market.cloudkart24.com/api/v1'
       app_mode:
-        description: 'App mode (customer or driver)'
+        description: 'App mode (customer, driver, or marketplace)'
         required: true
         default: 'customer'
         type: choice
         options:
           - customer
           - driver
+          - marketplace
       app_name:
         description: 'App display name'
         required: true
@@ -158,6 +159,7 @@ jobs:
             --dart-define=APP_TOKEN=${{ steps.config.outputs.app_token }} \
             --dart-define=API_BASE_URL=${{ steps.config.outputs.api_base_url }} \
             --dart-define=APP_MODE=${{ steps.config.outputs.app_mode }} \
+            --dart-define=APP_NAME="${{ steps.config.outputs.app_name }}" \
             --dart-define=PRIMARY_COLOR=${{ steps.config.outputs.primary_color }}
 
       - name: Build App Bundle (AAB)
@@ -168,6 +170,7 @@ jobs:
             --dart-define=APP_TOKEN=${{ steps.config.outputs.app_token }} \
             --dart-define=API_BASE_URL=${{ steps.config.outputs.api_base_url }} \
             --dart-define=APP_MODE=${{ steps.config.outputs.app_mode }} \
+            --dart-define=APP_NAME="${{ steps.config.outputs.app_name }}" \
             --dart-define=PRIMARY_COLOR=${{ steps.config.outputs.primary_color }}
 
       - name: Rename artifacts

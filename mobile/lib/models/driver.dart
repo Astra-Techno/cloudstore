@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class DriverDelivery {
   final int id;
   final int orderId;
@@ -38,13 +40,25 @@ class DriverDelivery {
       orderTotal: json['order_total'] as int?,
       customerName: json['customer_name'] as String?,
       customerPhone: json['customer_phone'] as String?,
-      deliveryAddress: json['delivery_address'] as String?,
+      deliveryAddress: _formatAddress(json['delivery_address'] as String?),
       status: json['status'] as String,
       assignedAt: json['assigned_at'] as String?,
       acceptedAt: json['accepted_at'] as String?,
       pickedUpAt: json['picked_up_at'] as String?,
       deliveredAt: json['delivered_at'] as String?,
     );
+  }
+
+  static String? _formatAddress(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final address = jsonDecode(raw) as Map<String, dynamic>;
+      return [address['address_line_1'], address['address_line_2'], address['landmark'], address['city'], address['postal_code']]
+          .where((part) => part != null && part.toString().trim().isNotEmpty)
+          .join(', ');
+    } catch (_) {
+      return raw;
+    }
   }
 
   String get statusDisplay => status.replaceAll('_', ' ');

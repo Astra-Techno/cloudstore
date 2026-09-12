@@ -19,3 +19,7 @@ mobile/android/key.properties
 *.jks
 *.keystore
 keystore-base64.txt
+
+# Java crash logs
+mobile/android/hs_err_pid*.log
+mobile/android/replay_pid*.log

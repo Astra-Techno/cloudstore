@@ -139,6 +139,16 @@ onMounted(async () => {
             <strong>{{ platformStats.total_customers }}</strong>
             <p>{{ platformStats.total_tenant_admins }} tenant admins</p>
           </article>
+          <article class="metric-card">
+            <div class="metric-card__top"><span>Marketplace stores</span><span class="metric-icon metric-icon--lime">M</span></div>
+            <strong>{{ platformStats.marketplace_active_tenants || 0 }}</strong>
+            <p>{{ platformStats.marketplace_tenants || 0 }} enrolled</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-card__top"><span>Marketplace fees</span><span class="metric-icon metric-icon--coral">₹</span></div>
+            <strong>{{ formatPrice(platformStats.platform_fee_accrued || 0) }}</strong>
+            <p>{{ formatPrice(platformStats.platform_fee_settled || 0) }} settled</p>
+          </article>
         </section>
 
         <section class="touch-launcher">

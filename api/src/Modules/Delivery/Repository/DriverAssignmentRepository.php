@@ -45,9 +45,11 @@ final class DriverAssignmentRepository
     {
         return $this->db->fetchAll(
             "SELECT da.*, o.order_number, o.status as order_status, o.order_type,
-                    o.total, o.address_snapshot
+                    o.total AS order_total, o.address_snapshot AS delivery_address,
+                    c.name AS customer_name, c.phone AS customer_phone
              FROM driver_assignments da
              JOIN orders o ON o.id = da.order_id
+             JOIN customers c ON c.id = o.customer_id
              WHERE da.driver_id = ? AND da.status IN ('assigned', 'accepted', 'picked_up')
              ORDER BY da.created_at DESC",
             [$driverId]
