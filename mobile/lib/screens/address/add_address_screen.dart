@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../services/api_client.dart';
 
 class AddAddressScreen extends StatefulWidget {
@@ -17,6 +18,10 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   final _stateController = TextEditingController();
   final _postalCodeController = TextEditingController();
   bool _saving = false;
+  bool _locating = false;
+  bool? _deliveryAvailable;
+  double? _latitude;
+  double? _longitude;
   String? _error;
 
   @override
@@ -32,6 +37,10 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_latitude == null || _longitude == null || _deliveryAvailable != true) {
+      setState(() => _error = 'Use your current location and confirm delivery availability first.');
+      return;
+    }
 
     setState(() {
       _saving = true;
@@ -46,6 +55,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         'city': _cityController.text.trim(),
         'state': _stateController.text.trim(),
         'postal_code': _postalCodeController.text.trim(),
+        'latitude': _latitude,
+        'longitude': _longitude,
       });
 
       final data = response.data;
@@ -58,6 +69,39 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       setState(() => _error = 'Failed to save address');
     } finally {
       setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() { _locating = true; _error = null; _deliveryAvailable = null; });
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('Turn on Location services to continue.');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission is required for delivery.');
+      }
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final response = await ApiClient().post('/customer/addresses/availability', data: {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+      });
+      final availability = response.data['data'];
+      if (response.data['success'] != true || availability is! Map || availability['available'] != true) {
+        setState(() => _error = 'Sorry, this location is outside the store delivery area.');
+      } else {
+        setState(() {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+          _deliveryAvailable = true;
+        });
+      }
+    } catch (error) {
+      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _locating = false);
     }
   }
 
@@ -96,6 +140,19 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     ),
                 ],
               ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _locating ? null : _useCurrentLocation,
+                  icon: _locating
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(_deliveryAvailable == true ? Icons.verified : Icons.my_location),
+                  label: Text(_deliveryAvailable == true ? 'Delivery available at this location' : 'Use current location to check delivery'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text('Your GPS pin is required to confirm the service area and is saved with this address.', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _line1Controller,
@@ -153,7 +210,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving || _deliveryAvailable != true ? null : _save,
                   style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                   child: _saving
                       ? const SizedBox(

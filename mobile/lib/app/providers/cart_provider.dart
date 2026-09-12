@@ -43,7 +43,12 @@ class CartProvider extends ChangeNotifier {
       if (addonIds != null && addonIds.isNotEmpty) payload['addon_ids'] = addonIds;
       final response = await ApiClient().post('/customer/cart/items', data: payload);
       if (response.data['success'] == true) {
-        await loadCart();
+        final cart = CartData.fromJson(
+          Map<String, dynamic>.from(response.data['data'] as Map),
+        );
+        _items = cart.items;
+        _subtotal = cart.subtotal;
+        notifyListeners();
         return true;
       }
       _error = response.data['error']?['message'] ?? 'Unable to add this item.';
@@ -59,7 +64,10 @@ class CartProvider extends ChangeNotifier {
     try {
       final response = await ApiClient().patch('/customer/cart/items/$itemId', data: {'quantity': quantity});
       if (response.data['success'] == true) {
-        await loadCart();
+        final cart = CartData.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+        _items = cart.items;
+        _subtotal = cart.subtotal;
+        notifyListeners();
         return true;
       }
       _error = response.data['error']?['message'] ?? 'Unable to update this item.';
@@ -75,7 +83,10 @@ class CartProvider extends ChangeNotifier {
     try {
       final response = await ApiClient().delete('/customer/cart/items/$itemId');
       if (response.data['success'] == true) {
-        await loadCart();
+        final cart = CartData.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+        _items = cart.items;
+        _subtotal = cart.subtotal;
+        notifyListeners();
         return true;
       }
       _error = response.data['error']?['message'] ?? 'Unable to remove this item.';

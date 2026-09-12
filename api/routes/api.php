@@ -207,6 +207,7 @@ return function (Router $router): void {
             $router->group('/customer', ['middleware.auth.customer'], function (Router $router) {
                 // Addresses
                 $router->get('/addresses', [AddressController::class, 'list']);
+                $router->post('/addresses/availability', [AddressController::class, 'availability']);
                 $router->post('/addresses', [AddressController::class, 'create']);
                 $router->put('/addresses/{uuid}', [AddressController::class, 'update']);
                 $router->delete('/addresses/{uuid}', [AddressController::class, 'delete']);
@@ -215,6 +216,9 @@ return function (Router $router): void {
                 $router->get('/cart', [CartController::class, 'get']);
                 $router->post('/cart/items', [CartController::class, 'addItem']);
                 $router->patch('/cart/items/{itemId}', [CartController::class, 'updateItem']);
+                // Shared hosts occasionally strip X-HTTP-Method-Override. Keep
+                // a POST fallback so quantity controls remain functional.
+                $router->post('/cart/items/{itemId}', [CartController::class, 'updateItem']);
                 $router->delete('/cart/items/{itemId}', [CartController::class, 'removeItem']);
                 $router->delete('/cart', [CartController::class, 'clear']);
                 $router->post('/cart/apply-coupon', [PublicOfferController::class, 'applyCoupon']);

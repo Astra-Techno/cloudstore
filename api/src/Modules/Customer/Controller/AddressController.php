@@ -9,6 +9,7 @@ use App\Core\Http\Response;
 use App\Core\Validation\Validator;
 use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Customer\Repository\AddressRepository;
+use App\Modules\Delivery\Service\DeliveryFeeService;
 use App\Modules\Tenant\Domain\TenantContext;
 use Ramsey\Uuid\Uuid;
 
@@ -17,6 +18,7 @@ final class AddressController
     public function __construct(
         private readonly AddressRepository $addressRepo,
         private readonly CustomerRepository $customerRepo,
+        private readonly DeliveryFeeService $deliveryFeeService,
     ) {
     }
 
@@ -62,6 +64,41 @@ final class AddressController
         $address = $this->addressRepo->findById($id, $customerId, $tenantId);
 
         return Response::success($address, status: 201);
+    }
+
+    /** Check delivery coverage before an address is saved. */
+    public function availability(Request $request, array $params): Response
+    {
+        if ($this->resolveCustomer($request) === null) {
+            return Response::unauthorized();
+        }
+
+        $data = $request->json();
+        if (!is_numeric($data['latitude'] ?? null) || !is_numeric($data['longitude'] ?? null)) {
+            return Response::validationError([
+                'location' => ['A GPS location is required to check delivery availability.'],
+            ]);
+        }
+
+        $tenant = TenantContext::get();
+        $storeLocation = ($tenant->configuration ?? [])['delivery'] ?? [];
+        if (!is_numeric($storeLocation['latitude'] ?? null) || !is_numeric($storeLocation['longitude'] ?? null)) {
+            return Response::error('This store has not configured its delivery location yet.', 'STORE_LOCATION_REQUIRED', 422);
+        }
+
+        $distanceKm = DeliveryFeeService::haversineDistance(
+            (float) $storeLocation['latitude'],
+            (float) $storeLocation['longitude'],
+            (float) $data['latitude'],
+            (float) $data['longitude'],
+        );
+        $fee = $this->deliveryFeeService->calculate(TenantContext::id(), $distanceKm, 0);
+
+        return Response::success([
+            'available' => $fee !== null,
+            'distance_km' => round($distanceKm, 2),
+            'delivery_fee' => $fee,
+        ]);
     }
 
     public function update(Request $request, array $params): Response

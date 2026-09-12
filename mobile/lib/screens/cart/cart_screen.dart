@@ -88,6 +88,16 @@ class _CartScreenState extends State<CartScreen> {
                                   item.variantName!,
                                   style: TextStyle(color: Colors.grey[600], fontSize: 13),
                                 ),
+                              if (item.addonNames.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    item.addonNames.join(', '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                  ),
+                                ),
                               const SizedBox(height: 4),
                               PriceText(paise: item.lineTotal),
                             ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_client.dart';
@@ -100,8 +101,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() =>
             _error = data['error']?['message'] ?? 'Failed to place order');
       }
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final apiError = body is Map && body['error'] is Map ? body['error'] as Map : null;
+      setState(() => _error = apiError?['message']?.toString() ?? 'Failed to place order');
     } catch (_) {
-      setState(() => _error = 'Failed to place order');
+      setState(() => _error = 'Failed to place order. Please try again.');
     } finally {
       setState(() => _placing = false);
     }

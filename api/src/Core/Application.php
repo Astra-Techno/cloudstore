@@ -323,6 +323,7 @@ final class Application
         $this->container->singleton(AddressController::class, fn () => new AddressController(
             $this->container->get(AddressRepository::class),
             $this->container->get(CustomerRepository::class),
+            $this->container->get(DeliveryFeeService::class),
         ));
 
         // Delivery module
@@ -343,6 +344,7 @@ final class Application
             $this->container->get(CartRepository::class),
             $this->container->get(ProductRepository::class),
             $this->container->get(VariantRepository::class),
+            $this->container->get(AddonRepository::class),
             $this->container->get(CustomerRepository::class),
         ));
 
@@ -578,6 +580,7 @@ final class Application
             'user_agent' => substr($request->header('user-agent'), 0, 180),
             'app_token_fingerprint' => $appToken === '' ? null : substr(hash('sha256', $appToken), 0, 12),
             'has_bearer_token' => $request->bearerToken() !== null,
+            'error_code' => $response->getData()['error']['code'] ?? null,
         ]);
     }
 

@@ -26,6 +26,7 @@ class CartItem {
   final int quantity;
   final int unitPrice;
   final int addonsPrice;
+  final List<String> addonNames;
   final int lineTotal;
 
   CartItem({
@@ -37,6 +38,7 @@ class CartItem {
     required this.quantity,
     required this.unitPrice,
     required this.addonsPrice,
+    this.addonNames = const [],
     required this.lineTotal,
   });
 
@@ -45,6 +47,11 @@ class CartItem {
     final addonsPrice = _toInt(json['addons_price']);
     final quantity = _toInt(json['quantity']);
     final lineTotal = _toInt(json['line_total']);
+    final addonNames = (json['addons'] as List? ?? [])
+        .map((addon) => addon is Map ? addon['name']?.toString() : addon?.toString())
+        .whereType<String>()
+        .where((name) => name.isNotEmpty)
+        .toList();
     return CartItem(
       id: _toInt(json['id']),
       productUuid: json['product_uuid']?.toString() ?? '',
@@ -54,6 +61,7 @@ class CartItem {
       quantity: quantity,
       unitPrice: unitPrice,
       addonsPrice: addonsPrice,
+      addonNames: addonNames,
       lineTotal: lineTotal > 0 ? lineTotal : (unitPrice + addonsPrice) * quantity,
     );
   }

@@ -10,6 +10,7 @@ use App\Core\Validation\Validator;
 use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Cart\Repository\CartRepository;
 use App\Modules\Catalog\Domain\PricingCalculator;
+use App\Modules\Catalog\Repository\AddonRepository;
 use App\Modules\Catalog\Repository\ProductRepository;
 use App\Modules\Catalog\Repository\VariantRepository;
 use App\Modules\Tenant\Domain\TenantContext;
@@ -21,6 +22,7 @@ final class CartController
         private readonly CartRepository $cartRepo,
         private readonly ProductRepository $productRepo,
         private readonly VariantRepository $variantRepo,
+        private readonly AddonRepository $addonRepo,
         private readonly CustomerRepository $customerRepo,
     ) {
     }
@@ -72,6 +74,15 @@ final class CartController
             return Response::notFound('Product not found or unavailable.');
         }
 
+        $quantity = (int) $data['quantity'];
+        if ($quantity < (int) $product['min_quantity'] || $quantity > (int) $product['max_quantity']) {
+            return Response::error(
+                sprintf('Choose between %d and %d of this item.', (int) $product['min_quantity'], (int) $product['max_quantity']),
+                'INVALID_QUANTITY',
+                422,
+            );
+        }
+
         $variant = null;
         if (!empty($data['variant_uuid'])) {
             $variant = $this->variantRepo->findByUuid($data['variant_uuid']);
@@ -97,14 +108,52 @@ final class CartController
             $cartId = (int) $cart['id'];
         }
 
-        $addonsJson = !empty($data['addons']) ? json_encode($data['addons']) : null;
-        $addonsPrice = (int) ($data['addons_price'] ?? 0);
+        $addonIds = $data['addon_ids'] ?? [];
+        if (!is_array($addonIds)) {
+            return Response::error('Invalid add-on selection.', 'INVALID_ADDON_SELECTION', 422);
+        }
+        $selectedAddonIds = array_values(array_unique(array_map('intval', $addonIds)));
+        $allowedAddonIds = [];
+        $selectedAddons = [];
+        foreach ($this->addonRepo->getGroupsWithItemsForProduct((int) $product['id']) as $group) {
+            $itemsById = [];
+            foreach ($group['items'] as $item) {
+                $itemsById[(int) $item['id']] = $item;
+            }
+            $groupSelection = array_values(array_filter(
+                $selectedAddonIds,
+                fn (int $id): bool => isset($itemsById[$id]),
+            ));
+            $allowedAddonIds = [...$allowedAddonIds, ...array_keys($itemsById)];
+            $minimum = (int) $group['min_selections'];
+            $maximum = (int) $group['max_selections'];
+            if (count($groupSelection) < $minimum || count($groupSelection) > $maximum) {
+                return Response::error(
+                    sprintf('Choose %d to %d option(s) for %s.', $minimum, $maximum, $group['name']),
+                    'INVALID_ADDON_SELECTION',
+                    422,
+                );
+            }
+            foreach ($groupSelection as $id) {
+                $item = $itemsById[$id];
+                $selectedAddons[] = [
+                    'id' => $id,
+                    'name' => $item['name'],
+                    'price' => (int) $item['price'],
+                ];
+            }
+        }
+        if (array_diff($selectedAddonIds, $allowedAddonIds) !== []) {
+            return Response::error('One or more selected add-ons are unavailable.', 'INVALID_ADDON_SELECTION', 422);
+        }
+        $addonsJson = $selectedAddons === [] ? null : json_encode($selectedAddons, JSON_THROW_ON_ERROR);
+        $addonsPrice = array_sum(array_column($selectedAddons, 'price'));
 
         $this->cartRepo->addItem([
             'cart_id' => $cartId,
             'product_id' => (int) $product['id'],
             'variant_id' => $variant ? (int) $variant['id'] : null,
-            'quantity' => (int) $data['quantity'],
+            'quantity' => $quantity,
             'unit_price' => $unitPrice,
             'addons_json' => $addonsJson,
             'addons_price' => $addonsPrice,
@@ -196,6 +245,11 @@ final class CartController
             $unitPrice = (int) $row['unit_price'];
             $addonsPrice = (int) ($row['addons_price'] ?? 0);
             $quantity = (int) $row['quantity'];
+            $addons = [];
+            if (!empty($row['addons_json'])) {
+                $decoded = json_decode((string) $row['addons_json'], true);
+                $addons = is_array($decoded) ? $decoded : [];
+            }
             return [
                 'id' => (int) $row['id'],
                 'product_uuid' => $row['product_uuid'] ?? '',
@@ -205,6 +259,7 @@ final class CartController
                 'quantity' => $quantity,
                 'unit_price' => $unitPrice,
                 'addons_price' => $addonsPrice,
+                'addons' => $addons,
                 'line_total' => ($unitPrice + $addonsPrice) * $quantity,
             ];
         }, $rows);
