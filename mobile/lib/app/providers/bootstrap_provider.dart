@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../../services/api_client.dart';
 import '../../config/app_config.dart';
 
@@ -72,8 +73,27 @@ class BootstrapProvider extends ChangeNotifier {
         };
         notifyListeners();
       }
-    } catch (e) {
-      _error = 'Failed to connect to server';
+    } on DioException catch (error) {
+      final responseData = error.response?.data;
+      final apiError = responseData is Map && responseData['error'] is Map
+          ? Map<String, dynamic>.from(responseData['error'] as Map)
+          : const <String, dynamic>{};
+      final code = apiError['code']?.toString();
+      _error = switch (code) {
+        'UNAUTHORIZED' =>
+          'This app build is no longer authorised. Please install the latest app from the store.',
+        'TENANT_ERROR' =>
+          'This store is temporarily unavailable. Please try again shortly.',
+        _ when error.type == DioExceptionType.connectionTimeout ||
+                error.type == DioExceptionType.connectionError =>
+          'Unable to reach the store server. Check your internet connection and try again.',
+        _ => apiError['message']?.toString() ??
+            'Unable to open this store right now. Please try again.',
+      };
+      _isLoaded = false;
+      notifyListeners();
+    } catch (_) {
+      _error = 'Unable to open this store right now. Please try again.';
       _isLoaded = false;
       notifyListeners();
     }

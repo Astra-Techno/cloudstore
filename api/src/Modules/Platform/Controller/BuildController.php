@@ -56,6 +56,7 @@ final class BuildController
         if (!$validator->validate($data, [
             'platform' => ['required', 'string'],
             'app_mode' => ['required', 'string'],
+            'app_token' => ['required', 'string'],
         ])) {
             return Response::validationError($validator->getErrors());
         }
@@ -65,6 +66,19 @@ final class BuildController
         $buildType = $data['build_type'] ?? ($platform === 'android' ? 'apk' : 'ad-hoc');
         $appName = $data['app_name'] ?? $tenant->name;
         $appId = $data['app_id'] ?? 'com.cloudmarket.cloudstore';
+        $appToken = trim((string) $data['app_token']);
+
+        // The token is embedded in the white-label app. Verify it belongs to
+        // this active tenant before dispatching an otherwise unusable build.
+        $validToken = $this->db->fetchOne(
+            "SELECT id FROM app_tokens WHERE tenant_id = ? AND token_hash = ? AND status = 'active' LIMIT 1",
+            [$tenant->id, hash('sha256', $appToken)],
+        );
+        if ($validToken === null) {
+            return Response::validationError([
+                'app_token' => ['Generate a new active token for this store before building the app.'],
+            ]);
+        }
 
         // Get tenant's active app token prefix for reference
         $tokenRow = $this->db->fetchOne(
@@ -74,7 +88,11 @@ final class BuildController
 
         $buildUuid = Uuid::uuid4()->toString();
         $shareToken = bin2hex(random_bytes(24));
-        $apiBaseUrl = $this->config->get('APP_URL', 'https://market.cloudkart24.com') . '/api/v1';
+        $publicAppUrl = rtrim($this->config->get(
+            'MOBILE_API_ORIGIN',
+            $this->config->get('APP_URL', 'https://market.cloudkart24.com'),
+        ), '/');
+        $apiBaseUrl = $publicAppUrl . '/api/v1';
 
         $this->db->execute(
             "INSERT INTO app_builds (uuid, tenant_id, platform, app_mode, build_type, status, app_name, app_id, share_token, triggered_by)
@@ -106,7 +124,7 @@ final class BuildController
                 'event_type' => $eventType,
                 'client_payload' => [
                     'build_id' => $buildUuid,
-                    'app_token' => $data['app_token'] ?? '',
+                    'app_token' => $appToken,
                     'api_base_url' => $apiBaseUrl,
                     'app_mode' => $appMode,
                     'app_name' => $appName,
