@@ -584,8 +584,8 @@ onMounted(load)
               <p class="text-xs text-gray-400">{{ new Date(b.created_at).toLocaleString() }} &middot; {{ formatFileSize(b.file_size) }}</p>
               <div class="flex items-center gap-2 mt-2 flex-wrap">
                 <a v-if="b.github_run_url" :href="b.github_run_url" target="_blank" class="text-xs text-blue-600 hover:underline">GitHub Run</a>
-                <a v-if="b.share_url && b.status === 'completed'" :href="b.share_url" class="text-xs font-bold text-green-600 hover:underline">Download APK</a>
-                <button v-if="b.status === 'completed' && !b.download_url && b.github_run_url" class="text-xs font-bold text-orange-600 hover:underline" :disabled="fetchingBuild === b.uuid" @click="fetchBuildArtifact(b.uuid)">
+                <a v-if="(b.share_url || b.download_url) && b.status === 'completed'" :href="(b.share_url || b.download_url)!" target="_blank" class="text-xs font-bold text-green-600 hover:underline">Download APK</a>
+                <button v-if="b.status === 'completed' && !b.download_url && !b.share_url && b.github_run_url" class="text-xs font-bold text-orange-600 hover:underline" :disabled="fetchingBuild === b.uuid" @click="fetchBuildArtifact(b.uuid)">
                   {{ fetchingBuild === b.uuid ? 'Fetching...' : 'Fetch APK from GitHub' }}
                 </button>
                 <button v-if="b.share_url && b.status === 'completed'" class="text-xs font-bold text-purple-600 hover:underline" @click="copyShareLink(b.share_url)">
