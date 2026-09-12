@@ -209,6 +209,7 @@ final class Application
             $this->container->get(JwtService::class),
             $this->container->get(OtpService::class),
             $this->container->get(OtpDeliveryService::class),
+            $this->container->get(Config::class),
         ));
 
         $this->container->singleton(DriverAuthController::class, fn () => new DriverAuthController(

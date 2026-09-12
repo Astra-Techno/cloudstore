@@ -22,7 +22,12 @@ final class OtpService
      * Generate and store an OTP for a phone number.
      * Returns the plain OTP (to be sent via SMS/WhatsApp).
      */
-    public function generate(int $tenantId, string $phone, string $purpose = 'login'): array
+    public function generate(
+        int $tenantId,
+        string $phone,
+        string $purpose = 'login',
+        ?string $forcedCode = null,
+    ): array
     {
         // Check cooldown
         $recent = $this->db->fetchOne(
@@ -37,7 +42,11 @@ final class OtpService
             return ['error' => 'Please wait before requesting a new OTP.'];
         }
 
-        $code = $this->generateCode();
+        if ($forcedCode !== null && preg_match('/^\\d{6}$/', $forcedCode) !== 1) {
+            throw new \InvalidArgumentException('Forced OTP must be exactly six digits.');
+        }
+
+        $code = $forcedCode ?? $this->generateCode();
         $hash = hash('sha256', $code);
         $expiresAt = date('Y-m-d H:i:s', time() + self::OTP_TTL_SECONDS);
 

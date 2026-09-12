@@ -6,6 +6,7 @@ namespace App\Modules\Auth\Controller;
 
 use App\Core\Http\Request;
 use App\Core\Http\Response;
+use App\Core\Config\Config;
 use App\Core\Validation\Validator;
 use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Auth\Service\JwtService;
@@ -21,6 +22,7 @@ final class CustomerAuthController
         private readonly JwtService $jwtService,
         private readonly OtpService $otpService,
         private readonly OtpDeliveryService $otpDelivery,
+        private readonly Config $config,
     ) {
     }
 
@@ -39,18 +41,33 @@ final class CustomerAuthController
         }
 
         $tenantId = TenantContext::id();
-        $result = $this->otpService->generate($tenantId, $data['phone']);
+        $testMode = $this->config->getBool('OTP_TEST_MODE', false);
+        $testCode = $this->config->get('OTP_TEST_CODE');
+        if ($testMode && preg_match('/^\\d{6}$/', $testCode) !== 1) {
+            return Response::error('OTP test mode is misconfigured.', 'OTP_TEST_MODE_INVALID', 500);
+        }
+
+        $result = $this->otpService->generate(
+            $tenantId,
+            $data['phone'],
+            forcedCode: $testMode ? $testCode : null,
+        );
 
         if (isset($result['error'])) {
             return Response::error($result['error'], 'OTP_COOLDOWN', 429);
         }
 
-        if (!$this->otpDelivery->deliver($data['phone'], $result['otp'])) {
+        if (!$testMode && !$this->otpDelivery->deliver($data['phone'], $result['otp'])) {
             $this->otpService->discardLatest($tenantId, $data['phone']);
             return Response::error('Unable to send a verification code. Please try again shortly.', 'OTP_DELIVERY_FAILED', 503);
         }
 
-        $response = ['message' => 'OTP sent successfully.', 'expires_in' => $result['expires_in']];
+        $response = [
+            'message' => $testMode
+                ? 'Test verification code is ready.'
+                : 'OTP sent successfully.',
+            'expires_in' => $result['expires_in'],
+        ];
 
         if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
             $response['otp'] = $result['otp']; // Only in debug mode
