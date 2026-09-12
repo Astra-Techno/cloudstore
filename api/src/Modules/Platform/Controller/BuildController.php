@@ -459,14 +459,23 @@ final class BuildController
                 $appName = preg_replace('/[^a-zA-Z0-9_-]/', '', str_replace(' ', '-', $build['app_name'] ?? 'app'));
                 $filename = $appName . '-' . ($build['app_mode'] ?? 'customer') . '.apk';
 
+                $fileSize = filesize($filePath);
+
                 header_remove('Content-Type');
                 header('Content-Type: application/vnd.android.package-archive');
                 header('Content-Disposition: attachment; filename="' . $filename . '"');
-                header('Content-Length: ' . filesize($filePath));
+                header('Content-Length: ' . $fileSize);
                 header('Content-Transfer-Encoding: binary');
                 header('Cache-Control: no-store');
+                header('Connection: close');
 
-                readfile($filePath);
+                // Stream in chunks to avoid memory issues on shared hosting
+                $fp = fopen($filePath, 'rb');
+                while (!feof($fp)) {
+                    echo fread($fp, 8192);
+                    flush();
+                }
+                fclose($fp);
                 exit;
             }
         }
