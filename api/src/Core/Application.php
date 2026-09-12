@@ -510,11 +510,13 @@ final class Application
     public function handleRequest(): void
     {
         $request = Request::capture();
+        $startedAt = microtime(true);
 
         // CORS handling
         $cors = $this->container->get(CorsMiddleware::class);
         $corsResponse = $cors->handle($request);
         if ($corsResponse !== null) {
+            $this->logApiRequest($request, $corsResponse, $startedAt);
             $corsResponse->send();
             return;
         }
@@ -544,7 +546,36 @@ final class Application
         // Send CORS headers on actual responses
         CorsMiddleware::sendHeaders($request);
 
+        $this->logApiRequest($request, $response, $startedAt);
+
         $response->send();
+    }
+
+    /**
+     * Log API traffic without retaining credentials, OTPs, passwords, or bodies.
+     * App-token fingerprints are one-way hashes used only to correlate a build
+     * with an authentication result while debugging mobile bootstrap failures.
+     */
+    private function logApiRequest(Request $request, Response $response, float $startedAt): void
+    {
+        if (!str_starts_with($request->path, '/api/') ||
+            !$this->container->get(Config::class)->getBool('API_REQUEST_LOGGING', false)) {
+            return;
+        }
+
+        $appToken = $request->header('x-app-token');
+        $forwardedFor = explode(',', $request->header('x-forwarded-for'))[0];
+
+        $this->container->get(Logger::class)->info('API request completed', [
+            'method' => $request->method,
+            'path' => $request->path,
+            'status' => $response->getStatus(),
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'client_ip' => trim($forwardedFor) !== '' ? trim($forwardedFor) : ($_SERVER['REMOTE_ADDR'] ?? ''),
+            'user_agent' => substr($request->header('user-agent'), 0, 180),
+            'app_token_fingerprint' => $appToken === '' ? null : substr(hash('sha256', $appToken), 0, 12),
+            'has_bearer_token' => $request->bearerToken() !== null,
+        ]);
     }
 
     public function getContainer(): Container

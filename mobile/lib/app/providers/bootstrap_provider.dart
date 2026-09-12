@@ -79,12 +79,14 @@ class BootstrapProvider extends ChangeNotifier {
           ? Map<String, dynamic>.from(responseData['error'] as Map)
           : const <String, dynamic>{};
       final code = apiError['code']?.toString();
-      _error = switch (code) {
-        'UNAUTHORIZED' =>
+      final isUnauthorized = error.response?.statusCode == 401 ||
+          code == 'UNAUTHORIZED';
+      _error = switch (isUnauthorized) {
+        true =>
           'This app build is no longer authorised. Please install the latest app from the store.',
-        'TENANT_ERROR' =>
+        false when code == 'TENANT_ERROR' =>
           'This store is temporarily unavailable. Please try again shortly.',
-        _ when error.type == DioExceptionType.connectionTimeout ||
+        false when error.type == DioExceptionType.connectionTimeout ||
                 error.type == DioExceptionType.connectionError =>
           'Unable to reach the store server. Check your internet connection and try again.',
         _ => apiError['message']?.toString() ??
