@@ -219,29 +219,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'Choose how you would like to pay'),
             const SizedBox(height: 8),
             Card(
-              child: RadioGroup<String>(
-                groupValue: _paymentMethod,
-                onChanged: (value) {
-                  if (value != null) setState(() => _paymentMethod = value);
-                },
-                child: Column(
-                  children: [
-                    RadioListTile<String>(
-                        value: 'cod',
-                        enabled: bootstrap.paymentMethods.contains('cod'),
-                        title: Text(_orderType == 'pickup'
-                            ? 'Pay at store'
-                            : 'Cash on Delivery'),
-                        secondary: const Icon(Icons.payments_outlined)),
-                    if (bootstrap.paymentMethods.contains('online'))
-                      const Padding(
-                          padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: Text(
-                              'Online payments will appear here once this shop connects its payment gateway.',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.black54))),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  RadioListTile<String>(
+                    value: 'cod',
+                    groupValue: _paymentMethod,
+                    onChanged: bootstrap.paymentMethods.contains('cod')
+                        ? (value) => setState(() => _paymentMethod = value!)
+                        : null,
+                    title: Text(_orderType == 'pickup'
+                        ? 'Pay at store'
+                        : 'Cash on Delivery'),
+                    secondary: const Icon(Icons.payments_outlined),
+                  ),
+                  if (bootstrap.paymentMethods.contains('online'))
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Text(
+                        'Online payments will appear here once this shop connects its payment gateway.',
+                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                    ),
+                ],
               ),
             ),
 
