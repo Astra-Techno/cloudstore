@@ -39,7 +39,25 @@ final class Connection
     public function query(string $sql, array $params = []): PDOStatement
     {
         $stmt = $this->getPdo()->prepare($sql);
-        $stmt->execute($params);
+
+        // PDO::execute() binds every value supplied in an array as a string.
+        // MySQL accepts that for most comparisons, but native prepared
+        // statements reject quoted values in LIMIT/OFFSET (for example,
+        // `LIMIT '20'`). Bind each scalar with its real PDO type instead so
+        // paginated API endpoints behave consistently in production.
+        foreach ($params as $key => $value) {
+            $parameter = is_int($key) ? $key + 1 : ':' . ltrim((string) $key, ':');
+            $type = match (true) {
+                is_int($value) => PDO::PARAM_INT,
+                is_bool($value) => PDO::PARAM_BOOL,
+                $value === null => PDO::PARAM_NULL,
+                default => PDO::PARAM_STR,
+            };
+
+            $stmt->bindValue($parameter, $value, $type);
+        }
+
+        $stmt->execute();
 
         return $stmt;
     }

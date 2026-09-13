@@ -411,6 +411,10 @@ final class Application
         $this->container->singleton(OrderController::class, fn () => new OrderController(
             $this->container->get(OrderRepository::class),
             $this->container->get(CustomerRepository::class),
+            $this->container->get(OrderManagementService::class),
+            $this->container->get(CartRepository::class),
+            $this->container->get(ProductRepository::class),
+            $this->container->get(VariantRepository::class),
         ));
 
         // Payment module
@@ -539,6 +543,7 @@ final class Application
         $this->container->singleton(MarketplaceController::class, fn () => new MarketplaceController(
             $this->container->get(Connection::class),
             $this->container->get(CatalogService::class),
+            $this->container->get(DeliveryFeeService::class),
         ));
         $this->container->singleton(LegalController::class, fn () => new LegalController());
 
