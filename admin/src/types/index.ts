@@ -221,4 +221,5 @@ export interface StoreSettings {
   delivery_enabled: boolean
   pickup_enabled: boolean
   payment_methods: string[]
+  delivery_location: { latitude: number | null; longitude: number | null }
 }

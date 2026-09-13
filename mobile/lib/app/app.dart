@@ -10,23 +10,30 @@ class CloudStoreApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bootstrap = context.watch<BootstrapProvider>();
+    const brandRed = Color(0xFFE23744);
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: brandRed,
+      brightness: Brightness.light,
+      surface: Colors.white,
+    ).copyWith(
+      primary: brandRed,
+      onPrimary: Colors.white,
+      secondary: brandRed,
+      surface: Colors.white,
+    );
 
     return MaterialApp.router(
       title: bootstrap.tenantName ?? AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: bootstrap.primaryColor ?? AppConfig.fallbackPrimaryColor,
-          brightness: Brightness.light,
-          surface: Colors.white,
-        ),
+        colorScheme: colorScheme,
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFFF8F2),
+        scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
           centerTitle: false,
           elevation: 0,
           scrolledUnderElevation: 0,
-          backgroundColor: const Color(0xFFFFF8F2),
+          backgroundColor: Colors.white,
           foregroundColor: Color(0xFF1C1C1C),
           titleTextStyle: TextStyle(
               fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -.3),
@@ -48,24 +55,25 @@ class CloudStoreApp extends StatelessWidget {
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(color: const Color(0xFFF1E6DA)),
+            borderSide: BorderSide(color: Color(0xFFF1F1F1)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(color: bootstrap.primaryColor ?? AppConfig.fallbackPrimaryColor, width: 1.5),
+            borderSide: BorderSide(color: brandRed, width: 1.5),
           ),
         ),
         navigationBarTheme: NavigationBarThemeData(
           height: 72,
           backgroundColor: Colors.white,
           indicatorColor:
-              (bootstrap.primaryColor ?? AppConfig.fallbackPrimaryColor)
-                  .withAlpha(25),
+              brandRed.withAlpha(25),
           labelTextStyle: WidgetStateProperty.all(
               const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         ),
         filledButtonTheme: FilledButtonThemeData(
             style: FilledButton.styleFrom(
+          backgroundColor: brandRed,
+          foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

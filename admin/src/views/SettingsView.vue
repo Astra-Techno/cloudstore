@@ -100,7 +100,8 @@ async function loadSettings() {
         // API values are paise; the merchant-facing form always uses rupees.
         min_order_amount: Number(data.data.min_order_amount || 0) / 100,
         delivery_charge_fixed: Number(data.data.delivery_charge_fixed || 0) / 100,
-        payment_methods: ['cod'],
+      payment_methods: ['cod'],
+      delivery_location: data.data.delivery_location ?? { latitude: null, longitude: null },
         branding: data.data.branding ?? { ...defaultBranding },
       }
     }
@@ -143,6 +144,7 @@ async function saveSettings() {
       delivery_enabled: settings.value.delivery_enabled,
       pickup_enabled: settings.value.pickup_enabled,
       payment_methods: settings.value.payment_methods,
+      delivery_location: settings.value.delivery_location,
       branding: settings.value.branding,
     })
     if (data.success) {
@@ -299,6 +301,11 @@ onMounted(loadSettings)
               <input type="checkbox" v-model="settings.pickup_enabled" class="w-4 h-4 text-red-600 rounded" />
               <span class="text-sm font-medium text-gray-700">Pickup Enabled</span>
             </label>
+          </div>
+          <div v-if="settings.delivery_enabled" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5 pt-4 border-t border-gray-100">
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Store latitude</label><input v-model.number="settings.delivery_location.latitude" type="number" step="any" min="-90" max="90" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="e.g. 9.9312" /></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Store longitude</label><input v-model.number="settings.delivery_location.longitude" type="number" step="any" min="-180" max="180" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="e.g. 76.2673" /></div>
+            <p class="md:col-span-2 text-xs text-gray-500">Required for delivery distance, service-area checks, and marketplace discovery. Save after entering the shop's GPS pin.</p>
           </div>
         </div>
 

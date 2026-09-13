@@ -8,6 +8,7 @@ use App\Core\Database\Connection;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Modules\Catalog\Service\CatalogService;
+use App\Modules\Delivery\Service\DeliveryFeeService;
 
 /** Public discovery API for the CloudMarket customer app. */
 final class MarketplaceController
@@ -15,6 +16,7 @@ final class MarketplaceController
     public function __construct(
         private readonly Connection $db,
         private readonly CatalogService $catalogService,
+        private readonly DeliveryFeeService $deliveryFeeService,
     ) {
     }
 
@@ -22,7 +24,10 @@ final class MarketplaceController
     {
         $search = trim((string) $request->input('q', ''));
         $type = trim((string) $request->input('business_type', ''));
-        $sql = "SELECT t.uuid, t.name, t.slug, t.business_type, t.address, t.contact_phone,
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        $hasLocation = is_numeric($latitude) && is_numeric($longitude);
+        $sql = "SELECT t.id AS tenant_id, t.uuid, t.name, t.slug, t.business_type, t.address, t.contact_phone, t.configuration,
                        b.logo_url, b.primary_color,
                        COUNT(p.id) AS product_count
                 FROM tenants t
@@ -39,7 +44,21 @@ final class MarketplaceController
             $values[] = $type;
         }
         $sql .= ' GROUP BY t.id ORDER BY t.marketplace_sort_order ASC, t.name ASC';
-        return Response::success($this->db->fetchAll($sql, $values));
+        $stores = $this->db->fetchAll($sql, $values);
+        $result = [];
+        foreach ($stores as $store) {
+            $config = json_decode((string) ($store['configuration'] ?? ''), true) ?: [];
+            $location = $config['delivery'] ?? [];
+            if ($hasLocation) {
+                if (!is_numeric($location['latitude'] ?? null) || !is_numeric($location['longitude'] ?? null)) continue;
+                $distance = DeliveryFeeService::haversineDistance((float) $location['latitude'], (float) $location['longitude'], (float) $latitude, (float) $longitude);
+                if ($this->deliveryFeeService->calculate((int) $store['tenant_id'], $distance, 0) === null) continue;
+                $store['distance_km'] = round($distance, 1);
+            }
+            unset($store['tenant_id'], $store['configuration']);
+            $result[] = $store;
+        }
+        return Response::success($result);
     }
 
     public function store(Request $request, array $params): Response

@@ -192,6 +192,7 @@ final class AdminSettingsController
             'delivery_enabled' => $metadata['delivery_enabled'] ?? true,
             'pickup_enabled' => $metadata['pickup_enabled'] ?? true,
             'payment_methods' => $metadata['payment_methods'] ?? ['cod'],
+            'delivery_location' => $metadata['delivery'] ?? ['latitude' => null, 'longitude' => null],
         ]);
     }
 
@@ -212,6 +213,14 @@ final class AdminSettingsController
             if (array_key_exists($key, $data)) {
                 $metadata[$key] = $data[$key];
             }
+        }
+        if (array_key_exists('delivery_location', $data)) {
+            $location = $data['delivery_location'];
+            if (!is_array($location) || !is_numeric($location['latitude'] ?? null) || !is_numeric($location['longitude'] ?? null)
+                || abs((float) $location['latitude']) > 90 || abs((float) $location['longitude']) > 180) {
+                return Response::validationError(['delivery_location' => ['Enter a valid store latitude and longitude.']]);
+            }
+            $metadata['delivery'] = ['latitude' => (float) $location['latitude'], 'longitude' => (float) $location['longitude']];
         }
 
         $this->db->execute(
