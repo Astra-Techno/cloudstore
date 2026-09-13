@@ -8,6 +8,13 @@ use App\Core\Database\Connection;
 
 final class DeliveryZoneRepository
 {
+    /**
+     * Some already-live stores were created before migration 037 added pincode
+     * zones. Keep distance delivery working while a deployment catches their
+     * schema up; this avoids turning a missing optional feature into a 500.
+     */
+    private ?bool $supportsPincodeZones = null;
+
     public function __construct(
         private readonly Connection $db,
     ) {
@@ -23,6 +30,16 @@ final class DeliveryZoneRepository
 
     public function findZoneForDistance(int $tenantId, float $distanceKm): ?array
     {
+        if (!$this->hasPincodeZoneColumns()) {
+            return $this->db->fetchOne(
+                "SELECT * FROM delivery_zones
+                 WHERE tenant_id = ? AND status = 'active'
+                 AND min_distance_km <= ? AND max_distance_km >= ?
+                 ORDER BY sort_order ASC LIMIT 1",
+                [$tenantId, $distanceKm, $distanceKm]
+            );
+        }
+
         return $this->db->fetchOne(
             "SELECT * FROM delivery_zones
              WHERE tenant_id = ? AND status = 'active'
@@ -35,6 +52,10 @@ final class DeliveryZoneRepository
 
     public function findZoneForPincode(int $tenantId, string $pincode): ?array
     {
+        if (!$this->hasPincodeZoneColumns()) {
+            return null;
+        }
+
         $zones = $this->db->fetchAll(
             "SELECT * FROM delivery_zones
              WHERE tenant_id = ? AND status = 'active'
@@ -73,6 +94,21 @@ final class DeliveryZoneRepository
     {
         $pincodes = isset($data['pincodes']) ? json_encode($data['pincodes']) : null;
 
+        if (!$this->hasPincodeZoneColumns()) {
+            $this->db->execute(
+                "INSERT INTO delivery_zones (uuid, tenant_id, name, min_distance_km, max_distance_km, fee, min_order_free_delivery, status, sort_order)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    $data['uuid'], $data['tenant_id'], $data['name'],
+                    $data['min_distance_km'], $data['max_distance_km'],
+                    $data['fee'], $data['min_order_free_delivery'] ?? null,
+                    $data['status'] ?? 'active', $data['sort_order'] ?? 0,
+                ]
+            );
+
+            return (int) $this->db->lastInsertId();
+        }
+
         $this->db->execute(
             "INSERT INTO delivery_zones (uuid, tenant_id, name, zone_type, min_distance_km, max_distance_km, pincodes, fee, min_order_free_delivery, status, sort_order)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -93,16 +129,22 @@ final class DeliveryZoneRepository
     {
         $fields = [];
         $values = [];
+        $supportsPincodeZones = $this->hasPincodeZoneColumns();
 
         // Encode pincodes array to JSON before setting
-        if (array_key_exists('pincodes', $data)) {
+        if ($supportsPincodeZones && array_key_exists('pincodes', $data)) {
             $fields[] = "pincodes = ?";
             $values[] = $data['pincodes'] !== null ? json_encode($data['pincodes']) : null;
             unset($data['pincodes']);
         }
 
         foreach ($data as $key => $value) {
-            if (in_array($key, ['name', 'zone_type', 'min_distance_km', 'max_distance_km', 'fee', 'min_order_free_delivery', 'status', 'sort_order'], true)) {
+            $allowed = ['name', 'min_distance_km', 'max_distance_km', 'fee', 'min_order_free_delivery', 'status', 'sort_order'];
+            if ($supportsPincodeZones) {
+                $allowed[] = 'zone_type';
+            }
+
+            if (in_array($key, $allowed, true)) {
                 $fields[] = "{$key} = ?";
                 $values[] = $value;
             }
@@ -129,5 +171,24 @@ final class DeliveryZoneRepository
         );
 
         return $affected > 0;
+    }
+
+    private function hasPincodeZoneColumns(): bool
+    {
+        if ($this->supportsPincodeZones !== null) {
+            return $this->supportsPincodeZones;
+        }
+
+        try {
+            $this->supportsPincodeZones = $this->db->fetchOne(
+                "SHOW COLUMNS FROM delivery_zones LIKE 'zone_type'"
+            ) !== null;
+        } catch (\Throwable) {
+            // A normal distance-zone schema is enough for checkout. Do not
+            // leak a database schema error into the customer application.
+            $this->supportsPincodeZones = false;
+        }
+
+        return $this->supportsPincodeZones;
     }
 }

@@ -20,7 +20,7 @@ final class TenantSeeder
         $brandingRepo = new BrandingRepository($db);
         $capabilityRepo = new CapabilityRepository($db);
         $tenantService = new TenantService($tenantRepo, $brandingRepo, $capabilityRepo);
-        $tokenService = new AppTokenService(new AppTokenRepository($db));
+        $tokenService = new AppTokenService(new AppTokenRepository($db), new \App\Core\Config\Config());
 
         $results = [];
 
