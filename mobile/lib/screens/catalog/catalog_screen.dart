@@ -127,6 +127,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text('TODAY\'S MENU',
+                              style: TextStyle(color: primary, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                          const SizedBox(height: 4),
                           Text(
                               'Order from ${tenant.tenantName ?? 'your favourite store'}',
                               style: const TextStyle(
@@ -206,15 +209,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                           width: 62,
                                           height: 62,
                                           decoration: BoxDecoration(
-                                              color: selected
-                                                  ? primary
-                                                  : Colors.white,
+                                              color: selected ? primary : _categoryTint(category?.name),
                                               borderRadius:
                                                   BorderRadius.circular(18),
                                               border: Border.all(
                                                   color: selected
                                                       ? primary
-                                                      : Colors.grey.shade200)),
+                                                      : Colors.white)),
                                           child: category?.imageUrl != null &&
                                                   category!.imageUrl!.isNotEmpty
                                               ? ClipRRect(
@@ -227,7 +228,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                                               ? Colors.white
                                                               : primary)))
                                               : Icon(all ? Icons.grid_view_rounded : _categoryIcon(category?.name),
-                                                  color: selected ? Colors.white : primary)),
+                                                  color: selected ? Colors.white : _categoryAccent(category?.name))),
                                       const SizedBox(height: 6),
                                       Text(all ? 'All' : category!.name,
                                           maxLines: 1,
@@ -292,6 +293,26 @@ IconData _categoryIcon(String? name) {
   return Icons.restaurant_menu_rounded;
 }
 
+Color _categoryTint(String? name) {
+  final value = (name ?? '').toLowerCase();
+  if (value.contains('biryani') || value.contains('rice')) return const Color(0xFFFFE7C6);
+  if (value.contains('bread') || value.contains('bakery')) return const Color(0xFFFFE0DD);
+  if (value.contains('drink') || value.contains('juice')) return const Color(0xFFDDF3E8);
+  if (value.contains('sweet') || value.contains('dessert')) return const Color(0xFFF4E2FF);
+  if (value.contains('meat') || value.contains('mutton') || value.contains('chicken')) return const Color(0xFFFFE0CB);
+  return const Color(0xFFE6F0FF);
+}
+
+Color _categoryAccent(String? name) {
+  final value = (name ?? '').toLowerCase();
+  if (value.contains('biryani') || value.contains('rice')) return const Color(0xFFD97706);
+  if (value.contains('bread') || value.contains('bakery')) return const Color(0xFFE76F51);
+  if (value.contains('drink') || value.contains('juice')) return const Color(0xFF218C74);
+  if (value.contains('sweet') || value.contains('dessert')) return const Color(0xFF9B51E0);
+  if (value.contains('meat') || value.contains('mutton') || value.contains('chicken')) return const Color(0xFFD35400);
+  return const Color(0xFF2F80ED);
+}
+
 class _OffersRail extends StatelessWidget {
   final List<Map<String, dynamic>> promotions;
   final List<Map<String, dynamic>> bundles;
@@ -339,9 +360,18 @@ class _OfferCard extends StatelessWidget {
 
   int _number(String key) => (item[key] as num?)?.toInt() ?? 0;
 
+  String _percentage(int basisPoints) {
+    final value = basisPoints / 100;
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value
+            .toStringAsFixed(2)
+            .replaceFirst(RegExp(r'0+$'), '')
+            .replaceFirst(RegExp(r'\.$'), '');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     final title = (isBundle ? item['name'] : item['title'])?.toString() ??
         'Special offer';
     final description = item['description']?.toString().trim();
@@ -353,7 +383,7 @@ class _OfferCard extends StatelessWidget {
             ? 'Save ${PriceText.format(saving)}'
             : 'Value combo'
         : discountType == 'percentage'
-            ? 'Save $value%'
+            ? 'Save ${_percentage(value)}%'
             : value > 0
                 ? 'Save ${PriceText.format(value)}'
                 : 'Limited-time offer';
@@ -363,8 +393,8 @@ class _OfferCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isBundle
-              ? [const Color(0xFF35245C), const Color(0xFF6B3FA0)]
-              : [primary, primary.withAlpha(185)],
+              ? [const Color(0xFF553C9A), const Color(0xFF8E5FD2)]
+              : [const Color(0xFFFF6B00), const Color(0xFFFFA42C)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -423,13 +453,21 @@ class _ProductRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final accent = _categoryAccent(product.categoryName);
+    final tint = _categoryTint(product.categoryName);
     final image = product.images.where((item) => item.isPrimary).firstOrNull ??
         (product.images.isNotEmpty ? product.images.first : null);
     return InkWell(
         onTap: () => context.push('/product/${product.uuid}'),
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [BoxShadow(color: accent.withAlpha(18), blurRadius: 18, offset: const Offset(0, 8))],
+            ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
                   child: Padding(
@@ -438,19 +476,11 @@ class _ProductRow extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(children: [
-                              Icon(
-                                  product.pricingMode == 'weight'
-                                      ? Icons.eco_outlined
-                                      : Icons.circle_outlined,
-                                  size: 15,
-                                  color: product.pricingMode == 'weight'
-                                      ? Colors.green
-                                      : Colors.red),
+                              Icon(product.pricingMode == 'weight' ? Icons.eco_outlined : Icons.circle, size: 13, color: accent),
                               const SizedBox(width: 5),
                               Text(product.categoryName ?? 'Popular',
                                   style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 11))
+                                      color: accent, fontSize: 11, fontWeight: FontWeight.w700))
                             ]),
                             const SizedBox(height: 5),
                             Text(product.name,
@@ -495,24 +525,22 @@ class _ProductRow extends StatelessWidget {
                             height: 104,
                             child: image == null || image.url.isEmpty
                                 ? Container(
-                                    color: primary.withAlpha(20),
-                                    child: Icon(Icons.restaurant_rounded,
-                                        color: primary, size: 34))
+                                    color: tint,
+                                    child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))
                                 : Image.network(AppConfig.assetUrl(image.url),
                                     fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) => Container(
-                                        color: primary.withAlpha(20),
-                                        child: Icon(Icons.restaurant_rounded,
-                                            color: primary, size: 34))))),
+                                        color: tint,
+                                        child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))))),
                     Transform.translate(
                         offset: const Offset(0, -14),
                         child: OutlinedButton(
                             onPressed: () =>
                                 context.push('/product/${product.uuid}'),
                             style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: primary,
-                                side: BorderSide(color: primary),
+                                backgroundColor: primary,
+                                foregroundColor: Colors.white,
+                                side: BorderSide.none,
                                 minimumSize: const Size(78, 34),
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(

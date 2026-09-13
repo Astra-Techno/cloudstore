@@ -41,28 +41,37 @@ class Order {
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
-      id: json['id'] as int,
-      uuid: json['uuid'] as String,
-      orderNumber: json['order_number'] as String,
-      status: json['status'] as String,
+      id: _toInt(json['id']),
+      uuid: json['uuid']?.toString() ?? '',
+      orderNumber: json['order_number']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
       orderType: json['order_type'] as String? ?? 'delivery',
-      subtotal: json['subtotal'] as int? ?? 0,
-      deliveryFee: json['delivery_fee'] as int? ?? 0,
-      taxAmount: json['tax_amount'] as int? ?? 0,
-      discountAmount: json['discount_amount'] as int? ?? 0,
-      total: json['total'] as int? ?? 0,
+      subtotal: _toInt(json['subtotal']),
+      deliveryFee: _toInt(json['delivery_fee']),
+      taxAmount: _toInt(json['tax_amount']),
+      discountAmount: _toInt(json['discount_amount']),
+      total: _toInt(json['total']),
       paymentMethod: json['payment_method'] as String? ?? 'cod',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
       notes: json['notes'] as String?,
       addressSnapshot: json['address_snapshot'] as String?,
-      createdAt: json['created_at'] as String,
-      updatedAt: json['updated_at'] as String? ?? json['created_at'] as String,
+      createdAt: json['created_at']?.toString() ?? '',
+      updatedAt: json['updated_at']?.toString() ??
+          json['created_at']?.toString() ??
+          '',
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   String get statusDisplay => status.replaceAll('_', ' ');
 
-  bool get isActive => !['delivered', 'cancelled', 'rejected', 'refunded'].contains(status);
+  bool get isActive =>
+      !['delivered', 'cancelled', 'rejected', 'refunded'].contains(status);
 }
 
 class OrderItem {
@@ -90,16 +99,22 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
-      id: json['id'] as int,
-      productSnapshot: json['product_snapshot'] as String,
+      id: _toInt(json['id']),
+      productSnapshot: json['product_snapshot']?.toString() ?? '',
       variantSnapshot: json['variant_snapshot'] as String?,
       addonsSnapshot: json['addons_snapshot'] as String?,
-      quantity: json['quantity'] as int,
-      unitPrice: json['unit_price'] as int,
-      addonsPrice: json['addons_price'] as int? ?? 0,
-      lineTotal: json['line_total'] as int,
+      quantity: _toInt(json['quantity']),
+      unitPrice: _toInt(json['unit_price']),
+      addonsPrice: _toInt(json['addons_price']),
+      lineTotal: _toInt(json['line_total']),
       notes: json['notes'] as String?,
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
 

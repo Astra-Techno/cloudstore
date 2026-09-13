@@ -1,0 +1,197 @@
+name: CloudMarket Release & QA Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DEPLOY to confirm this production deployment"
+        required: true
+        type: string
+      tenant_uuid:
+        description: "Tenant UUID for the branded app"
+        required: true
+        type: string
+      app_name:
+        description: "Customer-visible Android app name"
+        required: true
+        type: string
+      app_id:
+        description: "Android application ID, e.g. com.cloudmarket.hotelabc"
+        required: true
+        type: string
+      app_mode:
+        description: "Which tenant app to build"
+        required: true
+        default: customer
+        type: choice
+        options:
+          - customer
+          - driver
+      build_type:
+        description: "Android artifact"
+        required: true
+        default: apk
+        type: choice
+        options:
+          - apk
+          - appbundle
+          - both
+      primary_color:
+        description: "Brand colour as #RRGGBB"
+        required: true
+        default: "#4CAF50"
+        type: string
+
+permissions:
+  contents: read
+
+# Do not overlap production deploys or tenant builds. Existing runs are allowed
+# to finish so a released build cannot be interrupted half way through.
+concurrency:
+  group: cloudmarket-production-release
+  cancel-in-progress: false
+
+env:
+  API_BASE_URL: ${{ secrets.CLOUDMARKET_API_BASE_URL }}
+  DEPLOY_URL: ${{ secrets.CLOUDMARKET_DEPLOY_URL }}
+  PLATFORM_EMAIL: ${{ secrets.CLOUDMARKET_PLATFORM_EMAIL }}
+  PLATFORM_PASSWORD: ${{ secrets.CLOUDMARKET_PLATFORM_PASSWORD }}
+  RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
+  TENANT_UUID: ${{ inputs.tenant_uuid }}
+  APP_NAME: ${{ inputs.app_name }}
+  APP_ID: ${{ inputs.app_id }}
+  APP_MODE: ${{ inputs.app_mode }}
+  BUILD_TYPE: ${{ inputs.build_type }}
+  PRIMARY_COLOR: ${{ inputs.primary_color }}
+
+jobs:
+  release:
+    name: Deploy, verify, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    # Create this protected environment in GitHub before enabling the workflow.
+    # It provides a human approval gate and scopes production secrets.
+    environment: production
+
+    steps:
+      - name: Confirm production release
+        run: |
+          test "$RELEASE_CONFIRMATION" = "DEPLOY" || {
+            echo "Confirmation must be exactly DEPLOY." >&2
+            exit 1
+          }
+
+      - name: Validate release configuration
+        run: |
+          test -n "$API_BASE_URL" || { echo "CLOUDMARKET_API_BASE_URL is missing." >&2; exit 1; }
+          test -n "$DEPLOY_URL" || { echo "CLOUDMARKET_DEPLOY_URL is missing." >&2; exit 1; }
+          test -n "$PLATFORM_EMAIL" || { echo "CLOUDMARKET_PLATFORM_EMAIL is missing." >&2; exit 1; }
+          test -n "$PLATFORM_PASSWORD" || { echo "CLOUDMARKET_PLATFORM_PASSWORD is missing." >&2; exit 1; }
+          [[ "$API_BASE_URL" =~ ^https:// ]] || { echo "API URL must use HTTPS." >&2; exit 1; }
+          [[ "$TENANT_UUID" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "Tenant UUID is invalid." >&2; exit 1; }
+          [[ "$APP_ID" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,}$ ]] || { echo "Android app ID is invalid." >&2; exit 1; }
+          [[ "$PRIMARY_COLOR" =~ ^#[0-9a-fA-F]{6}$ ]] || { echo "Primary colour must be #RRGGBB." >&2; exit 1; }
+
+      - name: Deploy the selected production branch
+        run: |
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          curl --fail --silent --show-error --location --retry 2 --retry-delay 5 --max-time 300 \
+            "$DEPLOY_URL" --output "$response_file"
+          if ! grep -Fq "Deployment successful!" "$response_file"; then
+            echo "The deploy endpoint did not report success. Check its server-side deployment log." >&2
+            exit 1
+          fi
+
+      - name: Verify live API and database readiness
+        run: |
+          api_origin="${API_BASE_URL%/api/v1}"
+          for endpoint in "$api_origin/health/live" "$api_origin/health/ready"; do
+            response="$(curl --fail --silent --show-error --location --retry 3 --retry-delay 3 --max-time 30 "$endpoint")"
+            echo "$response" | jq -e '.success == true' > /dev/null || {
+              echo "Unhealthy response from $endpoint" >&2
+              exit 1
+            }
+          done
+
+      - name: Authenticate platform administrator
+        id: auth
+        run: |
+          payload="$(jq -n --arg email "$PLATFORM_EMAIL" --arg password "$PLATFORM_PASSWORD" '{email: $email, password: $password}')"
+          response="$(curl --fail --silent --show-error --location --max-time 30 \
+            -H 'Content-Type: application/json' \
+            -X POST "$API_BASE_URL/admin/login" --data "$payload")"
+          token="$(echo "$response" | jq -er '.data.token')"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tenant and platform authority
+        env:
+          PLATFORM_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          response="$(curl --fail --silent --show-error --location --max-time 30 \
+            -H "Authorization: Bearer $PLATFORM_TOKEN" \
+            "$API_BASE_URL/platform/tenants/$TENANT_UUID")"
+          echo "$response" | jq -e '.success == true and .data.uuid != null' > /dev/null || {
+            echo "Tenant lookup failed. The configured account must be a platform administrator." >&2
+            exit 1
+          }
+
+      - name: Queue tenant Android build
+        id: build
+        env:
+          PLATFORM_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          payload="$(jq -n \
+            --arg platform android \
+            --arg app_mode "$APP_MODE" \
+            --arg build_type "$BUILD_TYPE" \
+            --arg app_name "$APP_NAME" \
+            --arg app_id "$APP_ID" \
+            --arg primary_color "$PRIMARY_COLOR" \
+            '{platform: $platform, app_mode: $app_mode, build_type: $build_type, app_name: $app_name, app_id: $app_id, primary_color: $primary_color}')"
+          response="$(curl --fail --silent --show-error --location --max-time 30 \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $PLATFORM_TOKEN" \
+            -X POST "$API_BASE_URL/platform/tenants/$TENANT_UUID/builds" --data "$payload")"
+          build_uuid="$(echo "$response" | jq -er '.data.build.uuid')"
+          dispatched="$(echo "$response" | jq -er '.data.dispatched')"
+          test "$dispatched" = "true" || { echo "Build was created but GitHub dispatch did not start." >&2; exit 1; }
+          echo "build_uuid=$build_uuid" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for build callback and publish release report
+        env:
+          PLATFORM_TOKEN: ${{ steps.auth.outputs.token }}
+          BUILD_UUID: ${{ steps.build.outputs.build_uuid }}
+        run: |
+          build=''
+          for attempt in $(seq 1 40); do
+            response="$(curl --fail --silent --show-error --location --max-time 30 \
+              -H "Authorization: Bearer $PLATFORM_TOKEN" \
+              "$API_BASE_URL/platform/builds/$BUILD_UUID")"
+            build="$(echo "$response" | jq -ec '.data')"
+            status="$(echo "$build" | jq -r '.status')"
+            if [ "$status" = "completed" ]; then
+              break
+            fi
+            if [ "$status" = "failed" ]; then
+              echo "Android build failed: $(echo "$build" | jq -r '.error_message // "No error message returned"')" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          status="$(echo "$build" | jq -r '.status')"
+          test "$status" = "completed" || { echo "Timed out waiting for Android build callback." >&2; exit 1; }
+          {
+            echo "## CloudMarket release report"
+            echo
+            echo "- Production deployment: passed"
+            echo "- Live and readiness checks: passed"
+            echo "- Tenant build: completed"
+            echo "- Tenant UUID: \`$TENANT_UUID\`"
+            echo "- Build UUID: \`$BUILD_UUID\`"
+            echo "- App: \`$(echo "$build" | jq -r '.app_name')\` ($(echo "$build" | jq -r '.app_mode'))"
+            echo "- Build artifact: $(echo "$build" | jq -r '.download_url // .share_url // "Artifact URL pending"')"
+            echo
+            echo "Manual device QA is deliberately a separate approval step: download the artifact, install it on a test device, then verify bootstrap, OTP, catalogue, cart, address/serviceability, checkout, and order history."
+          } >> "$GITHUB_STEP_SUMMARY"

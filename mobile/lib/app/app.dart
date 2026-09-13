@@ -21,12 +21,12 @@ class CloudStoreApp extends StatelessWidget {
           surface: Colors.white,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFFFBFC),
+        scaffoldBackgroundColor: const Color(0xFFFFF8F2),
         appBarTheme: const AppBarTheme(
           centerTitle: false,
           elevation: 0,
           scrolledUnderElevation: 0,
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFFFF8F2),
           foregroundColor: Color(0xFF1C1C1C),
           titleTextStyle: TextStyle(
               fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -.3),
@@ -37,6 +37,23 @@ class CloudStoreApp extends StatelessWidget {
           color: Colors.white,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.all(Radius.circular(20))),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(color: const Color(0xFFF1E6DA)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(color: bootstrap.primaryColor ?? AppConfig.fallbackPrimaryColor, width: 1.5),
+          ),
         ),
         navigationBarTheme: NavigationBarThemeData(
           height: 72,

@@ -59,18 +59,28 @@ class _CartScreenState extends State<CartScreen> {
               itemCount: cart.items.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(2, 4, 2, 16),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Your order', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 4),
-                      Text('${cart.itemCount} ${cart.itemCount == 1 ? 'item' : 'items'} from this store', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(0, 4, 0, 18),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFFFF6B00), Color(0xFFFFA42C)]),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(children: [
+                      const CircleAvatar(backgroundColor: Colors.white24, child: Icon(Icons.shopping_bag_rounded, color: Colors.white)),
+                      const SizedBox(width: 12),
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Your order', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 3),
+                        Text('${cart.itemCount} ${cart.itemCount == 1 ? 'item' : 'items'} ready for checkout', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      ]),
                     ]),
                   );
                 }
                 final item = cart.items[index - 1];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
+                  color: index.isOdd ? const Color(0xFFFFFDFC) : const Color(0xFFFFF8F4),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Row(
@@ -106,7 +116,7 @@ class _CartScreenState extends State<CartScreen> {
                         Row(
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.remove_circle_outline),
+                              icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFFF6B00)),
                               iconSize: 28,
                               onPressed: () {
                                 if (item.quantity > 1) {
@@ -121,7 +131,7 @@ class _CartScreenState extends State<CartScreen> {
                               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.add_circle_outline),
+                              icon: Icon(Icons.add_circle, color: Theme.of(context).colorScheme.primary),
                               iconSize: 28,
                               onPressed: () => cart.updateItem(item.id, item.quantity + 1),
                             ),

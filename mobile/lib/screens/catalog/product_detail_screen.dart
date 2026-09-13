@@ -128,8 +128,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           width: double.infinity,
                           height: 240,
                           child: _product!.images.isEmpty
-                              ? Container(color: Theme.of(context).colorScheme.primaryContainer, child: Icon(Icons.restaurant_rounded, size: 64, color: Theme.of(context).colorScheme.primary))
-                              : Image.network(AppConfig.assetUrl(_product!.images.first.url), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Theme.of(context).colorScheme.primaryContainer, child: Icon(Icons.restaurant_rounded, size: 64, color: Theme.of(context).colorScheme.primary))),
+                              ? Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFFFFC47D), Color(0xFFFF7A59)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: const Icon(Icons.restaurant_rounded, size: 64, color: Colors.white),
+                                )
+                              : Image.network(AppConfig.assetUrl(_product!.images.first.url), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(
+                                    decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFFFC47D), Color(0xFFFF7A59)])),
+                                    child: const Icon(Icons.restaurant_rounded, size: 64, color: Colors.white),
+                                  )),
                         ),
                       ),
                       const SizedBox(height: 20),

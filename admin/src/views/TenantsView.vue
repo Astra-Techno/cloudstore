@@ -82,7 +82,7 @@ const adminForm = ref({ name: '', email: '', password: '', role: 'tenant_owner' 
 
 // Builds
 const tenantBuilds = ref<AppBuild[]>([])
-const buildForm = ref({ platform: 'android', app_mode: 'customer', build_type: 'apk', app_name: '', app_id: 'com.cloudmarket.cloudstore', app_token: '', primary_color: '#4CAF50' })
+const buildForm = ref({ platform: 'android', app_mode: 'customer', build_type: 'apk', app_name: '', app_id: 'com.cloudmarket.cloudstore', primary_color: '#4CAF50' })
 const copiedToken = ref('')
 const fetchingBuild = ref('')
 
@@ -163,13 +163,17 @@ async function openDetail(tenant: Tenant) {
   }
   showDetailModal.value = true
 
-  // Load admins and builds in parallel
+  tokenPrefix.value = ''
+  tokenFeedback.value = ''
+  // Load the independent panels in parallel.
   try {
-    const [adminsRes] = await Promise.all([
+    const [adminsRes, tenantRes] = await Promise.all([
       platformApi.getTenantAdmins(tenant.id),
+      platformApi.getTenant(tenant.id),
       loadBuilds(tenant.id),
     ])
     tenantAdmins.value = adminsRes.data.data || []
+    tokenPrefix.value = tenantRes.data.data?.app_token_prefix || ''
   } catch { tenantAdmins.value = [] }
 }
 
@@ -236,37 +240,32 @@ function tenantToAppId(slug: string): string {
 
 const tokenPrefix = ref('')
 const regeneratingToken = ref(false)
+const tokenFeedback = ref('')
 
 async function openBuildModal() {
   if (!selectedTenant.value) return
   const slug = selectedTenant.value.slug || selectedTenant.value.name.toLowerCase().replace(/[^a-z0-9]+/g, '')
-  tokenPrefix.value = ''
-
-  // Fetch tenant details to get token prefix
-  try {
-    const { data } = await platformApi.getTenant(selectedTenant.value.id)
-    tokenPrefix.value = data.data?.app_token_prefix || ''
-  } catch { /* ignore */ }
-
   buildForm.value = {
     platform: 'android', app_mode: 'customer', build_type: 'apk',
     app_name: selectedTenant.value.name, app_id: tenantToAppId(slug),
-    app_token: '', primary_color: '#4CAF50',
+    primary_color: '#4CAF50',
   }
   showBuildModal.value = true
 }
 
 async function regenerateToken() {
   if (!selectedTenant.value) return
+  if (!window.confirm('Rotate this store app token? All previously installed apps for this store will stop connecting and must be rebuilt.')) return
   regeneratingToken.value = true
+  tokenFeedback.value = ''
   try {
     const { data } = await platformApi.regenerateToken(selectedTenant.value.id)
     if (data.data?.app_token) {
-      buildForm.value.app_token = data.data.app_token
       tokenPrefix.value = data.data.prefix || ''
+      tokenFeedback.value = 'New token saved. Create fresh customer and driver builds before distributing them.'
     }
   } catch (e: any) {
-    error.value = e.response?.data?.error?.message || 'Failed to regenerate token'
+    tokenFeedback.value = e.response?.data?.error?.message || 'Failed to rotate token'
   } finally {
     regeneratingToken.value = false
   }
@@ -551,6 +550,22 @@ onMounted(load)
           <button @click="saveTenant" :disabled="saving" class="px-4 py-2 rounded-lg font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </button>
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-bold text-slate-800">Store app token</p>
+                <p class="mt-1 text-xs text-slate-500">
+                  <template v-if="tokenPrefix">Active token: <code class="font-mono">{{ tokenPrefix }}...</code>. It is reused automatically for every build.</template>
+                  <template v-else>No reusable build token is set for this legacy store.</template>
+                </p>
+              </div>
+              <button type="button" @click="regenerateToken" :disabled="regeneratingToken" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50">
+                {{ regeneratingToken ? 'Rotating...' : tokenPrefix ? 'Rotate token' : 'Create token' }}
+              </button>
+            </div>
+            <p v-if="tokenFeedback" class="mt-3 text-xs" :class="tokenFeedback.startsWith('New token') ? 'text-green-700' : 'text-red-600'">{{ tokenFeedback }}</p>
+            <p class="mt-3 text-xs text-amber-700">Rotating invalidates every installed app for this store. Build and distribute replacements immediately after rotating.</p>
+          </div>
         </div>
 
         <!-- Features / Capabilities -->
@@ -689,16 +704,6 @@ onMounted(load)
           <div>
             <label class="block text-xs font-bold text-gray-500 mb-1">Application ID</label>
             <input v-model="buildForm.app_id" class="w-full border rounded-lg px-3 py-2" placeholder="com.cloudmarket.cloudstore" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-gray-500 mb-1">Reusable App Token</label>
-            <div class="flex gap-2">
-              <input v-model="buildForm.app_token" class="flex-1 border rounded-lg px-3 py-2 font-mono text-xs" :placeholder="tokenPrefix ? `Active token: ${tokenPrefix}... (reused automatically)` : 'Token setup required only for legacy tenants'" />
-              <button type="button" @click="regenerateToken" :disabled="regeneratingToken" class="px-3 py-2 bg-gray-100 border rounded-lg text-xs font-bold hover:bg-gray-200 whitespace-nowrap">
-                {{ regeneratingToken ? 'Rotating...' : 'Rotate token' }}
-              </button>
-            </div>
-            <p class="text-xs text-gray-400 mt-1">{{ tokenPrefix ? 'The active token is reused for every build. Rotate only if it is compromised.' : 'For a legacy tenant, rotate once to enable automatic reuse on future builds.' }}</p>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 mb-1">Primary Color</label>
