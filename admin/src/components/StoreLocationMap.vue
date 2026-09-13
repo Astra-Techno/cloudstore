@@ -9,8 +9,16 @@ const error = ref('')
 const search = ref('')
 const searching = ref(false)
 const results = ref<Array<{ display_name: string; lat: string; lon: string }>>([])
-const mapplsKey = (import.meta.env.VITE_MAPPLS_STATIC_KEY as string | undefined)?.trim()
+// `VITE_MAPPLS_STATIC_KEY` is the preferred frontend build variable. Accept
+// the older ACCESS_TOKEN name too, so existing CI configuration keeps working.
+// Vite embeds this value into the compiled browser bundle; api/.env is never
+// read by a browser after deployment.
+const mapplsKey = (
+  (import.meta.env.VITE_MAPPLS_STATIC_KEY as string | undefined) ??
+  (import.meta.env.VITE_MAPPLS_ACCESS_TOKEN as string | undefined)
+)?.trim()
 const usingMappls = ref(false)
+const providerNotice = ref('')
 let map: any
 let marker: any
 let resizeObserver: ResizeObserver | undefined
@@ -59,10 +67,42 @@ function chooseResult(result: { display_name: string; lat: string; lon: string }
   results.value = []
 }
 
+async function loadLeaflet(initial: { lat: number; lng: number }) {
+  if (!(window as any).L) {
+    await new Promise<void>((resolve, reject) => {
+      if (!document.querySelector('link[data-leaflet]')) {
+        const stylesheet = document.createElement('link')
+        stylesheet.rel = 'stylesheet'
+        stylesheet.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        stylesheet.dataset.leaflet = 'true'
+        document.head.appendChild(stylesheet)
+      }
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+      script.async = true
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error('Map picker could not load. Check the internet connection.'))
+      document.head.appendChild(script)
+    })
+  }
+  await nextTick()
+  const L = (window as any).L
+  map = L.map(mapElement.value).setView([initial.lat, initial.lng], props.latitude != null ? 16 : 5)
+  L.tileLayer(import.meta.env.VITE_MAP_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>', maxZoom: 19 }).addTo(map)
+  marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map)
+  map.on('click', (event: any) => setPin(event.latlng.lat, event.latlng.lng, false))
+  marker.on('dragend', () => { const point = marker.getLatLng(); setPin(point.lat, point.lng, false) })
+  // This component is inside a tab that is initially hidden. Leaflet reads a
+  // zero-size container in that state unless it is invalidated when visible.
+  resizeObserver = new ResizeObserver(() => map?.invalidateSize({ animate: false }))
+  resizeObserver.observe(mapElement.value!)
+  requestAnimationFrame(() => map.invalidateSize({ animate: false }))
+}
+
 async function loadMap() {
-  try {
-    const initial = props.latitude != null && props.longitude != null ? { lat: props.latitude, lng: props.longitude } : { lat: 20.5937, lng: 78.9629 }
-    if (mapplsKey) {
+  const initial = props.latitude != null && props.longitude != null ? { lat: props.latitude, lng: props.longitude } : { lat: 20.5937, lng: 78.9629 }
+  if (mapplsKey) {
+    try {
       await new Promise<void>((resolve, reject) => {
         if ((window as any).mappls) return resolve()
         const script = document.createElement('script')
@@ -76,36 +116,15 @@ async function loadMap() {
       marker = new mappls.Marker({ map, position: initial, draggable: true })
       usingMappls.value = true
       return
+    } catch (_) {
+      // A Mappls static key is tied to an exact domain whitelist. Do not leave
+      // a blank picker when that setup is incomplete: the free fallback keeps
+      // store location selection available while the key is corrected.
+      providerNotice.value = 'Mappls is unavailable for this domain. Using the OpenStreetMap fallback.'
     }
-    if (!(window as any).L) {
-      await new Promise<void>((resolve, reject) => {
-        if (!document.querySelector('link[data-leaflet]')) {
-          const stylesheet = document.createElement('link')
-          stylesheet.rel = 'stylesheet'
-          stylesheet.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-          stylesheet.dataset.leaflet = 'true'
-          document.head.appendChild(stylesheet)
-        }
-        const script = document.createElement('script')
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-        script.async = true
-        script.onload = () => resolve()
-        script.onerror = () => reject(new Error('Map picker could not load. Check the internet connection.'))
-        document.head.appendChild(script)
-      })
-    }
-    await nextTick()
-    const L = (window as any).L
-    map = L.map(mapElement.value).setView([initial.lat, initial.lng], props.latitude != null ? 16 : 5)
-    L.tileLayer(import.meta.env.VITE_MAP_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>', maxZoom: 19 }).addTo(map)
-    marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map)
-    map.on('click', (event: any) => setPin(event.latlng.lat, event.latlng.lng, false))
-    marker.on('dragend', (event: any) => { const point = marker.getLatLng(); setPin(point.lat, point.lng, false) })
-    // This component is inside a tab that is initially hidden. Leaflet reads a
-    // zero-size container in that state unless it is invalidated when visible.
-    resizeObserver = new ResizeObserver(() => map?.invalidateSize({ animate: false }))
-    resizeObserver.observe(mapElement.value!)
-    requestAnimationFrame(() => map.invalidateSize({ animate: false }))
+  }
+  try {
+    await loadLeaflet(initial)
   } catch (e) { error.value = e instanceof Error ? e.message : 'Map picker could not load.' }
 }
 
@@ -131,6 +150,7 @@ watch(() => [props.latitude, props.longitude], ([lat, lng]) => {
     </div>
     <div ref="mapElement" class="h-72 w-full rounded-xl border border-gray-200 overflow-hidden" />
     <div class="mt-2 flex items-center gap-3"><button type="button" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50" @click="useCurrentLocation">Use my current location</button><p v-if="!error" class="text-xs text-gray-500">Click the map or drag the pin to set your shop location.</p></div>
+    <p v-if="providerNotice" class="mt-2 text-xs text-amber-700">{{ providerNotice }}</p>
     <p v-if="error" class="mt-2 text-xs text-red-600">{{ error }}</p>
   </div>
 </template>
