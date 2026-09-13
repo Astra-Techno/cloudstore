@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps<{ latitude: number | null; longitude: number | null }>()
 const emit = defineEmits<{ (e: 'update:latitude', value: number): void; (e: 'update:longitude', value: number): void }>()
@@ -8,6 +8,7 @@ const mapElement = ref<HTMLElement | null>(null)
 const error = ref('')
 let map: any
 let marker: any
+let resizeObserver: ResizeObserver | undefined
 
 function setPin(lat: number, lng: number, center = true) {
   emit('update:latitude', Number(lat.toFixed(6)))
@@ -54,10 +55,16 @@ async function loadMap() {
     marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map)
     map.on('click', (event: any) => setPin(event.latlng.lat, event.latlng.lng, false))
     marker.on('dragend', (event: any) => { const point = marker.getLatLng(); setPin(point.lat, point.lng, false) })
+    // This component is inside a tab that is initially hidden. Leaflet reads a
+    // zero-size container in that state unless it is invalidated when visible.
+    resizeObserver = new ResizeObserver(() => map?.invalidateSize({ animate: false }))
+    resizeObserver.observe(mapElement.value!)
+    requestAnimationFrame(() => map.invalidateSize({ animate: false }))
   } catch (e) { error.value = e instanceof Error ? e.message : 'Map picker could not load.' }
 }
 
 onMounted(loadMap)
+onBeforeUnmount(() => { resizeObserver?.disconnect(); map?.remove() })
 watch(() => [props.latitude, props.longitude], ([lat, lng]) => {
   if (map && lat != null && lng != null) {
     marker?.setLatLng([lat, lng])
