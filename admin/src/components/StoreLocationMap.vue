@@ -9,6 +9,8 @@ const error = ref('')
 const search = ref('')
 const searching = ref(false)
 const results = ref<Array<{ display_name: string; lat: string; lon: string }>>([])
+const mapplsKey = (import.meta.env.VITE_MAPPLS_STATIC_KEY as string | undefined)?.trim()
+const usingMappls = ref(false)
 let map: any
 let marker: any
 let resizeObserver: ResizeObserver | undefined
@@ -18,8 +20,13 @@ function setPin(lat: number, lng: number, center = true) {
   emit('update:longitude', Number(lng.toFixed(6)))
   if (!map) return
   const position = { lat, lng }
-  marker?.setLatLng([lat, lng])
-  if (center) map.panTo(position)
+  if (usingMappls.value) {
+    marker?.setPosition?.(position)
+    if (center) map?.setCenter?.(position)
+  } else {
+    marker?.setLatLng([lat, lng])
+    if (center) map.panTo(position)
+  }
 }
 
 function useCurrentLocation() {
@@ -54,6 +61,22 @@ function chooseResult(result: { display_name: string; lat: string; lon: string }
 
 async function loadMap() {
   try {
+    const initial = props.latitude != null && props.longitude != null ? { lat: props.latitude, lng: props.longitude } : { lat: 20.5937, lng: 78.9629 }
+    if (mapplsKey) {
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).mappls) return resolve()
+        const script = document.createElement('script')
+        script.src = `https://sdk.mappls.com/map/sdk/web?v=3.0&access_token=${encodeURIComponent(mapplsKey)}`
+        script.async = true; script.onload = () => resolve(); script.onerror = () => reject(new Error('Mappls could not load. Check the key whitelist.'))
+        document.head.appendChild(script)
+      })
+      await nextTick()
+      const mappls = (window as any).mappls
+      map = new mappls.Map(mapElement.value, { center: initial, zoom: props.latitude != null ? 16 : 5 })
+      marker = new mappls.Marker({ map, position: initial, draggable: true })
+      usingMappls.value = true
+      return
+    }
     if (!(window as any).L) {
       await new Promise<void>((resolve, reject) => {
         if (!document.querySelector('link[data-leaflet]')) {
@@ -73,7 +96,6 @@ async function loadMap() {
     }
     await nextTick()
     const L = (window as any).L
-    const initial = props.latitude != null && props.longitude != null ? { lat: props.latitude, lng: props.longitude } : { lat: 20.5937, lng: 78.9629 }
     map = L.map(mapElement.value).setView([initial.lat, initial.lng], props.latitude != null ? 16 : 5)
     L.tileLayer(import.meta.env.VITE_MAP_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>', maxZoom: 19 }).addTo(map)
     marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map)
@@ -91,6 +113,7 @@ onMounted(loadMap)
 onBeforeUnmount(() => { resizeObserver?.disconnect(); map?.remove() })
 watch(() => [props.latitude, props.longitude], ([lat, lng]) => {
   if (map && lat != null && lng != null) {
+    if (usingMappls.value) { marker?.setPosition?.({ lat, lng }); map?.setCenter?.({ lat, lng }); return }
     marker?.setLatLng([lat, lng])
     map.panTo([lat, lng])
   }
