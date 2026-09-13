@@ -133,7 +133,7 @@ final class BuildController
                     'app_name' => $appName,
                     'app_id' => $appId,
                     'build_type' => $buildType,
-                    'primary_color' => $data['primary_color'] ?? '#4CAF50',
+                    'primary_color' => $data['primary_color'] ?? '#E23744',
                     'webhook_url' => $webhookUrl,
                     'webhook_secret' => $webhookSecret,
                 ],

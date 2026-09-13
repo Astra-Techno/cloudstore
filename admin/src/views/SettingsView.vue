@@ -28,7 +28,7 @@ const paymentOptions = [
   { value: 'cod', label: 'Cash on Delivery' },
 ]
 
-const defaultBranding = { primary_color: '#000000', logo_url: '' }
+const defaultBranding = { primary_color: '#E23744', logo_url: '', tagline: '' }
 
 // Password change
 const passwordForm = ref({ current_password: '', new_password: '', confirm_password: '' })
@@ -103,7 +103,7 @@ async function loadSettings() {
         delivery_charge_fixed: Number(data.data.delivery_charge_fixed || 0) / 100,
       payment_methods: ['cod'],
       delivery_location: data.data.delivery_location ?? { latitude: null, longitude: null },
-        branding: data.data.branding ?? { ...defaultBranding },
+      branding: { ...defaultBranding, ...(data.data.branding ?? {}) },
       }
     }
   } catch (e) {
@@ -255,7 +255,20 @@ onMounted(loadSettings)
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
               <input v-model="settings.branding.logo_url" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="https://..." />
+              <p class="text-xs text-gray-400 mt-1">Use a square PNG, JPG, or WebP image URL.</p>
             </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Store slogan</label>
+              <input v-model="settings.branding.tagline" type="text" maxlength="120" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Fresh food, delivered your way" />
+              <p class="text-xs text-gray-400 mt-1">Shown under the store name in the customer app.</p>
+            </div>
+          </div>
+          <div class="mt-5 rounded-xl border border-gray-100 bg-gray-50 p-4 flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold" :style="{ backgroundColor: settings.branding.primary_color || '#E23744' }">
+              <img v-if="settings.branding.logo_url" :src="settings.branding.logo_url" class="w-full h-full object-contain rounded-xl bg-white" alt="Store logo preview" />
+              <span v-else>{{ settings.store.name.charAt(0) }}</span>
+            </div>
+            <div><p class="font-semibold text-gray-900">{{ settings.store.name }}</p><p class="text-sm text-gray-500">{{ settings.branding.tagline || 'Your store slogan will appear here' }}</p></div>
           </div>
         </div>
 

@@ -10,6 +10,7 @@ class BootstrapProvider extends ChangeNotifier {
   String? _businessType;
   Color? _primaryColor;
   String? _logoUrl;
+  String? _tagline;
   int _deliveryChargeFixed = 0;
   double _serviceChargePercent = 0;
   int _minOrderAmount = 0;
@@ -26,6 +27,7 @@ class BootstrapProvider extends ChangeNotifier {
   String? get businessType => _businessType;
   Color? get primaryColor => _primaryColor;
   String? get logoUrl => _logoUrl;
+  String? get tagline => _tagline;
   int get deliveryChargeFixed => _deliveryChargeFixed;
   double get serviceChargePercent => _serviceChargePercent;
   int get minOrderAmount => _minOrderAmount;
@@ -101,7 +103,8 @@ class BootstrapProvider extends ChangeNotifier {
           'This app build is missing required store configuration. Please install a newly generated app.',
         false when status != null && status >= 500 =>
           'The store server is currently unavailable. Please try again shortly.',
-        false when error.type == DioExceptionType.connectionTimeout ||
+        false
+            when error.type == DioExceptionType.connectionTimeout ||
                 error.type == DioExceptionType.connectionError =>
           'Unable to reach the store server. Check your internet connection and try again.',
         _ => apiError['message']?.toString() ??
@@ -155,6 +158,8 @@ class BootstrapProvider extends ChangeNotifier {
         }
       }
       _logoUrl = branding['logo_url'] as String?;
+      _tagline = branding['tagline']?.toString().trim();
+      if (_tagline?.isEmpty ?? true) _tagline = null;
     }
 
     final chargesRaw = data['charges'];

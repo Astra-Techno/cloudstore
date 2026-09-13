@@ -35,8 +35,8 @@ final class TenantService
 
         // Create default branding
         $this->brandingRepo->upsert($tenant->id, [
-            'primary_color' => '#2563EB',
-            'secondary_color' => '#1E40AF',
+            'primary_color' => '#E23744',
+            'secondary_color' => '#B91C2C',
         ]);
 
         return $tenant;
@@ -61,6 +61,7 @@ final class TenantService
                 'accent_color' => $branding['accent_color'] ?? null,
                 'font' => $branding['font'] ?? null,
                 'logo_url' => $branding['logo_url'] ?? null,
+                'tagline' => $tenant->configuration['branding_tagline'] ?? null,
                 'favicon_url' => $branding['favicon_url'] ?? null,
             ],
             'features' => $capabilities,

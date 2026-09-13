@@ -133,7 +133,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
         .select<NotificationProvider, int>((provider) => provider.unreadCount);
     return RefreshIndicator(
       onRefresh: () async {
-        await Future.wait([_load(), _loadOffers()]);
+        await Future.wait([
+          _load(),
+          _loadOffers(),
+          context.read<BootstrapProvider>().loadTenant(force: true),
+        ]);
       },
       child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -147,6 +151,21 @@ class _CatalogScreenState extends State<CatalogScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(children: [
+                                if (tenant.logoUrl != null &&
+                                    tenant.logoUrl!.isNotEmpty) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      AppConfig.assetUrl(tenant.logoUrl!),
+                                      width: 28,
+                                      height: 28,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) =>
+                                          const SizedBox.shrink(),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                                 Text('TODAY\'S MENU',
                                     style: TextStyle(
                                         color: primary,
@@ -189,11 +208,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                       letterSpacing: -.5)),
                               const SizedBox(height: 5),
                               Text(
-                                  tenant.deliveryEnabled && tenant.pickupEnabled
-                                      ? 'Self delivery and easy pickup'
-                                      : tenant.pickupEnabled
-                                          ? 'Easy store pickup available'
-                                          : 'Freshly prepared for you',
+                                  tenant.tagline ??
+                                      (tenant.deliveryEnabled &&
+                                              tenant.pickupEnabled
+                                          ? 'Self delivery and easy pickup'
+                                          : tenant.pickupEnabled
+                                              ? 'Easy store pickup available'
+                                              : 'Freshly prepared for you'),
                                   style: TextStyle(
                                       color: Colors.grey.shade600,
                                       fontSize: 13)),

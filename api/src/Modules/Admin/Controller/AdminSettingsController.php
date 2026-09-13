@@ -188,6 +188,10 @@ final class AdminSettingsController
             $metadata = json_decode($tenantRow['configuration'], true) ?: [];
         }
 
+        if ($branding !== null) {
+            $branding['tagline'] = $metadata['branding_tagline'] ?? null;
+        }
+
         return Response::success([
             'store' => [
                 'name' => $tenant?->name ?? '',
@@ -243,14 +247,33 @@ final class AdminSettingsController
 
         // Update branding if provided
         if (isset($data['branding'])) {
-            $brandingData = $data['branding'];
+            $brandingData = is_array($data['branding']) ? $data['branding'] : [];
+            $primaryColor = strtoupper(trim((string) ($brandingData['primary_color'] ?? '#E23744')));
+            if (!preg_match('/^#[0-9A-F]{6}$/', $primaryColor)) {
+                return Response::validationError(['branding.primary_color' => ['Use a six-digit hex colour, such as #E23744.']]);
+            }
+
+            $logoUrl = trim((string) ($brandingData['logo_url'] ?? ''));
+            if ($logoUrl !== '' && filter_var($logoUrl, FILTER_VALIDATE_URL) === false && !str_starts_with($logoUrl, '/uploads/')) {
+                return Response::validationError(['branding.logo_url' => ['Enter a valid image URL or an uploaded image path.']]);
+            }
+
+            $tagline = trim((string) ($brandingData['tagline'] ?? ''));
+            if (strlen($tagline) > 120) {
+                return Response::validationError(['branding.tagline' => ['Keep the slogan to 120 characters or fewer.']]);
+            }
+
+            $metadata['branding_tagline'] = $tagline !== '' ? $tagline : null;
+            $this->brandingRepo->upsert($tenantId, [
+                'primary_color' => $primaryColor,
+                'logo_url' => $logoUrl !== '' ? $logoUrl : null,
+            ]);
+
+            // Persist the slogan with the tenant configuration so this works
+            // with existing tenant_branding tables without a data migration.
             $this->db->execute(
-                "UPDATE tenant_branding SET primary_color = ?, logo_url = ? WHERE tenant_id = ?",
-                [
-                    $brandingData['primary_color'] ?? '#2563eb',
-                    $brandingData['logo_url'] ?? null,
-                    $tenantId,
-                ]
+                "UPDATE tenants SET configuration = ? WHERE id = ?",
+                [json_encode($metadata), $tenantId]
             );
         }
 

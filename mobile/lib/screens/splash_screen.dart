@@ -131,6 +131,14 @@ class _SplashScreenState extends State<SplashScreen> {
               bootstrap.tenantName ?? AppConfig.appName,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
+            if (bootstrap.tagline != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                bootstrap.tagline!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
+            ],
             const SizedBox(height: 24),
             if (bootstrap.error != null) ...[
               Text(
