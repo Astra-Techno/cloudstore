@@ -246,7 +246,10 @@ log_step('>', "Downloading <strong>{$repo}@{$branch}</strong> from GitHub...");
 $zipUrl = "https://github.com/{$repo}/archive/refs/heads/{$branch}.tar.gz";
 
 $zipData = false;
+$downloadAttempts = [];
+
 if (function_exists('curl_init')) {
+    $downloadAttempts[] = 'PHP cURL';
     $ch = curl_init($zipUrl);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -265,8 +268,14 @@ if (function_exists('curl_init')) {
 
     if ($httpCode === 404) abort("Repo not found (404). Check GITHUB_REPO in api/.env");
     if ($httpCode === 401 || $httpCode === 403) abort("GitHub auth failed ({$httpCode}). Add GITHUB_TOKEN to api/.env");
-    if ($httpCode !== 200) abort("GitHub returned HTTP {$httpCode}. cURL: {$curlErr}");
-} else {
+    if ($httpCode !== 200 || !is_string($zipData) || $zipData === '') {
+        $zipData = false;
+        log_step('~', 'PHP cURL download failed' . ($curlErr ? ': ' . htmlspecialchars($curlErr) : '') . '. Trying available fallback.', 'warn');
+    }
+}
+
+if (!$zipData && filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOL)) {
+    $downloadAttempts[] = 'PHP URL streams';
     $ctx     = stream_context_create(['http' => [
         'timeout' => 90,
         'header'  => $token ? "Authorization: Bearer {$token}\r\n" : '',
@@ -275,7 +284,50 @@ if (function_exists('curl_init')) {
     $zipData = @file_get_contents($zipUrl, false, $ctx);
 }
 
-if (!$zipData) abort('Failed to download archive. Enable cURL or allow_url_fopen.');
+// Some shared hosts disable PHP cURL and URL streams but still expose the
+// server's curl/wget binaries. Download to a protected temporary file first,
+// then read it only after the command returned successfully.
+if (!$zipData && function_exists('exec')) {
+    $cliDownload = tempnam(sys_get_temp_dir(), 'cloudstore_download_');
+    if ($cliDownload !== false) {
+        $header = $token ? ' -H ' . escapeshellarg("Authorization: Bearer {$token}") : '';
+        $curlCommand = 'curl --fail --silent --show-error --location --max-time 90'
+            . ' --user-agent ' . escapeshellarg('CloudMarket-Deployer/1.0')
+            . $header
+            . ' --output ' . escapeshellarg($cliDownload)
+            . ' ' . escapeshellarg($zipUrl) . ' 2>&1';
+
+        $downloadAttempts[] = 'server curl command';
+        $out = []; $rc = 1;
+        @exec($curlCommand, $out, $rc);
+        if ($rc === 0 && filesize($cliDownload) > 0) {
+            $zipData = file_get_contents($cliDownload);
+        } else {
+            $wgetHeader = $token ? ' --header=' . escapeshellarg("Authorization: Bearer {$token}") : '';
+            $wgetCommand = 'wget --quiet --timeout=90 --user-agent=' . escapeshellarg('CloudMarket-Deployer/1.0')
+                . $wgetHeader
+                . ' --output-document=' . escapeshellarg($cliDownload)
+                . ' ' . escapeshellarg($zipUrl) . ' 2>&1';
+            $downloadAttempts[] = 'server wget command';
+            $out = []; $rc = 1;
+            @exec($wgetCommand, $out, $rc);
+            if ($rc === 0 && filesize($cliDownload) > 0) {
+                $zipData = file_get_contents($cliDownload);
+            }
+        }
+        @unlink($cliDownload);
+    }
+}
+
+if (!$zipData) {
+    $capabilities = [];
+    $capabilities[] = function_exists('curl_init') ? 'PHP cURL available' : 'PHP cURL disabled';
+    $capabilities[] = filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOL)
+        ? 'allow_url_fopen enabled' : 'allow_url_fopen disabled';
+    $capabilities[] = function_exists('exec') ? 'PHP exec available' : 'PHP exec disabled';
+    abort('Failed to download archive. Tried: ' . implode(', ', $downloadAttempts) . '. Server capability: '
+        . implode('; ', $capabilities) . '. Ask hosting support to enable PHP cURL, allow_url_fopen, or the curl/wget command.');
+}
 log_step('OK', 'Download complete (' . round(strlen($zipData) / 1024) . ' KB)', 'ok');
 
 // =============================================================================
