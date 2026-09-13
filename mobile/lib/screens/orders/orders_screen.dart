@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/order.dart';
 import '../../services/api_client.dart';
-import '../../widgets/loading_overlay.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/status_badge.dart';
+import '../../widgets/state_widgets.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -38,8 +38,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_orders.isEmpty && _error == null) return EmptyState(icon: Icons.receipt_long_outlined, title: 'No orders yet', subtitle: 'Your orders from this shop will appear here.', actionLabel: 'Explore menu', onAction: () => context.go('/home'));
+    if (_loading) return const LoadingStateWidget(message: 'Loading your orders...');
+    if (_error != null && _orders.isEmpty) return ErrorStateWidget(message: _error!, onRetry: _loadOrders);
+    if (_orders.isEmpty) return EmptyStateWidget(icon: Icons.receipt_long_outlined, title: 'No orders yet', subtitle: 'Your orders from this shop will appear here.', actionLabel: 'Explore menu', onAction: () => context.go('/home'));
     final active = _orders.where((order) => order.isActive).toList();
     final previous = _orders.where((order) => !order.isActive).toList();
     return RefreshIndicator(

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../app/providers/auth_provider.dart';
 import '../../app/providers/notification_provider.dart';
+import '../../services/api_client.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -137,6 +138,36 @@ class ProfileScreen extends StatelessWidget {
 
           const SizedBox(height: 16),
 
+          // Legal & Account
+          Card(
+            child: Column(
+              children: [
+                _menuItem(
+                  context,
+                  icon: Icons.privacy_tip_outlined,
+                  label: 'Privacy Policy',
+                  onTap: () => _showLegalPage(context, 'Privacy Policy', '/legal/privacy-policy'),
+                ),
+                const Divider(height: 1),
+                _menuItem(
+                  context,
+                  icon: Icons.description_outlined,
+                  label: 'Terms of Service',
+                  onTap: () => _showLegalPage(context, 'Terms of Service', '/legal/terms'),
+                ),
+                const Divider(height: 1),
+                _menuItem(
+                  context,
+                  icon: Icons.delete_forever_outlined,
+                  label: 'Delete Account',
+                  onTap: () => _deleteAccount(context, auth),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // Logout
           SizedBox(
             width: double.infinity,
@@ -200,5 +231,119 @@ class ProfileScreen extends StatelessWidget {
     name.dispose();
     email.dispose();
     if (saved == true && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
+  }
+
+  void _showLegalPage(BuildContext context, String title, String endpoint) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _LegalContentScreen(title: title, endpoint: endpoint),
+      ),
+    );
+  }
+
+  Future<void> _deleteAccount(BuildContext context, AuthProvider auth) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This action is permanent and cannot be undone. All your data, orders, and addresses will be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete My Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final response = await ApiClient().post('/customer/me/delete');
+      final data = response.data;
+      if (data['success'] == true && context.mounted) {
+        context.read<NotificationProvider>().stopPolling();
+        await auth.logout();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Account deleted successfully')),
+          );
+          context.go('/');
+        }
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['error']?['message'] ?? 'Failed to delete account'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete account. Please try again.')),
+        );
+      }
+    }
+  }
+}
+
+class _LegalContentScreen extends StatefulWidget {
+  final String title;
+  final String endpoint;
+
+  const _LegalContentScreen({required this.title, required this.endpoint});
+
+  @override
+  State<_LegalContentScreen> createState() => _LegalContentScreenState();
+}
+
+class _LegalContentScreenState extends State<_LegalContentScreen> {
+  String? _content;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContent();
+  }
+
+  Future<void> _loadContent() async {
+    try {
+      final response = await ApiClient().get(widget.endpoint);
+      final data = response.data;
+      if (data['success'] == true && data['data'] != null) {
+        setState(() {
+          _content = data['data']['content']?.toString() ??
+              data['data'].toString();
+        });
+      }
+    } catch (_) {
+      setState(() => _content = 'Unable to load content. Please try again later.');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                _content ?? '',
+                style: const TextStyle(fontSize: 15, height: 1.6),
+              ),
+            ),
+    );
   }
 }

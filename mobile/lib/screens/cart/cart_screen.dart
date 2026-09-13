@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/auth_provider.dart';
 import '../../widgets/price_text.dart';
-import '../../widgets/loading_overlay.dart';
+import '../../widgets/state_widgets.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -26,7 +26,7 @@ class _CartScreenState extends State<CartScreen> {
     final auth = context.watch<AuthProvider>();
 
     if (!auth.isAuthenticated) {
-      return EmptyState(
+      return EmptyStateWidget(
         icon: Icons.shopping_cart_outlined,
         title: 'Login to view your cart',
         subtitle: 'Sign in to add items and place an order.',
@@ -36,11 +36,11 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     if (cart.isLoading && cart.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateWidget(message: 'Loading your cart...');
     }
 
     if (cart.isEmpty) {
-      return EmptyState(
+      return EmptyStateWidget(
         icon: Icons.shopping_cart_outlined,
         title: 'Your cart is empty',
         subtitle: 'Browse our menu and add items',

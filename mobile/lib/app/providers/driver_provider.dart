@@ -15,6 +15,7 @@ class DriverProvider extends ChangeNotifier {
   List<DriverDelivery> _deliveries = [];
   String _availability = 'offline';
   Timer? _pollTimer;
+  Map<String, dynamic>? _earnings;
 
   String? get token => _token;
   Map<String, dynamic>? get driver => _driver;
@@ -23,6 +24,7 @@ class DriverProvider extends ChangeNotifier {
   String? get error => _error;
   List<DriverDelivery> get deliveries => List.unmodifiable(_deliveries);
   String get availability => _availability;
+  Map<String, dynamic>? get earnings => _earnings;
 
   List<DriverDelivery> get activeDeliveries =>
       _deliveries.where((d) => d.status != 'delivered').toList();
@@ -131,6 +133,48 @@ class DriverProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> verifyDeliveryOtp(int assignmentId, String otp) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiClient().post(
+        '/driver/deliveries/$assignmentId/verify-otp',
+        data: {'otp': otp},
+      );
+      final data = response.data;
+
+      if (data['success'] == true) {
+        await fetchDeliveries();
+        await fetchEarnings();
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _error = data['error']?['message'] ?? 'OTP verification failed';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (_) {
+      _error = 'OTP verification failed';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> fetchEarnings() async {
+    try {
+      final response = await ApiClient().get('/driver/earnings');
+      final data = response.data;
+      if (data['success'] == true && data['data'] != null) {
+        _earnings = data['data'] as Map<String, dynamic>;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
   Future<void> updateLocation(double lat, double lng) async {
     try {
       await ApiClient().post('/driver/location', data: {
@@ -173,6 +217,7 @@ class DriverProvider extends ChangeNotifier {
   void startPolling() {
     _pollTimer?.cancel();
     fetchDeliveries();
+    fetchEarnings();
     shareCurrentLocation();
     _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       fetchDeliveries();

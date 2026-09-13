@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../app/providers/bootstrap_provider.dart';
+import '../../app/providers/auth_provider.dart';
+import '../../app/providers/favourites_provider.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../services/api_client.dart';
 import '../../widgets/price_text.dart';
+import '../../widgets/state_widgets.dart';
 import '../../config/app_config.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -24,6 +27,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   String? _category;
   String _query = '';
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -39,7 +43,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       final response = await ApiClient().get('/catalog');
       final data = response.data;
@@ -59,20 +63,24 @@ class _CatalogScreenState extends State<CatalogScreen> {
               final product = Product.fromJson(
                   Map<String, dynamic>.from(rawProduct as Map));
               products.add(product);
-              if (category != null)
+              if (category != null) {
                 productCategories[product.uuid] = category.uuid;
+              }
             }
           }
         }
-        if (mounted)
+        if (mounted) {
           setState(() {
             _categories = categories;
             _products = products;
             _productCategories = productCategories;
           });
+        }
       }
     } catch (_) {
-      // The retryable empty state is intentional for an offline or unavailable store.
+      if (mounted) {
+        setState(() => _error = 'Unable to load menu. Check your connection and try again.');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -262,6 +270,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
             if (_loading)
               const SliverFillRemaining(
                   child: Center(child: CircularProgressIndicator()))
+            else if (_error != null && _products.isEmpty)
+              SliverFillRemaining(
+                  child: ErrorStateWidget(
+                      message: _error!, onRetry: _load))
             else if (_visible.isEmpty)
               SliverFillRemaining(child: _EmptyCatalog(onRetry: _load))
             else
@@ -518,20 +530,56 @@ class _ProductRow extends StatelessWidget {
               SizedBox(
                   width: 118,
                   child: Column(children: [
-                    ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: SizedBox(
-                            width: 118,
-                            height: 104,
-                            child: image == null || image.url.isEmpty
-                                ? Container(
-                                    color: tint,
-                                    child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))
-                                : Image.network(AppConfig.assetUrl(image.url),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
+                    Stack(
+                      children: [
+                        ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: SizedBox(
+                                width: 118,
+                                height: 104,
+                                child: image == null || image.url.isEmpty
+                                    ? Container(
                                         color: tint,
-                                        child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))))),
+                                        child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))
+                                    : Image.network(AppConfig.assetUrl(image.url),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                            color: tint,
+                                            child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))))),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Consumer<FavouritesProvider>(
+                            builder: (ctx, favs, _) {
+                              final isFav = favs.isFavourite(product.uuid);
+                              return GestureDetector(
+                                onTap: () {
+                                  final auth = ctx.read<AuthProvider>();
+                                  if (!auth.isAuthenticated) {
+                                    ctx.push('/login');
+                                    return;
+                                  }
+                                  favs.toggleFavourite(product.uuid);
+                                },
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withAlpha(200),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isFav ? Icons.favorite : Icons.favorite_border,
+                                    size: 16,
+                                    color: isFav ? Colors.red : Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                     Transform.translate(
                         offset: const Offset(0, -14),
                         child: OutlinedButton(

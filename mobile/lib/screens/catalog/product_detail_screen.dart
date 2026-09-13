@@ -4,6 +4,7 @@ import '../../services/api_client.dart';
 import '../../models/product.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/auth_provider.dart';
+import '../../app/providers/favourites_provider.dart';
 import '../../widgets/price_text.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_config.dart';
@@ -112,7 +113,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_product?.name ?? 'Product')),
+      appBar: AppBar(
+        title: Text(_product?.name ?? 'Product'),
+        actions: [
+          if (_product != null)
+            Consumer<FavouritesProvider>(
+              builder: (context, favs, _) {
+                final isFav = favs.isFavourite(_product!.uuid);
+                return IconButton(
+                  onPressed: () {
+                    final auth = context.read<AuthProvider>();
+                    if (!auth.isAuthenticated) {
+                      context.push('/login');
+                      return;
+                    }
+                    favs.toggleFavourite(_product!.uuid);
+                  },
+                  icon: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav
+                        ? Colors.red
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _product == null

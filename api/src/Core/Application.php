@@ -37,7 +37,11 @@ use App\Modules\Catalog\Service\CatalogService;
 use App\Modules\Catalog\Controller\AdminCatalogController;
 use App\Modules\Catalog\Controller\PublicCatalogController;
 use App\Modules\Customer\Repository\AddressRepository;
+use App\Modules\Customer\Repository\FavouriteRepository;
+use App\Modules\Customer\Repository\ReviewRepository;
 use App\Modules\Customer\Controller\AddressController;
+use App\Modules\Customer\Controller\FavouriteController;
+use App\Modules\Customer\Controller\ReviewController;
 use App\Modules\Delivery\Repository\DeliveryZoneRepository;
 use App\Modules\Delivery\Service\DeliveryFeeService;
 use App\Modules\Cart\Repository\CartRepository;
@@ -59,9 +63,12 @@ use App\Modules\Delivery\Service\DriverService;
 use App\Modules\Delivery\Controller\DriverDeliveryController;
 use App\Modules\Notification\Repository\NotificationRepository;
 use App\Modules\Notification\Service\NotificationService;
+use App\Modules\Notification\Service\PushNotificationService;
 use App\Modules\Notification\Controller\NotificationController;
 use App\Modules\Notification\Controller\AdminNotificationController;
 use App\Modules\Admin\Controller\AdminSettingsController;
+use App\Modules\Admin\Controller\AnalyticsController;
+use App\Modules\Admin\Repository\AuditLogRepository;
 use App\Modules\Catalog\Service\ImageService;
 use App\Modules\Offer\Repository\CouponRepository;
 use App\Modules\Offer\Repository\PromotionRepository;
@@ -74,6 +81,7 @@ use App\Modules\Offer\Controller\PublicOfferController;
 use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Modules\Platform\Controller\BuildController;
 use App\Modules\Platform\Controller\MarketplaceController;
+use App\Modules\Platform\Controller\LegalController;
 use App\Core\Http\Middleware\CorsMiddleware;
 use App\Core\Http\Middleware\RateLimitMiddleware;
 
@@ -210,6 +218,7 @@ final class Application
             $this->container->get(OtpService::class),
             $this->container->get(OtpDeliveryService::class),
             $this->container->get(Config::class),
+            $this->container->get(CartRepository::class),
         ));
 
         $this->container->singleton(DriverAuthController::class, fn () => new DriverAuthController(
@@ -326,6 +335,27 @@ final class Application
             $this->container->get(DeliveryFeeService::class),
         ));
 
+        // Favourites & Reviews
+        $this->container->singleton(FavouriteRepository::class, fn () => new FavouriteRepository(
+            $this->container->get(Connection::class),
+        ));
+
+        $this->container->singleton(ReviewRepository::class, fn () => new ReviewRepository(
+            $this->container->get(Connection::class),
+        ));
+
+        $this->container->singleton(FavouriteController::class, fn () => new FavouriteController(
+            $this->container->get(FavouriteRepository::class),
+            $this->container->get(ProductRepository::class),
+            $this->container->get(CustomerRepository::class),
+        ));
+
+        $this->container->singleton(ReviewController::class, fn () => new ReviewController(
+            $this->container->get(ReviewRepository::class),
+            $this->container->get(ProductRepository::class),
+            $this->container->get(CustomerRepository::class),
+        ));
+
         // Delivery module
         $this->container->singleton(DeliveryZoneRepository::class, fn () => new DeliveryZoneRepository(
             $this->container->get(Connection::class),
@@ -373,6 +403,9 @@ final class Application
             $this->container->get(CheckoutService::class),
             $this->container->get(IdempotencyService::class),
             $this->container->get(CustomerRepository::class),
+            $this->container->get(AddressRepository::class),
+            $this->container->get(DeliveryFeeService::class),
+            $this->container->get(PaymentService::class),
         ));
 
         $this->container->singleton(OrderController::class, fn () => new OrderController(
@@ -395,6 +428,7 @@ final class Application
             $this->container->get(RefundRepository::class),
             $this->container->get(OrderRepository::class),
             $this->container->get(Config::class)->get('PAYMENT_SECRET'),
+            $this->container->get(Config::class),
         ));
 
         $this->container->singleton(PaymentController::class, fn () => new PaymentController(
@@ -424,6 +458,7 @@ final class Application
         $this->container->singleton(OrderManagementService::class, fn () => new OrderManagementService(
             $this->container->get(Connection::class),
             $this->container->get(OrderRepository::class),
+            $this->container->get(DriverService::class),
         ));
 
         $this->container->singleton(AdminOrderController::class, fn () => new AdminOrderController(
@@ -451,6 +486,12 @@ final class Application
             $this->container->get(NotificationRepository::class),
         ));
 
+        $this->container->singleton(PushNotificationService::class, fn () => new PushNotificationService(
+            $this->container->get(Connection::class),
+            $this->container->get(Logger::class),
+            $this->container->get(Config::class),
+        ));
+
         $this->container->singleton(NotificationController::class, fn () => new NotificationController(
             $this->container->get(NotificationRepository::class),
             $this->container->get(CustomerRepository::class),
@@ -468,6 +509,16 @@ final class Application
             $this->container->get(OrderRepository::class),
             $this->container->get(TenantRepository::class),
             $this->container->get(BrandingRepository::class),
+        ));
+
+        // Admin analytics & audit
+        $this->container->singleton(AuditLogRepository::class, fn () => new AuditLogRepository(
+            $this->container->get(Connection::class),
+        ));
+
+        $this->container->singleton(AnalyticsController::class, fn () => new AnalyticsController(
+            $this->container->get(Connection::class),
+            $this->container->get(AuditLogRepository::class),
         ));
 
         // Platform module
@@ -489,6 +540,7 @@ final class Application
             $this->container->get(Connection::class),
             $this->container->get(CatalogService::class),
         ));
+        $this->container->singleton(LegalController::class, fn () => new LegalController());
 
         // Production middleware
         $this->container->singleton(CorsMiddleware::class, fn () => new CorsMiddleware(

@@ -12,6 +12,7 @@ use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Auth\Service\JwtService;
 use App\Modules\Auth\Service\OtpService;
 use App\Modules\Auth\Service\OtpDeliveryService;
+use App\Modules\Cart\Repository\CartRepository;
 use App\Modules\Tenant\Domain\TenantContext;
 use Ramsey\Uuid\Uuid;
 
@@ -23,6 +24,7 @@ final class CustomerAuthController
         private readonly OtpService $otpService,
         private readonly OtpDeliveryService $otpDelivery,
         private readonly Config $config,
+        private readonly CartRepository $cartRepo,
     ) {
     }
 
@@ -192,5 +194,71 @@ final class CustomerAuthController
             'phone' => $customer['phone'],
             'email' => $customer['email'],
         ]);
+    }
+
+    /**
+     * Save FCM push notification token for the authenticated customer.
+     */
+    public function saveFcmToken(Request $request, array $params): Response
+    {
+        $claims = $request->authClaims ?? null;
+        if ($claims === null) {
+            return Response::unauthorized();
+        }
+
+        $customer = $this->customerRepo->findByUuid($claims['sub']);
+        if ($customer === null) {
+            return Response::unauthorized();
+        }
+
+        $data = $request->json();
+
+        $validator = new Validator();
+        if (!$validator->validate($data, [
+            'token' => ['required', 'string', 'min:10', 'max:255'],
+        ])) {
+            return Response::validationError($validator->getErrors());
+        }
+
+        $this->customerRepo->update((int) $customer['id'], [
+            'fcm_token' => $data['token'],
+        ]);
+
+        return Response::success(['message' => 'FCM token saved']);
+    }
+
+    /**
+     * Soft-delete customer account and anonymize PII.
+     */
+    public function deleteAccount(Request $request, array $params): Response
+    {
+        $claims = $request->authClaims ?? null;
+        if ($claims === null) {
+            return Response::unauthorized();
+        }
+
+        $customer = $this->customerRepo->findByUuid($claims['sub']);
+        if ($customer === null) {
+            return Response::unauthorized();
+        }
+
+        $customerId = (int) $customer['id'];
+        $tenantId = (int) $customer['tenant_id'];
+
+        // Clear active cart
+        $cart = $this->cartRepo->findActiveByCustomer($customerId, $tenantId);
+        if ($cart !== null) {
+            $this->cartRepo->clearCart((int) $cart['id']);
+        }
+
+        // Anonymize and soft-delete
+        $this->customerRepo->update($customerId, [
+            'name' => 'Deleted User',
+            'phone' => 'del_' . $customerId,
+            'email' => null,
+            'deleted_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return Response::success(['message' => 'Account deleted successfully']);
     }
 }

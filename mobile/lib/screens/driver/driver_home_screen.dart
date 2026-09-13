@@ -52,18 +52,26 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ],
       ),
       body: driver.deliveries.isEmpty
-          ? const EmptyState(
-              icon: Icons.delivery_dining,
-              title: 'No deliveries',
-              subtitle: 'New delivery assignments will appear here',
+          ? Column(
+              children: [
+                _buildEarningsCard(context, driver),
+                const Expanded(
+                  child: EmptyState(
+                    icon: Icons.delivery_dining,
+                    title: 'No deliveries',
+                    subtitle: 'New delivery assignments will appear here',
+                  ),
+                ),
+              ],
             )
           : RefreshIndicator(
               onRefresh: driver.fetchDeliveries,
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: driver.deliveries.length,
+                itemCount: driver.deliveries.length + 1,
                 itemBuilder: (context, index) {
-                  final delivery = driver.deliveries[index];
+                  if (index == 0) return _buildEarningsCard(context, driver);
+                  final delivery = driver.deliveries[index - 1];
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: InkWell(
@@ -143,6 +151,72 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 },
               ),
             ),
+    );
+  }
+
+  Widget _buildEarningsCard(BuildContext context, DriverProvider driver) {
+    final earnings = driver.earnings;
+    final todayEarnings = earnings?['today_earnings'] as int? ?? 0;
+    final todayDeliveries = earnings?['today_deliveries'] as int? ?? 0;
+    final totalEarnings = earnings?['total_earnings'] as int? ?? 0;
+    final totalDeliveries = earnings?['total_deliveries'] as int? ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Today\'s Earnings',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    PriceText.format(todayEarnings),
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '$todayDeliveries deliveries today',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        '${PriceText.format(totalEarnings)} total ($totalDeliveries)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

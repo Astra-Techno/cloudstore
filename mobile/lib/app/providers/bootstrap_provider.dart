@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../services/api_client.dart';
+import '../../services/cache_service.dart';
 import '../../config/app_config.dart';
 
 class BootstrapProvider extends ChangeNotifier {
@@ -40,6 +41,9 @@ class BootstrapProvider extends ChangeNotifier {
     return _capabilities[capability] ?? false;
   }
 
+  static const _cacheKey = 'bootstrap';
+  static const _cacheTtl = Duration(hours: 24);
+
   Future<void> loadTenant({bool force = false}) async {
     if (_isLoaded && !force) return;
 
@@ -58,6 +62,8 @@ class BootstrapProvider extends ChangeNotifier {
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
         setTenantData(data['data']);
+        // Cache the successful bootstrap response
+        await CacheService.put(_cacheKey, data['data'], ttl: _cacheTtl);
       } else {
         final error = data['error'] is Map
             ? Map<String, dynamic>.from(data['error'] as Map)
@@ -74,6 +80,9 @@ class BootstrapProvider extends ChangeNotifier {
         notifyListeners();
       }
     } on DioException catch (error) {
+      // On network failure, try to load from cache
+      if (await _loadFromCache()) return;
+
       final responseData = error.response?.data;
       final apiError = responseData is Map && responseData['error'] is Map
           ? Map<String, dynamic>.from(responseData['error'] as Map)
@@ -101,10 +110,27 @@ class BootstrapProvider extends ChangeNotifier {
       _isLoaded = false;
       notifyListeners();
     } catch (_) {
+      // On unexpected failure, try to load from cache
+      if (await _loadFromCache()) return;
+
       _error = 'Unable to open this store right now. Please try again.';
       _isLoaded = false;
       notifyListeners();
     }
+  }
+
+  /// Attempt to restore tenant data from cache. Returns true if successful.
+  Future<bool> _loadFromCache() async {
+    try {
+      final cached = await CacheService.get(_cacheKey);
+      if (cached is Map) {
+        setTenantData(Map<String, dynamic>.from(cached));
+        return true;
+      }
+    } catch (_) {
+      // Cache read failed; fall through
+    }
+    return false;
   }
 
   void setTenantData(Map<String, dynamic> data) {

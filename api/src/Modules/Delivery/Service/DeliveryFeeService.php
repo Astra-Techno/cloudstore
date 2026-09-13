@@ -25,6 +25,32 @@ final class DeliveryFeeService
             return null; // not serviceable
         }
 
+        return $this->feeFromZone($zone, $subtotal);
+    }
+
+    /**
+     * Calculate delivery fee by postal/pin code.
+     * Returns ['fee' => int, 'zone' => array] or null if not serviceable.
+     */
+    public function calculateByPincode(string $postalCode, int $tenantId, int $subtotal = 0): ?array
+    {
+        $zone = $this->zoneRepo->findZoneForPincode($tenantId, $postalCode);
+
+        if ($zone === null) {
+            return null; // not serviceable
+        }
+
+        return [
+            'fee' => $this->feeFromZone($zone, $subtotal),
+            'zone' => $zone,
+        ];
+    }
+
+    /**
+     * Extract fee from a zone row, applying free-delivery threshold.
+     */
+    private function feeFromZone(array $zone, int $subtotal): int
+    {
         $fee = (int) $zone['fee'];
 
         // Free delivery above threshold

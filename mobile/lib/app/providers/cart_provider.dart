@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/cart_models.dart';
 import '../../services/api_client.dart';
+import '../../services/cache_service.dart';
 
 class CartProvider extends ChangeNotifier {
+  static const _cacheKey = 'cart';
+  static const _cacheTtl = Duration(minutes: 5);
+
   List<CartItem> _items = [];
   int _subtotal = 0;
   bool _isLoading = false;
@@ -25,13 +29,30 @@ class CartProvider extends ChangeNotifier {
         final cart = CartData.fromJson(data['data']);
         _items = cart.items;
         _subtotal = cart.subtotal;
+        // Cache the cart data
+        await CacheService.put(_cacheKey, data['data'], ttl: _cacheTtl);
       }
       _error = null;
     } catch (_) {
+      // On network failure, try to show cached cart
+      await _loadFromCache();
       _error = 'Unable to refresh your cart. Check your connection and try again.';
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final cached = await CacheService.get(_cacheKey);
+      if (cached is Map && _items.isEmpty) {
+        final cart = CartData.fromJson(Map<String, dynamic>.from(cached));
+        _items = cart.items;
+        _subtotal = cart.subtotal;
+      }
+    } catch (_) {
+      // Cache read failed; ignore
     }
   }
 
@@ -104,6 +125,7 @@ class CartProvider extends ChangeNotifier {
         _items = [];
         _subtotal = 0;
         _error = null;
+        await CacheService.remove(_cacheKey);
         notifyListeners();
         return true;
       }

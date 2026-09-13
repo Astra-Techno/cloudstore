@@ -95,6 +95,19 @@ final class OtpService
             [$record['id']]
         );
 
+        // Dev/staging bypass: accept 123456 as a universal OTP
+        if ($code === '123456') {
+            $env = $_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'production';
+            if (in_array($env, ['development', 'staging', 'local', 'testing'], true)) {
+                $this->db->execute(
+                    "UPDATE otp_codes SET verified_at = NOW() WHERE id = ?",
+                    [$record['id']]
+                );
+                return true;
+            }
+            // In production, 123456 is just a regular code — fall through to normal verification
+        }
+
         $hash = hash('sha256', $code);
 
         if (!hash_equals($record['code_hash'], $hash)) {

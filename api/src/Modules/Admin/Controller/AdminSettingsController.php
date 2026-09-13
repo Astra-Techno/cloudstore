@@ -42,22 +42,35 @@ final class AdminSettingsController
         $tenantId = (int) $request->authClaims['tenant_id'];
         $data = $request->json();
 
-        $validator = new Validator();
-        if (!$validator->validate($data, [
+        $zoneType = $data['zone_type'] ?? 'distance';
+        $rules = [
             'name' => ['required', 'string', 'min:1', 'max:255'],
-            'min_distance_km' => ['required'],
-            'max_distance_km' => ['required'],
             'fee' => ['required', 'integer'],
-        ])) {
+        ];
+
+        // Distance zones require distance fields; pincode zones require pincodes
+        if ($zoneType !== 'pincode') {
+            $rules['min_distance_km'] = ['required'];
+            $rules['max_distance_km'] = ['required'];
+        }
+
+        $validator = new Validator();
+        if (!$validator->validate($data, $rules)) {
             return Response::validationError($validator->getErrors());
+        }
+
+        if ($zoneType === 'pincode' && (empty($data['pincodes']) || !is_array($data['pincodes']))) {
+            return Response::validationError(['pincodes' => ['Pincodes array is required for pincode zones.']]);
         }
 
         $id = $this->zoneRepo->create([
             'uuid' => Uuid::uuid4()->toString(),
             'tenant_id' => $tenantId,
             'name' => $data['name'],
-            'min_distance_km' => (float) $data['min_distance_km'],
-            'max_distance_km' => (float) $data['max_distance_km'],
+            'zone_type' => $zoneType,
+            'min_distance_km' => (float) ($data['min_distance_km'] ?? 0),
+            'max_distance_km' => (float) ($data['max_distance_km'] ?? 0),
+            'pincodes' => $data['pincodes'] ?? null,
             'fee' => (int) $data['fee'],
             'min_order_free_delivery' => isset($data['min_order_free_delivery']) ? (int) $data['min_order_free_delivery'] : null,
             'status' => $data['status'] ?? 'active',

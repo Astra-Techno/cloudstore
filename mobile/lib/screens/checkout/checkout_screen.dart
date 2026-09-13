@@ -7,6 +7,7 @@ import '../../app/providers/cart_provider.dart';
 import '../../app/providers/bootstrap_provider.dart';
 import '../../models/address.dart';
 import '../../widgets/price_text.dart';
+import '../../widgets/state_widgets.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -22,6 +23,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _placing = false;
   String? _error;
   final _notesController = TextEditingController();
+
+  // Serviceability state
+  bool _validatingAddress = false;
+  bool _addressServiceable = true;
+  String? _serviceabilityWarning;
+  int? _deliveryFeeFromValidation;
 
   @override
   void initState() {
@@ -40,10 +47,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
+  Future<void> _validateServiceability() async {
+    if (_orderType != 'delivery' || _selectedAddress == null) {
+      setState(() {
+        _addressServiceable = true;
+        _serviceabilityWarning = null;
+        _deliveryFeeFromValidation = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _validatingAddress = true;
+      _serviceabilityWarning = null;
+    });
+
+    try {
+      final response = await ApiClient().post(
+        '/customer/checkout/validate',
+        data: {'address_uuid': _selectedAddress!.uuid},
+      );
+      final data = response.data;
+      if (data['success'] == true && data['data'] != null) {
+        final d = data['data'];
+        final serviceable = d['serviceable'] == true;
+        setState(() {
+          _addressServiceable = serviceable;
+          _serviceabilityWarning =
+              serviceable ? null : 'This address is outside the delivery area';
+          _deliveryFeeFromValidation =
+              (d['delivery_fee'] as num?)?.toInt();
+        });
+      }
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final apiError =
+          body is Map && body['error'] is Map ? body['error'] as Map : null;
+      setState(() {
+        _addressServiceable = false;
+        _serviceabilityWarning = apiError?['message']?.toString() ??
+            'This address is outside the delivery area';
+      });
+    } catch (_) {
+      // If validation call fails, allow proceeding — server will recheck at order time.
+    } finally {
+      setState(() => _validatingAddress = false);
+    }
+  }
+
   Future<void> _selectAddress() async {
     final result = await context.push<Address>('/addresses/select');
     if (result != null) {
       setState(() => _selectedAddress = result);
+      _validateServiceability();
     }
   }
 
@@ -86,6 +142,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           context.read<CartProvider>().loadCart();
 
           final orderUuid = data['data']?['order']?['uuid'] as String?;
+          final payment = data['data']?['payment'] as Map<String, dynamic>?;
+
+          if (payment != null && payment['razorpay_order_id'] != null) {
+            // Online payment order created - show payment info dialog
+            if (mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Complete Payment'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Your order has been placed. Please complete payment to confirm.'),
+                      const SizedBox(height: 16),
+                      Text('Order ID: ${payment['razorpay_order_id']}',
+                          style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                      Text('Amount: ${PriceText.format((payment['amount'] as num).toInt())}',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Redirecting to payment gateway...',
+                        style: TextStyle(color: Colors.blue, fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        if (orderUuid != null) {
+                          context.go('/order/$orderUuid');
+                        } else {
+                          context.go('/home');
+                        }
+                      },
+                      child: const Text('View Order'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return;
+          }
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Order placed successfully!')),
@@ -130,8 +231,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             label: Text('Pickup')),
     ];
 
-    final deliveryCharge =
-        _orderType == 'delivery' ? bootstrap.deliveryChargeFixed : 0;
+    final deliveryCharge = _orderType == 'delivery'
+        ? (_deliveryFeeFromValidation ?? bootstrap.deliveryChargeFixed)
+        : 0;
     final serviceCharge = bootstrap.serviceChargePercent > 0
         ? (cart.subtotal * bootstrap.serviceChargePercent / 100).round()
         : 0;
@@ -143,7 +245,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
-      body: SingleChildScrollView(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,6 +278,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       style: TextStyle(color: Colors.orange.shade900))),
               const SizedBox(height: 16),
             ],
+            if (_serviceabilityWarning != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        color: Colors.orange.shade800, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _serviceabilityWarning!,
+                        style: TextStyle(color: Colors.orange.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Order type
             _sectionTitle(
@@ -185,7 +314,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               SegmentedButton<String>(
                 segments: fulfilmentOptions,
                 selected: {_orderType},
-                onSelectionChanged: (s) => setState(() => _orderType = s.first),
+                onSelectionChanged: (s) {
+                  setState(() => _orderType = s.first);
+                  _validateServiceability();
+                },
               ),
 
             // Address (for delivery)
@@ -238,12 +370,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     secondary: const Icon(Icons.payments_outlined),
                   ),
                   if (bootstrap.paymentMethods.contains('online'))
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text(
-                        'Online payments will appear here once this shop connects its payment gateway.',
-                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                    RadioListTile<String>(
+                      value: 'online',
+                      groupValue: _paymentMethod,
+                      onChanged: (value) =>
+                          setState(() => _paymentMethod = value!),
+                      title: const Text('Pay Online'),
+                      subtitle: const Text(
+                        'UPI, Cards, Net Banking',
+                        style: TextStyle(fontSize: 12),
                       ),
+                      secondary: const Icon(Icons.credit_card),
                     ),
                 ],
               ),
@@ -315,15 +452,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _placing ||
+                        _validatingAddress ||
+                        (!_addressServiceable && _orderType == 'delivery') ||
                         fulfilmentOptions.isEmpty ||
-                        !bootstrap.paymentMethods.contains('cod') ||
+                        !bootstrap.paymentMethods.contains(_paymentMethod == 'online' ? 'online' : 'cod') ||
                         cart.subtotal < bootstrap.minOrderAmount
                     ? null
                     : _placeOrder,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: _placing
+                child: _placing || _validatingAddress
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -339,6 +478,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
+          if (_placing)
+            Container(
+              color: Colors.black.withAlpha(80),
+              child: const LoadingStateWidget(message: 'Placing your order...'),
+            ),
+        ],
       ),
     );
   }

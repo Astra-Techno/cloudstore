@@ -88,6 +88,47 @@ final class DriverDeliveryController
         return Response::success(['updated' => true]);
     }
 
+    public function verifyOtp(Request $request, array $params): Response
+    {
+        $driver = $this->driverRepo->findByUuid($request->authClaims['sub']);
+        if ($driver === null) {
+            return Response::unauthorized();
+        }
+
+        $data = $request->json();
+
+        $validator = new Validator();
+        if (!$validator->validate($data, [
+            'otp' => ['required', 'string'],
+        ])) {
+            return Response::validationError($validator->getErrors());
+        }
+
+        $result = $this->driverService->verifyDeliveryOtp(
+            (int) $driver['id'],
+            (int) $params['assignmentId'],
+            $data['otp'],
+        );
+
+        if (isset($result['error'])) {
+            return Response::error($result['error'], $result['code'], 400);
+        }
+
+        return Response::success($result);
+    }
+
+    public function earnings(Request $request, array $params): Response
+    {
+        $driver = $this->driverRepo->findByUuid($request->authClaims['sub']);
+        if ($driver === null) {
+            return Response::unauthorized();
+        }
+
+        $earnings = $this->driverService->getEarnings((int) $driver['id']);
+
+        return Response::success($earnings);
+    }
+
     public function setAvailability(Request $request, array $params): Response
     {
         $driver = $this->driverRepo->findByUuid($request->authClaims['sub']);

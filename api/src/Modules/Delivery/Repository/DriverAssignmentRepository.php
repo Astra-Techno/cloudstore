@@ -44,8 +44,10 @@ final class DriverAssignmentRepository
     public function findActiveByDriver(int $driverId): array
     {
         return $this->db->fetchAll(
-            "SELECT da.*, o.order_number, o.status as order_status, o.order_type,
-                    o.total AS order_total, o.address_snapshot AS delivery_address,
+            "SELECT da.*, da.delivery_otp, da.earnings,
+                    o.order_number, o.status as order_status, o.order_type,
+                    o.total AS order_total, o.delivery_fee,
+                    o.address_snapshot AS delivery_address,
                     c.name AS customer_name, c.phone AS customer_phone
              FROM driver_assignments da
              JOIN orders o ON o.id = da.order_id
@@ -85,5 +87,47 @@ final class DriverAssignmentRepository
             "SELECT * FROM driver_assignments WHERE id = ?",
             [$id]
         );
+    }
+
+    public function setDeliveryOtp(int $id, string $otp): void
+    {
+        $this->db->execute(
+            "UPDATE driver_assignments SET delivery_otp = ? WHERE id = ?",
+            [$otp, $id]
+        );
+    }
+
+    public function markDelivered(int $id, int $earnings): void
+    {
+        $this->db->execute(
+            "UPDATE driver_assignments SET status = 'delivered', delivered_at = NOW(), earnings = ? WHERE id = ?",
+            [$earnings, $id]
+        );
+    }
+
+    public function getEarnings(int $driverId): array
+    {
+        $today = date('Y-m-d');
+
+        $total = $this->db->fetchOne(
+            "SELECT COALESCE(SUM(earnings), 0) as total_earnings, COUNT(*) as delivery_count
+             FROM driver_assignments
+             WHERE driver_id = ? AND status = 'delivered'",
+            [$driverId]
+        );
+
+        $todayRow = $this->db->fetchOne(
+            "SELECT COALESCE(SUM(earnings), 0) as today_earnings, COUNT(*) as today_count
+             FROM driver_assignments
+             WHERE driver_id = ? AND status = 'delivered' AND DATE(delivered_at) = ?",
+            [$driverId, $today]
+        );
+
+        return [
+            'total_earnings' => (int) ($total['total_earnings'] ?? 0),
+            'total_deliveries' => (int) ($total['delivery_count'] ?? 0),
+            'today_earnings' => (int) ($todayRow['today_earnings'] ?? 0),
+            'today_deliveries' => (int) ($todayRow['today_count'] ?? 0),
+        ];
     }
 }

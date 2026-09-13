@@ -112,6 +112,12 @@ final class DriverService
 
             $this->assignmentRepo->updateStatus($assignmentId, $newStatus);
 
+            // Generate delivery OTP when driver picks up the order
+            if ($newStatus === 'picked_up') {
+                $otp = str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT);
+                $this->assignmentRepo->setDeliveryOtp($assignmentId, $otp);
+            }
+
             // Map driver assignment status to order status
             $orderStatusMap = [
                 'accepted' => null, // order stays as-is when driver accepts
@@ -146,6 +152,78 @@ final class DriverService
     public function setAvailability(int $driverId, string $availability): void
     {
         $this->driverRepo->updateAvailability($driverId, $availability);
+    }
+
+    /**
+     * Generate a 4-digit delivery OTP for an assignment.
+     * Called when order transitions to 'out_for_delivery'.
+     */
+    public function generateDeliveryOtp(int $orderId): void
+    {
+        $assignment = $this->assignmentRepo->findByOrderId($orderId);
+        if ($assignment === null) {
+            return;
+        }
+
+        $otp = str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT);
+        $this->assignmentRepo->setDeliveryOtp((int) $assignment['id'], $otp);
+    }
+
+    /**
+     * Verify delivery OTP and mark assignment as delivered.
+     */
+    public function verifyDeliveryOtp(int $driverId, int $assignmentId, string $otp): array
+    {
+        $assignment = $this->assignmentRepo->findById($assignmentId);
+        if ($assignment === null || (int) $assignment['driver_id'] !== $driverId) {
+            return ['error' => 'Assignment not found.', 'code' => 'ASSIGNMENT_NOT_FOUND'];
+        }
+
+        if ($assignment['status'] !== 'picked_up') {
+            return ['error' => 'Delivery can only be verified after pickup.', 'code' => 'INVALID_STATUS'];
+        }
+
+        if ($assignment['delivery_otp'] === null) {
+            return ['error' => 'No delivery OTP set for this assignment.', 'code' => 'NO_OTP'];
+        }
+
+        if ($assignment['delivery_otp'] !== $otp) {
+            return ['error' => 'Invalid OTP.', 'code' => 'INVALID_OTP'];
+        }
+
+        return $this->db->transaction(function () use ($assignment, $assignmentId) {
+            $orderId = (int) $assignment['order_id'];
+            $tenantId = (int) $assignment['tenant_id'];
+            $order = $this->orderRepo->findById($orderId, $tenantId);
+
+            // Calculate earnings from delivery fee
+            $earnings = (int) ($order['delivery_fee'] ?? 0);
+
+            $this->assignmentRepo->markDelivered($assignmentId, $earnings);
+
+            // Update order status to delivered
+            if ($order !== null && OrderStatus::canTransition($order['status'], OrderStatus::DELIVERED)) {
+                $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::DELIVERED, 'delivered_at');
+                $this->orderRepo->addStatusHistory(
+                    $orderId, $order['status'], OrderStatus::DELIVERED,
+                    'driver', (int) $assignment['driver_id']
+                );
+            }
+
+            return [
+                'status' => 'delivered',
+                'earnings' => $earnings,
+                'order_id' => $orderId,
+            ];
+        });
+    }
+
+    /**
+     * Get driver earnings summary.
+     */
+    public function getEarnings(int $driverId): array
+    {
+        return $this->assignmentRepo->getEarnings($driverId);
     }
 
     /**

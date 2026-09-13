@@ -14,6 +14,8 @@ class DriverDelivery {
   final String? acceptedAt;
   final String? pickedUpAt;
   final String? deliveredAt;
+  final String? deliveryOtp;
+  final int? earnings;
 
   DriverDelivery({
     required this.id,
@@ -29,6 +31,8 @@ class DriverDelivery {
     this.acceptedAt,
     this.pickedUpAt,
     this.deliveredAt,
+    this.deliveryOtp,
+    this.earnings,
   });
 
   factory DriverDelivery.fromJson(Map<String, dynamic> json) {
@@ -46,6 +50,8 @@ class DriverDelivery {
       acceptedAt: json['accepted_at'] as String?,
       pickedUpAt: json['picked_up_at'] as String?,
       deliveredAt: json['delivered_at'] as String?,
+      deliveryOtp: json['delivery_otp'] as String?,
+      earnings: json['earnings'] as int?,
     );
   }
 
@@ -83,9 +89,11 @@ class DriverDelivery {
       case 'accepted':
         return 'Mark Picked Up';
       case 'picked_up':
-        return 'Mark Delivered';
+        return 'Verify & Complete Delivery';
       default:
         return null;
     }
   }
+
+  bool get requiresOtpVerification => status == 'picked_up';
 }

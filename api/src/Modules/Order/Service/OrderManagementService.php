@@ -7,6 +7,7 @@ namespace App\Modules\Order\Service;
 use App\Core\Database\Connection;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
+use App\Modules\Delivery\Service\DriverService;
 use Ramsey\Uuid\Uuid;
 
 final class OrderManagementService
@@ -14,6 +15,7 @@ final class OrderManagementService
     public function __construct(
         private readonly Connection $db,
         private readonly OrderRepository $orderRepo,
+        private readonly ?DriverService $driverService = null,
     ) {
     }
 
@@ -58,6 +60,11 @@ final class OrderManagementService
         $this->orderRepo->updateStatus($orderId, $tenantId, $newStatus, $timestampField);
         $this->orderRepo->addStatusHistory($orderId, $order['status'], $newStatus, $actorType, $actorId, $notes);
 
+        // Generate delivery OTP when order goes out for delivery
+        if ($newStatus === OrderStatus::OUT_FOR_DELIVERY && $this->driverService !== null) {
+            $this->driverService->generateDeliveryOtp($orderId);
+        }
+
         if ($newStatus === OrderStatus::CANCELLED && !empty($notes)) {
             $this->db->execute("UPDATE orders SET cancel_reason = ? WHERE id = ?", [$notes, $orderId]);
         }
@@ -81,6 +88,39 @@ final class OrderManagementService
             'previous_status' => $order['status'],
             'new_status' => $newStatus,
         ];
+    }
+
+    /**
+     * Customer cancels their own order (only if pending or confirmed).
+     */
+    public function cancelOrder(int $tenantId, int $orderId, int $customerId, ?string $reason = null): array
+    {
+        $order = $this->orderRepo->findById($orderId, $tenantId);
+        if ($order === null) {
+            return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
+        }
+
+        if ((int) $order['customer_id'] !== $customerId) {
+            return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
+        }
+
+        $allowedStatuses = [OrderStatus::PENDING_PAYMENT, OrderStatus::CONFIRMED];
+        if (!in_array($order['status'], $allowedStatuses, true)) {
+            return [
+                'error' => 'Order can only be cancelled when status is pending or confirmed.',
+                'code' => 'CANCEL_NOT_ALLOWED',
+            ];
+        }
+
+        $newStatus = OrderStatus::CANCELLED;
+        $this->orderRepo->updateStatus($orderId, $tenantId, $newStatus, 'cancelled_at');
+        $this->orderRepo->addStatusHistory($orderId, $order['status'], $newStatus, 'customer', $customerId, $reason);
+
+        if ($reason !== null && $reason !== '') {
+            $this->db->execute("UPDATE orders SET cancel_reason = ? WHERE id = ?", [$reason, $orderId]);
+        }
+
+        return $this->orderRepo->findById($orderId, $tenantId);
     }
 
     /**

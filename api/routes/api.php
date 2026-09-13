@@ -11,6 +11,8 @@ use App\Modules\Auth\Controller\DriverAuthController;
 use App\Modules\Catalog\Controller\AdminCatalogController;
 use App\Modules\Catalog\Controller\PublicCatalogController;
 use App\Modules\Customer\Controller\AddressController;
+use App\Modules\Customer\Controller\FavouriteController;
+use App\Modules\Customer\Controller\ReviewController;
 use App\Modules\Cart\Controller\CartController;
 use App\Modules\Order\Controller\CheckoutController;
 use App\Modules\Order\Controller\OrderController;
@@ -21,12 +23,14 @@ use App\Modules\Notification\Controller\NotificationController;
 use App\Modules\Notification\Controller\AdminNotificationController;
 use App\Modules\Admin\Controller\AdminSettingsController;
 use App\Modules\Admin\Controller\AdminDriverController;
+use App\Modules\Admin\Controller\AnalyticsController;
 use App\Modules\Order\Controller\AdminPosController;
 use App\Modules\Offer\Controller\AdminOfferController;
 use App\Modules\Offer\Controller\PublicOfferController;
 use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Modules\Platform\Controller\BuildController;
 use App\Modules\Platform\Controller\MarketplaceController;
+use App\Modules\Platform\Controller\LegalController;
 use App\Core\Http\Middleware\TenantMiddleware;
 
 return function (Router $router): void {
@@ -147,6 +151,10 @@ return function (Router $router): void {
             // Enhanced dashboard
             $router->get('/dashboard/enhanced', [AdminSettingsController::class, 'dashboardEnhanced']);
 
+            // Analytics & Audit
+            $router->get('/analytics', [AnalyticsController::class, 'getAnalytics']);
+            $router->get('/audit-log', [AnalyticsController::class, 'getAuditLog']);
+
             // Coupons
             $router->get('/coupons', [AdminOfferController::class, 'listCoupons']);
             $router->post('/coupons', [AdminOfferController::class, 'createCoupon']);
@@ -180,6 +188,10 @@ return function (Router $router): void {
         // Public build download (share link)
         $router->get('/builds/download/{token}', [BuildController::class, 'download']);
 
+        // Legal (public, no auth, no tenant scope)
+        $router->get('/legal/privacy-policy', [LegalController::class, 'privacyPolicy']);
+        $router->get('/legal/terms', [LegalController::class, 'terms']);
+
         // Central CloudMarket discovery app. Checkout remains store-scoped:
         // a customer selects one merchant before starting a cart.
         $router->get('/marketplace/stores', [MarketplaceController::class, 'stores']);
@@ -202,6 +214,8 @@ return function (Router $router): void {
             $router->get('/categories', [PublicCatalogController::class, 'categories']);
             $router->get('/categories/{uuid}/products', [PublicCatalogController::class, 'productsByCategory']);
             $router->get('/products/{uuid}', [PublicCatalogController::class, 'product']);
+            $router->get('/products/{uuid}/reviews', [ReviewController::class, 'listByProduct']);
+            $router->get('/products/{uuid}/rating', [ReviewController::class, 'getProductRating']);
 
             // Customer (authenticated)
             $router->group('/customer', ['middleware.auth.customer'], function (Router $router) {
@@ -211,6 +225,13 @@ return function (Router $router): void {
                 $router->post('/addresses', [AddressController::class, 'create']);
                 $router->put('/addresses/{uuid}', [AddressController::class, 'update']);
                 $router->delete('/addresses/{uuid}', [AddressController::class, 'delete']);
+
+                // Favourites
+                $router->get('/favourites', [FavouriteController::class, 'list']);
+                $router->post('/favourites/{uuid}', [FavouriteController::class, 'toggle']);
+
+                // Reviews
+                $router->post('/reviews', [ReviewController::class, 'create']);
 
                 // Cart
                 $router->get('/cart', [CartController::class, 'get']);
@@ -226,11 +247,20 @@ return function (Router $router): void {
 
                 // Checkout & Orders
                 $router->post('/checkout', [CheckoutController::class, 'createOrder']);
+                $router->post('/checkout/validate', [CheckoutController::class, 'validateServiceability']);
                 $router->get('/orders', [OrderController::class, 'list']);
                 $router->get('/orders/{uuid}', [OrderController::class, 'show']);
+                $router->post('/orders/{uuid}/cancel', [OrderController::class, 'cancel']);
+                $router->post('/orders/{uuid}/reorder', [OrderController::class, 'reorder']);
 
                 // Payments
                 $router->post('/payments/initiate', [PaymentController::class, 'initiate']);
+
+                // FCM token
+                $router->post('/me/fcm-token', [CustomerAuthController::class, 'saveFcmToken']);
+
+                // Account
+                $router->post('/me/delete', [CustomerAuthController::class, 'deleteAccount']);
 
                 // Notifications
                 $router->get('/notifications', [NotificationController::class, 'listCustomer']);
@@ -242,6 +272,8 @@ return function (Router $router): void {
             $router->group('/driver', ['middleware.auth.driver'], function (Router $router) {
                 $router->get('/deliveries', [DriverDeliveryController::class, 'myDeliveries']);
                 $router->patch('/deliveries/{assignmentId}/status', [DriverDeliveryController::class, 'updateStatus']);
+                $router->post('/deliveries/{assignmentId}/verify-otp', [DriverDeliveryController::class, 'verifyOtp']);
+                $router->get('/earnings', [DriverDeliveryController::class, 'earnings']);
                 $router->post('/location', [DriverDeliveryController::class, 'updateLocation']);
                 $router->post('/availability', [DriverDeliveryController::class, 'setAvailability']);
             });

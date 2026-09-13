@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payment\Service;
 
 use App\Core\Database\Connection;
+use App\Core\Config\Config;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Payment\Repository\PaymentRepository;
@@ -13,13 +14,19 @@ use Ramsey\Uuid\Uuid;
 
 final class PaymentService
 {
+    private readonly string $razorpayKeyId;
+    private readonly string $razorpayKeySecret;
+
     public function __construct(
         private readonly Connection $db,
         private readonly PaymentRepository $paymentRepo,
         private readonly RefundRepository $refundRepo,
         private readonly OrderRepository $orderRepo,
         private readonly string $gatewaySecret,
+        Config $config,
     ) {
+        $this->razorpayKeyId = $config->get('RAZORPAY_KEY_ID', '');
+        $this->razorpayKeySecret = $config->get('RAZORPAY_KEY_SECRET', '');
     }
 
     /**
@@ -36,9 +43,8 @@ final class PaymentService
     }
 
     /**
-     * Initiate a payment for an order.
-     * A real gateway adapter must be configured before an online payment can
-     * be initiated. This service never fabricates a successful payment.
+     * Initiate a payment for an order via Razorpay.
+     * Creates a Razorpay order and stores a local payment record.
      */
     public function initiatePayment(int $tenantId, int $orderId, int $customerId): array
     {
@@ -51,11 +57,93 @@ final class PaymentService
             return ['error' => 'Order uses cash on delivery.', 'code' => 'INVALID_PAYMENT_METHOD'];
         }
 
-        // This deployment does not include a gateway order-creation adapter.
-        // Reject rather than manufacture a gateway reference that cannot charge
-        // the customer. COD remains available through the checkout service.
-        return ['error' => 'Online payments are not configured for this store.', 'code' => 'PAYMENT_NOT_CONFIGURED'];
+        if ($this->razorpayKeyId === '' || $this->razorpayKeySecret === '') {
+            return ['error' => 'Online payments not configured', 'code' => 'PAYMENT_NOT_CONFIGURED'];
+        }
 
+        // Check if a pending payment already exists for this order
+        $existing = $this->paymentRepo->findByOrderId($orderId, $tenantId);
+        if ($existing !== null && $existing['status'] === 'pending' && !empty($existing['gateway_order_id'])) {
+            return [
+                'razorpay_order_id' => $existing['gateway_order_id'],
+                'razorpay_key_id' => $this->razorpayKeyId,
+                'amount' => (int) $existing['amount'],
+                'currency' => $existing['currency'] ?? 'INR',
+            ];
+        }
+
+        $amount = (int) $order['total'];
+        $receipt = $order['uuid'];
+
+        // Create Razorpay order via cURL
+        $razorpayResult = $this->createRazorpayOrder($amount, 'INR', $receipt);
+        if (isset($razorpayResult['error'])) {
+            return $razorpayResult;
+        }
+
+        $gatewayOrderId = $razorpayResult['id'];
+
+        // Store payment record
+        $this->paymentRepo->create([
+            'uuid' => Uuid::uuid4()->toString(),
+            'tenant_id' => $tenantId,
+            'order_id' => $orderId,
+            'customer_id' => $customerId,
+            'gateway' => 'razorpay',
+            'gateway_order_id' => $gatewayOrderId,
+            'amount' => $amount,
+            'currency' => 'INR',
+            'status' => 'pending',
+            'metadata' => ['razorpay_order' => $razorpayResult],
+        ]);
+
+        return [
+            'razorpay_order_id' => $gatewayOrderId,
+            'razorpay_key_id' => $this->razorpayKeyId,
+            'amount' => $amount,
+            'currency' => 'INR',
+        ];
+    }
+
+    /**
+     * Create a Razorpay order via their REST API using cURL.
+     */
+    private function createRazorpayOrder(int $amountPaise, string $currency, string $receipt): array
+    {
+        $url = 'https://api.razorpay.com/v1/orders';
+        $payload = json_encode([
+            'amount' => $amountPaise,
+            'currency' => $currency,
+            'receipt' => $receipt,
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_USERPWD => $this->razorpayKeyId . ':' . $this->razorpayKeySecret,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            return ['error' => 'Payment gateway unavailable: ' . $curlError, 'code' => 'GATEWAY_ERROR'];
+        }
+
+        $data = json_decode($response, true);
+
+        if ($httpCode !== 200 || !isset($data['id'])) {
+            $msg = $data['error']['description'] ?? 'Failed to create payment order';
+            return ['error' => $msg, 'code' => 'GATEWAY_ERROR'];
+        }
+
+        return $data;
     }
 
     /**
@@ -159,17 +247,42 @@ final class PaymentService
             $refundAmount = (int) $order['total'];
 
             if ($payment !== null && $payment['status'] === 'paid') {
-                $this->refundRepo->create([
+                $refundStatus = 'completed';
+                $gatewayRefundId = null;
+
+                // If paid via Razorpay, call the refund API
+                if ($payment['gateway'] === 'razorpay'
+                    && !empty($payment['gateway_payment_id'])
+                    && $this->razorpayKeyId !== ''
+                    && $this->razorpayKeySecret !== ''
+                ) {
+                    $refundResult = $this->processRazorpayRefund(
+                        $payment['gateway_payment_id'],
+                        $refundAmount,
+                    );
+                    if (isset($refundResult['error'])) {
+                        // Log but still record the refund locally as pending
+                        $refundStatus = 'pending';
+                    } else {
+                        $gatewayRefundId = $refundResult['id'] ?? null;
+                    }
+                }
+
+                $refundId = $this->refundRepo->create([
                     'uuid' => Uuid::uuid4()->toString(),
                     'payment_id' => (int) $payment['id'],
                     'order_id' => $orderId,
                     'tenant_id' => $tenantId,
                     'amount' => $refundAmount,
                     'reason' => $reason,
-                    'status' => 'completed',
+                    'status' => $refundStatus,
                     'initiated_by_type' => $actorType,
                     'initiated_by_id' => $actorId,
                 ]);
+
+                if ($gatewayRefundId !== null) {
+                    $this->refundRepo->updateStatus($refundId, 'completed', $gatewayRefundId);
+                }
 
                 $this->paymentRepo->updateStatus((int) $payment['id'], 'refunded');
             }
@@ -188,5 +301,44 @@ final class PaymentService
                 'refund_amount' => $refundAmount,
             ];
         });
+    }
+
+    /**
+     * Call Razorpay refund API via cURL.
+     */
+    private function processRazorpayRefund(string $gatewayPaymentId, int $amountPaise): array
+    {
+        $url = "https://api.razorpay.com/v1/payments/{$gatewayPaymentId}/refund";
+        $payload = json_encode([
+            'amount' => $amountPaise,
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_USERPWD => $this->razorpayKeyId . ':' . $this->razorpayKeySecret,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            return ['error' => 'Refund gateway unavailable: ' . $curlError, 'code' => 'GATEWAY_ERROR'];
+        }
+
+        $data = json_decode($response, true);
+
+        if ($httpCode !== 200 || !isset($data['id'])) {
+            $msg = $data['error']['description'] ?? 'Refund request failed';
+            return ['error' => $msg, 'code' => 'GATEWAY_ERROR'];
+        }
+
+        return $data;
     }
 }

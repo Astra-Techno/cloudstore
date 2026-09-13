@@ -45,6 +45,55 @@ class DeliveryDetailScreen extends StatelessWidget {
               ),
             ),
 
+            // Delivery OTP (shown prominently when picked up)
+            if (delivery.deliveryOtp != null &&
+                delivery.status == 'picked_up') ...[
+              const SizedBox(height: 12),
+              Card(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Delivery OTP',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        delivery.deliveryOtp!,
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Ask the customer for this code to confirm delivery',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             if (delivery.customerPhone != null ||
                 delivery.deliveryAddress != null) ...[
               const SizedBox(height: 12),
@@ -153,10 +202,16 @@ class DeliveryDetailScreen extends StatelessWidget {
                 child: FilledButton(
                   onPressed: driver.isLoading
                       ? null
-                      : () => driver.updateDeliveryStatus(
-                            delivery.id,
-                            delivery.nextStatus!,
-                          ),
+                      : () {
+                          if (delivery.requiresOtpVerification) {
+                            _showOtpVerificationDialog(context, driver, delivery.id);
+                          } else {
+                            driver.updateDeliveryStatus(
+                              delivery.id,
+                              delivery.nextStatus!,
+                            );
+                          }
+                        },
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -175,6 +230,89 @@ class DeliveryDetailScreen extends StatelessWidget {
               ),
             )
           : null,
+    );
+  }
+
+  void _showOtpVerificationDialog(
+      BuildContext context, DriverProvider driver, int assignmentId) {
+    final otpController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Enter Delivery OTP'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Ask the customer for the 4-digit delivery OTP to confirm handoff.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 8,
+                ),
+                decoration: const InputDecoration(
+                  hintText: '----',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                ),
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final otp = otpController.text.trim();
+                if (otp.length != 4) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Please enter a 4-digit OTP')),
+                  );
+                  return;
+                }
+
+                Navigator.of(dialogContext).pop();
+
+                final success =
+                    await driver.verifyDeliveryOtp(assignmentId, otp);
+
+                if (context.mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Delivery completed!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.of(context).pop();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(driver.error ?? 'OTP verification failed'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Verify'),
+            ),
+          ],
+        );
+      },
     );
   }
 
