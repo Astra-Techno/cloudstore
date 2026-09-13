@@ -254,7 +254,7 @@ if (function_exists('curl_init')) {
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT        => 90,
+        CURLOPT_TIMEOUT        => 300,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_USERAGENT      => 'CloudMarket-Deployer/1.0',
         CURLOPT_HTTPHEADER     => array_filter([
