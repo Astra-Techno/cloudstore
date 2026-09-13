@@ -11,6 +11,7 @@ import '../../services/api_client.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/state_widgets.dart';
 import '../../widgets/motion_widgets.dart';
+import '../../config/app_theme.dart';
 import '../../config/app_config.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -471,13 +472,8 @@ class _OfferCard extends StatelessWidget {
       width: 244,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isBundle
-              ? [const Color(0xFF553C9A), const Color(0xFF8E5FD2)]
-              : [const Color(0xFFFF6B00), const Color(0xFFFFA42C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient:
+            AppTheme.primaryGradient(Theme.of(context).colorScheme.primary),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(

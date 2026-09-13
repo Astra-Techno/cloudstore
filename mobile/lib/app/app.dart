@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/bootstrap_provider.dart';
 import 'router.dart';
 import '../config/app_config.dart';
+import '../config/app_theme.dart';
 
 class CloudStoreApp extends StatelessWidget {
   const CloudStoreApp({super.key});
@@ -10,76 +11,12 @@ class CloudStoreApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bootstrap = context.watch<BootstrapProvider>();
-    const brandRed = Color(0xFFE23744);
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: brandRed,
-      brightness: Brightness.light,
-      surface: Colors.white,
-    ).copyWith(
-      primary: brandRed,
-      onPrimary: Colors.white,
-      secondary: brandRed,
-      surface: Colors.white,
-    );
+    final primary = AppTheme.resolvePrimary(bootstrap.primaryColor);
 
     return MaterialApp.router(
       title: bootstrap.tenantName ?? AppConfig.appName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: colorScheme,
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: Color(0xFF1C1C1C),
-          titleTextStyle: TextStyle(
-              fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -.3),
-        ),
-        cardTheme: const CardThemeData(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(20))),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(color: Color(0xFFF1F1F1)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(color: brandRed, width: 1.5),
-          ),
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          height: 72,
-          backgroundColor: Colors.white,
-          indicatorColor:
-              brandRed.withAlpha(25),
-          labelTextStyle: WidgetStateProperty.all(
-              const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-            style: FilledButton.styleFrom(
-          backgroundColor: brandRed,
-          foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-        )),
-      ),
+      theme: AppTheme.light(primary),
       routerConfig: appRouter,
     );
   }

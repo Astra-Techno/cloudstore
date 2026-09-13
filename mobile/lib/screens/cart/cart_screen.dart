@@ -6,6 +6,7 @@ import '../../app/providers/auth_provider.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/state_widgets.dart';
 import '../../widgets/motion_widgets.dart';
+import '../../config/app_theme.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -60,14 +61,14 @@ class _CartScreenState extends State<CartScreen> {
               itemCount: cart.items.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
+                  final primary = Theme.of(context).colorScheme.primary;
                   return StaggeredEntrance(
                     index: 0,
                     child: Container(
                       margin: const EdgeInsets.fromLTRB(0, 4, 0, 18),
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                            colors: [Color(0xFFFF6B00), Color(0xFFFFA42C)]),
+                        gradient: AppTheme.primaryGradient(primary),
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: Row(children: [
@@ -104,8 +105,9 @@ class _CartScreenState extends State<CartScreen> {
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     color: index.isOdd
-                        ? const Color(0xFFFFFDFC)
-                        : const Color(0xFFFFF8F4),
+                        ? Colors.white
+                        : AppTheme.primaryLight(
+                            Theme.of(context).colorScheme.primary),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -146,8 +148,9 @@ class _CartScreenState extends State<CartScreen> {
                           Row(
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.remove_circle_outline,
-                                    color: Color(0xFFFF6B00)),
+                                icon: Icon(Icons.remove_circle_outline,
+                                    color:
+                                        Theme.of(context).colorScheme.primary),
                                 iconSize: 28,
                                 onPressed: () {
                                   if (item.quantity > 1) {

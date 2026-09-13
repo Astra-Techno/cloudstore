@@ -8,6 +8,7 @@ import '../../app/providers/favourites_provider.dart';
 import '../../widgets/price_text.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_config.dart';
+import '../../config/app_theme.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String uuid;
@@ -77,9 +78,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     for (final group in _product!.addonGroups) {
-      final selected = group.items.where((item) => _selectedAddonIds.contains(item.id)).length;
+      final selected = group.items
+          .where((item) => _selectedAddonIds.contains(item.id))
+          .length;
       if (selected < group.minSelections || selected > group.maxSelections) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Choose ${group.minSelections}-${group.maxSelections} option(s) for ${group.name}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Choose ${group.minSelections}-${group.maxSelections} option(s) for ${group.name}')));
         return;
       }
     }
@@ -99,7 +104,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (mounted) {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to cart'), duration: Duration(seconds: 1)),
+          const SnackBar(
+              content: Text('Added to cart'), duration: Duration(seconds: 1)),
         );
         Navigator.of(context).pop();
       } else {
@@ -156,19 +162,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           height: 240,
                           child: _product!.images.isEmpty
                               ? Container(
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [Color(0xFFFFC47D), Color(0xFFFF7A59)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
+                                  decoration: BoxDecoration(
+                                    gradient: AppTheme.primaryGradient(
+                                        Theme.of(context).colorScheme.primary),
                                   ),
-                                  child: const Icon(Icons.restaurant_rounded, size: 64, color: Colors.white),
+                                  child: const Icon(Icons.restaurant_rounded,
+                                      size: 64, color: Colors.white),
                                 )
-                              : Image.network(AppConfig.assetUrl(_product!.images.first.url), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(
-                                    decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFFFC47D), Color(0xFFFF7A59)])),
-                                    child: const Icon(Icons.restaurant_rounded, size: 64, color: Colors.white),
-                                  )),
+                              : Image.network(
+                                  AppConfig.assetUrl(
+                                      _product!.images.first.url),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                        decoration: BoxDecoration(
+                                            gradient: AppTheme.primaryGradient(
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary)),
+                                        child: const Icon(
+                                            Icons.restaurant_rounded,
+                                            size: 64,
+                                            color: Colors.white),
+                                      )),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -176,16 +191,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       // Name & price
                       Text(
                         _product!.name,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       const SizedBox(height: 8),
                       PriceText(
                         paise: _product!.effectivePrice,
                         showStrike: _product!.salePrice != null,
-                        strikePrice: _product!.salePrice != null ? _product!.basePrice : null,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        strikePrice: _product!.salePrice != null
+                            ? _product!.basePrice
+                            : null,
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.bold),
                       ),
                       if (_product!.pricingMode == 'weight') ...[
                         const SizedBox(height: 4),
@@ -199,7 +218,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _product!.description!,
-                          style: TextStyle(color: Colors.grey[700], fontSize: 15),
+                          style:
+                              TextStyle(color: Colors.grey[700], fontSize: 15),
                         ),
                       ],
 
@@ -207,7 +227,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       if (_product!.variants.isNotEmpty) ...[
                         const SizedBox(height: 24),
                         Text(
-                          _product!.pricingMode == 'weight' ? 'Choose Weight' : 'Choose Variant',
+                          _product!.pricingMode == 'weight'
+                              ? 'Choose Weight'
+                              : 'Choose Variant',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
@@ -221,7 +243,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             return ChoiceChip(
                               label: Text(label),
                               selected: isSelected,
-                              onSelected: (_) => setState(() => _selectedVariant = v),
+                              onSelected: (_) =>
+                                  setState(() => _selectedVariant = v),
                             );
                           }).toList(),
                         ),
@@ -236,7 +259,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 8),
                         ...group.items.map((item) {
-                          final isSelected = _selectedAddonIds.contains(item.id);
+                          final isSelected =
+                              _selectedAddonIds.contains(item.id);
                           return CheckboxListTile(
                             value: isSelected,
                             onChanged: (val) {
@@ -249,7 +273,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               });
                             },
                             title: Text(item.name),
-                            subtitle: item.price > 0 ? Text('+${PriceText.format(item.price)}') : null,
+                            subtitle: item.price > 0
+                                ? Text('+${PriceText.format(item.price)}')
+                                : null,
                             contentPadding: EdgeInsets.zero,
                             controlAffinity: ListTileControlAffinity.leading,
                           );
@@ -260,17 +286,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       const SizedBox(height: 24),
                       Row(
                         children: [
-                          Text('Quantity', style: Theme.of(context).textTheme.titleMedium),
+                          Text('Quantity',
+                              style: Theme.of(context).textTheme.titleMedium),
                           const Spacer(),
                           IconButton.outlined(
-                            onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                            onPressed: _quantity > 1
+                                ? () => setState(() => _quantity--)
+                                : null,
                             icon: const Icon(Icons.remove),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
                               '$_quantity',
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.bold),
                             ),
                           ),
                           IconButton.outlined(
@@ -297,7 +327,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : Text(
                           'Add to Cart - ${PriceText.format(_calculatedPrice)}',
