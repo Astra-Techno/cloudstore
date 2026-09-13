@@ -21,7 +21,10 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'Not logged in',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
             FilledButton(
@@ -47,9 +50,13 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 32,
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
                     child: Text(
-                      ((customer?.name.isNotEmpty == true ? customer!.name : 'U'))[0].toUpperCase(),
+                      ((customer?.name.isNotEmpty == true
+                              ? customer!.name
+                              : 'U'))[0]
+                          .toUpperCase(),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -63,8 +70,11 @@ class ProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          customer?.name.isNotEmpty == true ? customer!.name : 'Customer',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          customer?.name.isNotEmpty == true
+                              ? customer!.name
+                              : 'Customer',
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -81,7 +91,9 @@ class ProfileScreen extends StatelessWidget {
                           onPressed: () => _editProfile(context, auth),
                           icon: const Icon(Icons.edit_outlined, size: 16),
                           label: const Text('Edit profile'),
-                          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 28)),
+                          style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 28)),
                         ),
                       ],
                     ),
@@ -113,19 +125,28 @@ class ProfileScreen extends StatelessWidget {
                 const Divider(height: 1),
                 _menuItem(
                   context,
+                  icon: Icons.my_location_rounded,
+                  label: 'Change delivery location',
+                  onTap: () => context.push('/location/setup'),
+                ),
+                const Divider(height: 1),
+                _menuItem(
+                  context,
                   icon: Icons.notifications,
                   label: 'Notifications',
                   trailing: Consumer<NotificationProvider>(
                     builder: (_, np, __) => np.unreadCount > 0
                         ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.red,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               '${np.unreadCount}',
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -146,14 +167,16 @@ class ProfileScreen extends StatelessWidget {
                   context,
                   icon: Icons.privacy_tip_outlined,
                   label: 'Privacy Policy',
-                  onTap: () => _showLegalPage(context, 'Privacy Policy', '/legal/privacy-policy'),
+                  onTap: () => _showLegalPage(
+                      context, 'Privacy Policy', '/legal/privacy-policy'),
                 ),
                 const Divider(height: 1),
                 _menuItem(
                   context,
                   icon: Icons.description_outlined,
                   label: 'Terms of Service',
-                  onTap: () => _showLegalPage(context, 'Terms of Service', '/legal/terms'),
+                  onTap: () => _showLegalPage(
+                      context, 'Terms of Service', '/legal/terms'),
                 ),
                 const Divider(height: 1),
                 _menuItem(
@@ -213,24 +236,45 @@ class ProfileScreen extends StatelessWidget {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Edit profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 18),
-          TextField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Name', prefixIcon: Icon(Icons.person_outline))),
-          const SizedBox(height: 12),
-          TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email (optional)', prefixIcon: Icon(Icons.email_outlined))),
-          const SizedBox(height: 20),
-          FilledButton(onPressed: () async {
-            final ok = await auth.updateProfile(name: name.text, email: email.text);
-            if (sheetContext.mounted && ok) Navigator.pop(sheetContext, true);
-          }, child: const Text('Save changes')),
-        ]),
+        padding: EdgeInsets.fromLTRB(
+            20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 24),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Edit profile',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 18),
+              TextField(
+                  controller: name,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                      labelText: 'Name',
+                      prefixIcon: Icon(Icons.person_outline))),
+              const SizedBox(height: 12),
+              TextField(
+                  controller: email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                      labelText: 'Email (optional)',
+                      prefixIcon: Icon(Icons.email_outlined))),
+              const SizedBox(height: 20),
+              FilledButton(
+                  onPressed: () async {
+                    final ok = await auth.updateProfile(
+                        name: name.text, email: email.text);
+                    if (sheetContext.mounted && ok)
+                      Navigator.pop(sheetContext, true);
+                  },
+                  child: const Text('Save changes')),
+            ]),
       ),
     );
     name.dispose();
     email.dispose();
-    if (saved == true && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
+    if (saved == true && context.mounted)
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Profile updated')));
   }
 
   void _showLegalPage(BuildContext context, String title, String endpoint) {
@@ -280,14 +324,16 @@ class ProfileScreen extends StatelessWidget {
       } else if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['error']?['message'] ?? 'Failed to delete account'),
+            content:
+                Text(data['error']?['message'] ?? 'Failed to delete account'),
           ),
         );
       }
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete account. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to delete account. Please try again.')),
         );
       }
     }
@@ -320,12 +366,13 @@ class _LegalContentScreenState extends State<_LegalContentScreen> {
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
         setState(() {
-          _content = data['data']['content']?.toString() ??
-              data['data'].toString();
+          _content =
+              data['data']['content']?.toString() ?? data['data'].toString();
         });
       }
     } catch (_) {
-      setState(() => _content = 'Unable to load content. Please try again later.');
+      setState(
+          () => _content = 'Unable to load content. Please try again later.');
     } finally {
       setState(() => _loading = false);
     }

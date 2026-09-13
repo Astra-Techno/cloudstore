@@ -4,11 +4,13 @@ import 'package:provider/provider.dart';
 import '../../app/providers/bootstrap_provider.dart';
 import '../../app/providers/auth_provider.dart';
 import '../../app/providers/favourites_provider.dart';
+import '../../app/providers/notification_provider.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../services/api_client.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/state_widgets.dart';
+import '../../widgets/motion_widgets.dart';
 import '../../config/app_config.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -43,7 +45,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final response = await ApiClient().get('/catalog');
       final data = response.data;
@@ -79,7 +84,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Unable to load menu. Check your connection and try again.');
+        setState(() => _error =
+            'Unable to load menu. Check your connection and try again.');
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -122,6 +128,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Widget build(BuildContext context) {
     final tenant = context.watch<BootstrapProvider>();
     final primary = Theme.of(context).colorScheme.primary;
+    final unreadNotifications = context
+        .select<NotificationProvider, int>((provider) => provider.unreadCount);
     return RefreshIndicator(
       onRefresh: () async {
         await Future.wait([_load(), _loadOffers()]);
@@ -130,59 +138,99 @@ class _CatalogScreenState extends State<CatalogScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
-                child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('TODAY\'S MENU',
-                              style: TextStyle(color: primary, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
-                          const SizedBox(height: 4),
-                          Text(
-                              'Order from ${tenant.tenantName ?? 'your favourite store'}',
-                              style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -.5)),
-                          const SizedBox(height: 5),
-                          Text(
-                              tenant.deliveryEnabled && tenant.pickupEnabled
-                                  ? 'Self delivery and easy pickup'
-                                  : tenant.pickupEnabled
-                                      ? 'Easy store pickup available'
-                                      : 'Freshly prepared for you',
-                              style: TextStyle(
-                                  color: Colors.grey.shade600, fontSize: 13)),
-                          const SizedBox(height: 16),
-                          TextField(
-                              controller: _search,
-                              onChanged: (value) =>
-                                  setState(() => _query = value),
-                              decoration: InputDecoration(
-                                hintText: 'Search for dishes, items and more',
-                                prefixIcon: const Icon(Icons.search_rounded),
-                                suffixIcon: _query.isEmpty
-                                    ? null
-                                    : IconButton(
-                                        icon: const Icon(Icons.close_rounded),
-                                        onPressed: () {
-                                          _search.clear();
-                                          setState(() => _query = '');
-                                        }),
-                                filled: true,
-                                fillColor: Colors.white,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(vertical: 15),
-                                border: OutlineInputBorder(
-                                    borderSide:
-                                        BorderSide(color: Colors.grey.shade200),
-                                    borderRadius: BorderRadius.circular(16)),
-                                enabledBorder: OutlineInputBorder(
-                                    borderSide:
-                                        BorderSide(color: Colors.grey.shade200),
-                                    borderRadius: BorderRadius.circular(16)),
-                              )),
-                        ]))),
+                child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Text('TODAY\'S MENU',
+                                    style: TextStyle(
+                                        color: primary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.2)),
+                                const Spacer(),
+                                if (AppConfig.appMode == 'marketplace')
+                                  IconButton(
+                                    tooltip: 'Change store',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: const BoxConstraints(
+                                        minWidth: 40, minHeight: 40),
+                                    icon: const Icon(Icons.storefront_outlined),
+                                    onPressed: () => context.go('/marketplace'),
+                                  ),
+                                Badge(
+                                  isLabelVisible: unreadNotifications > 0,
+                                  label: Text('$unreadNotifications'),
+                                  child: IconButton(
+                                    tooltip: 'Notifications',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: const BoxConstraints(
+                                        minWidth: 40, minHeight: 40),
+                                    icon: const Icon(
+                                        Icons.notifications_none_rounded),
+                                    onPressed: () =>
+                                        context.push('/notifications'),
+                                  ),
+                                ),
+                              ]),
+                              const SizedBox(height: 2),
+                              Text(
+                                  'Order from ${tenant.tenantName ?? 'your favourite store'}',
+                                  style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -.5)),
+                              const SizedBox(height: 5),
+                              Text(
+                                  tenant.deliveryEnabled && tenant.pickupEnabled
+                                      ? 'Self delivery and easy pickup'
+                                      : tenant.pickupEnabled
+                                          ? 'Easy store pickup available'
+                                          : 'Freshly prepared for you',
+                                  style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 13)),
+                              const SizedBox(height: 16),
+                              TextField(
+                                  controller: _search,
+                                  onChanged: (value) =>
+                                      setState(() => _query = value),
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        'Search for dishes, items and more',
+                                    prefixIcon:
+                                        const Icon(Icons.search_rounded),
+                                    suffixIcon: _query.isEmpty
+                                        ? null
+                                        : IconButton(
+                                            icon:
+                                                const Icon(Icons.close_rounded),
+                                            onPressed: () {
+                                              _search.clear();
+                                              setState(() => _query = '');
+                                            }),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        vertical: 15),
+                                    border: OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Colors.grey.shade200),
+                                        borderRadius:
+                                            BorderRadius.circular(16)),
+                                    enabledBorder: OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Colors.grey.shade200),
+                                        borderRadius:
+                                            BorderRadius.circular(16)),
+                                  )),
+                            ])))),
             if (_promotions.isNotEmpty || _bundles.isNotEmpty)
               SliverToBoxAdapter(
                   child:
@@ -217,7 +265,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                           width: 62,
                                           height: 62,
                                           decoration: BoxDecoration(
-                                              color: selected ? primary : _categoryTint(category?.name),
+                                              color: selected
+                                                  ? primary
+                                                  : _categoryTint(
+                                                      category?.name),
                                               borderRadius:
                                                   BorderRadius.circular(18),
                                               border: Border.all(
@@ -231,10 +282,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                                       BorderRadius.circular(17),
                                                   child: Image.network(AppConfig.assetUrl(category.imageUrl!),
                                                       fit: BoxFit.cover,
-                                                      errorBuilder: (_, __, ___) => Icon(_categoryIcon(category.name),
-                                                          color: selected
-                                                              ? Colors.white
-                                                              : primary)))
+                                                      errorBuilder: (_, __, ___) =>
+                                                          Icon(_categoryIcon(category.name),
+                                                              color: selected
+                                                                  ? Colors.white
+                                                                  : primary)))
                                               : Icon(all ? Icons.grid_view_rounded : _categoryIcon(category?.name),
                                                   color: selected ? Colors.white : _categoryAccent(category?.name))),
                                       const SizedBox(height: 6),
@@ -272,8 +324,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   child: Center(child: CircularProgressIndicator()))
             else if (_error != null && _products.isEmpty)
               SliverFillRemaining(
-                  child: ErrorStateWidget(
-                      message: _error!, onRetry: _load))
+                  child: ErrorStateWidget(message: _error!, onRetry: _load))
             else if (_visible.isEmpty)
               SliverFillRemaining(child: _EmptyCatalog(onRetry: _load))
             else
@@ -281,8 +332,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 108),
                   sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                          (context, index) =>
-                              _ProductRow(product: _visible[index]),
+                          (context, index) => StaggeredEntrance(
+                              index: index,
+                              child: _ProductRow(product: _visible[index])),
                           childCount: _visible.length))),
           ]),
     );
@@ -307,21 +359,33 @@ IconData _categoryIcon(String? name) {
 
 Color _categoryTint(String? name) {
   final value = (name ?? '').toLowerCase();
-  if (value.contains('biryani') || value.contains('rice')) return const Color(0xFFFFE7C6);
-  if (value.contains('bread') || value.contains('bakery')) return const Color(0xFFFFE0DD);
-  if (value.contains('drink') || value.contains('juice')) return const Color(0xFFDDF3E8);
-  if (value.contains('sweet') || value.contains('dessert')) return const Color(0xFFF4E2FF);
-  if (value.contains('meat') || value.contains('mutton') || value.contains('chicken')) return const Color(0xFFFFE0CB);
+  if (value.contains('biryani') || value.contains('rice'))
+    return const Color(0xFFFFE7C6);
+  if (value.contains('bread') || value.contains('bakery'))
+    return const Color(0xFFFFE0DD);
+  if (value.contains('drink') || value.contains('juice'))
+    return const Color(0xFFDDF3E8);
+  if (value.contains('sweet') || value.contains('dessert'))
+    return const Color(0xFFF4E2FF);
+  if (value.contains('meat') ||
+      value.contains('mutton') ||
+      value.contains('chicken')) return const Color(0xFFFFE0CB);
   return const Color(0xFFE6F0FF);
 }
 
 Color _categoryAccent(String? name) {
   final value = (name ?? '').toLowerCase();
-  if (value.contains('biryani') || value.contains('rice')) return const Color(0xFFD97706);
-  if (value.contains('bread') || value.contains('bakery')) return const Color(0xFFE76F51);
-  if (value.contains('drink') || value.contains('juice')) return const Color(0xFF218C74);
-  if (value.contains('sweet') || value.contains('dessert')) return const Color(0xFF9B51E0);
-  if (value.contains('meat') || value.contains('mutton') || value.contains('chicken')) return const Color(0xFFD35400);
+  if (value.contains('biryani') || value.contains('rice'))
+    return const Color(0xFFD97706);
+  if (value.contains('bread') || value.contains('bakery'))
+    return const Color(0xFFE76F51);
+  if (value.contains('drink') || value.contains('juice'))
+    return const Color(0xFF218C74);
+  if (value.contains('sweet') || value.contains('dessert'))
+    return const Color(0xFF9B51E0);
+  if (value.contains('meat') ||
+      value.contains('mutton') ||
+      value.contains('chicken')) return const Color(0xFFD35400);
   return const Color(0xFF2F80ED);
 }
 
@@ -354,7 +418,11 @@ class _OffersRail extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: cards.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, index) => cards[index],
+              itemBuilder: (_, index) => StaggeredEntrance(
+                index: index,
+                beginOffset: const Offset(.05, 0),
+                child: cards[index],
+              ),
             ),
           ),
         ],
@@ -469,7 +537,7 @@ class _ProductRow extends StatelessWidget {
     final tint = _categoryTint(product.categoryName);
     final image = product.images.where((item) => item.isPrimary).firstOrNull ??
         (product.images.isNotEmpty ? product.images.first : null);
-    return InkWell(
+    return PressableScale(
         onTap: () => context.push('/product/${product.uuid}'),
         borderRadius: BorderRadius.circular(24),
         child: Container(
@@ -478,7 +546,12 @@ class _ProductRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: [BoxShadow(color: accent.withAlpha(18), blurRadius: 18, offset: const Offset(0, 8))],
+              boxShadow: [
+                BoxShadow(
+                    color: accent.withAlpha(18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8))
+              ],
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
@@ -488,11 +561,18 @@ class _ProductRow extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(children: [
-                              Icon(product.pricingMode == 'weight' ? Icons.eco_outlined : Icons.circle, size: 13, color: accent),
+                              Icon(
+                                  product.pricingMode == 'weight'
+                                      ? Icons.eco_outlined
+                                      : Icons.circle,
+                                  size: 13,
+                                  color: accent),
                               const SizedBox(width: 5),
                               Text(product.categoryName ?? 'Popular',
                                   style: TextStyle(
-                                      color: accent, fontSize: 11, fontWeight: FontWeight.w700))
+                                      color: accent,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700))
                             ]),
                             const SizedBox(height: 5),
                             Text(product.name,
@@ -540,12 +620,20 @@ class _ProductRow extends StatelessWidget {
                                 child: image == null || image.url.isEmpty
                                     ? Container(
                                         color: tint,
-                                        child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))
-                                    : Image.network(AppConfig.assetUrl(image.url),
+                                        child: Icon(
+                                            _categoryIcon(product.categoryName),
+                                            color: accent,
+                                            size: 38))
+                                    : Image.network(
+                                        AppConfig.assetUrl(image.url),
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) => Container(
                                             color: tint,
-                                            child: Icon(_categoryIcon(product.categoryName), color: accent, size: 38))))),
+                                            child: Icon(
+                                                _categoryIcon(
+                                                    product.categoryName),
+                                                color: accent,
+                                                size: 38))))),
                         Positioned(
                           top: 4,
                           right: 4,
@@ -569,7 +657,9 @@ class _ProductRow extends StatelessWidget {
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    isFav ? Icons.favorite : Icons.favorite_border,
+                                    isFav
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
                                     size: 16,
                                     color: isFav ? Colors.red : Colors.grey,
                                   ),

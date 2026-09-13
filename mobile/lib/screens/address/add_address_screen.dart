@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
+import 'package:provider/provider.dart';
+import '../../app/providers/location_provider.dart';
 import '../../services/api_client.dart';
 
 class AddAddressScreen extends StatefulWidget {
@@ -41,7 +43,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_latitude == null || _longitude == null || _deliveryAvailable != true) {
-      setState(() => _error = 'Use your current location and confirm delivery availability first.');
+      setState(() => _error =
+          'Use your current location and confirm delivery availability first.');
       return;
     }
 
@@ -54,7 +57,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       final response = await ApiClient().post('/customer/addresses', data: {
         'label': _labelController.text.trim(),
         'address_line_1': _line1Controller.text.trim(),
-        'address_line_2': _line2Controller.text.trim().isEmpty ? null : _line2Controller.text.trim(),
+        'address_line_2': _line2Controller.text.trim().isEmpty
+            ? null
+            : _line2Controller.text.trim(),
         'city': _cityController.text.trim(),
         'state': _stateController.text.trim(),
         'postal_code': _postalCodeController.text.trim(),
@@ -66,7 +71,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       if (data['success'] == true) {
         if (mounted) Navigator.of(context).pop(true);
       } else {
-        setState(() => _error = data['error']?['message'] ?? 'Failed to save address');
+        setState(() =>
+            _error = data['error']?['message'] ?? 'Failed to save address');
       }
     } catch (_) {
       setState(() => _error = 'Failed to save address');
@@ -76,27 +82,34 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   }
 
   Future<void> _useCurrentLocation() async {
-    setState(() { _locating = true; _error = null; _deliveryAvailable = null; });
+    setState(() {
+      _locating = true;
+      _error = null;
+      _deliveryAvailable = null;
+    });
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
         throw Exception('Turn on Location services to continue.');
       }
       var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied)
+        permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         throw Exception('Location permission is required for delivery.');
       }
-      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
 
-      // Check delivery availability with the API
-      final response = await ApiClient().post('/customer/addresses/availability', data: {
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-      });
-      final availability = response.data['data'];
-      if (response.data['success'] != true || availability is! Map || availability['available'] != true) {
-        setState(() => _error = 'Sorry, this location is outside the store delivery area.');
-      } else {
+      // The shared provider both checks the tenant's delivery zone and stores
+      // the confirmed pin used to unlock the menu.
+      if (!mounted) return;
+      final available = await context.read<LocationProvider>().setAndValidate(
+            position.latitude,
+            position.longitude,
+          );
+      if (!mounted) return;
+      if (available) {
         setState(() {
           _latitude = position.latitude;
           _longitude = position.longitude;
@@ -104,9 +117,22 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         });
         // Reverse geocode to auto-fill address fields
         _reverseGeocode(position.latitude, position.longitude);
+      } else {
+        setState(() {
+          _deliveryAvailable = false;
+          _error = context.read<LocationProvider>().error ??
+              'Sorry, this location is outside the store delivery area.';
+        });
       }
-    } catch (error) {
+    } on DioException {
+      // Do not expose transport/server stack text to customers.
+      setState(() => _error =
+          'We could not confirm delivery availability right now. Please try again.');
+    } on Exception catch (error) {
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } catch (_) {
+      setState(() => _error =
+          'We could not get your location. Try again or choose it on the map.');
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -137,7 +163,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
         // Build address_line_1 from available components
         final roadParts = <String>[];
-        if (address['house_number'] != null) roadParts.add(address['house_number'].toString());
+        if (address['house_number'] != null)
+          roadParts.add(address['house_number'].toString());
         if (address['road'] != null) roadParts.add(address['road'].toString());
         if (roadParts.isEmpty && address['neighbourhood'] != null) {
           roadParts.add(address['neighbourhood'].toString());
@@ -145,7 +172,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
         // Build address_line_2 from suburb/neighbourhood
         final line2Parts = <String>[];
-        if (address['suburb'] != null) line2Parts.add(address['suburb'].toString());
+        if (address['suburb'] != null)
+          line2Parts.add(address['suburb'].toString());
         if (address['neighbourhood'] != null && roadParts.length > 1) {
           line2Parts.add(address['neighbourhood'].toString());
         }
@@ -172,7 +200,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
             if (state.toString().isNotEmpty && _stateController.text.isEmpty) {
               _stateController.text = state.toString();
             }
-            if (postalCode.toString().isNotEmpty && _postalCodeController.text.isEmpty) {
+            if (postalCode.toString().isNotEmpty &&
+                _postalCodeController.text.isEmpty) {
               _postalCodeController.text = postalCode.toString();
             }
           });
@@ -194,7 +223,11 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     const n = 1 << zoom;
     final x = ((lon + 180) / 360 * n).floor();
     final latRad = lat * math.pi / 180.0;
-    final y = ((1 - math.log(math.tan(latRad) + 1 / math.cos(latRad)) / math.pi) / 2 * n).floor();
+    final y =
+        ((1 - math.log(math.tan(latRad) + 1 / math.cos(latRad)) / math.pi) /
+                2 *
+                n)
+            .floor();
     return 'https://tile.openstreetmap.org/$zoom/$x/$y.png';
   }
 
@@ -220,9 +253,12 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                      Icon(Icons.error_outline,
+                          color: Colors.red.shade700, size: 20),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(_error!, style: TextStyle(color: Colors.red.shade700))),
+                      Expanded(
+                          child: Text(_error!,
+                              style: TextStyle(color: Colors.red.shade700))),
                     ],
                   ),
                 ),
@@ -253,11 +289,14 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.map_outlined, size: 36, color: primary.withAlpha(120)),
+                                  Icon(Icons.map_outlined,
+                                      size: 36, color: primary.withAlpha(120)),
                                   const SizedBox(height: 4),
                                   Text(
                                     '${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                    style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 12),
                                   ),
                                 ],
                               ),
@@ -269,7 +308,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       Center(
                         child: Transform.translate(
                           offset: const Offset(0, -14),
-                          child: Icon(Icons.location_pin, size: 40, color: Colors.red.shade600),
+                          child: Icon(Icons.location_pin,
+                              size: 40, color: Colors.red.shade600),
                         ),
                       ),
                       // Coordinates badge
@@ -277,14 +317,16 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         bottom: 8,
                         left: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.black.withAlpha(160),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             '${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-                            style: const TextStyle(color: Colors.white, fontSize: 11),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 11),
                           ),
                         ),
                       ),
@@ -303,7 +345,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       child: ChoiceChip(
                         label: Text(label),
                         selected: _labelController.text == label,
-                        onSelected: (_) => setState(() => _labelController.text = label),
+                        onSelected: (_) =>
+                            setState(() => _labelController.text = label),
                       ),
                     ),
                 ],
@@ -316,8 +359,13 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _locating ? null : _useCurrentLocation,
                   icon: _locating
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(_deliveryAvailable == true ? Icons.check_circle : Icons.my_location),
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(_deliveryAvailable == true
+                          ? Icons.check_circle
+                          : Icons.my_location),
                   label: Text(
                     _locating
                         ? 'Getting your location...'
@@ -370,7 +418,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.home_outlined),
                 ),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -391,7 +440,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         labelText: 'City',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -402,7 +452,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         labelText: 'State',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                   ),
                 ],
@@ -416,21 +467,26 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.pin_drop_outlined),
                 ),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _saving || _deliveryAvailable != true ? null : _save,
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                  onPressed:
+                      _saving || _deliveryAvailable != true ? null : _save,
+                  style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16)),
                   child: _saving
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Save Address', style: TextStyle(fontSize: 16)),
+                      : const Text('Save Address',
+                          style: TextStyle(fontSize: 16)),
                 ),
               ),
             ],

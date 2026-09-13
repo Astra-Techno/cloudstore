@@ -6,6 +6,7 @@ import '../app/providers/auth_provider.dart';
 import '../app/providers/cart_provider.dart';
 import '../app/providers/notification_provider.dart';
 import '../app/providers/driver_provider.dart';
+import '../app/providers/location_provider.dart';
 import '../config/app_config.dart';
 import '../services/notification_service.dart';
 
@@ -69,6 +70,15 @@ class _SplashScreenState extends State<SplashScreen> {
 
         if (mounted) {
           if (auth.isAuthenticated) {
+            // A saved pin is revalidated with the active tenant before any
+            // catalogue is exposed, because delivery zones may change.
+            final hasServiceableLocation =
+                await context.read<LocationProvider>().restoreAndValidate();
+            if (!mounted) return;
+            if (!hasServiceableLocation) {
+              context.go('/location/setup');
+              return;
+            }
             context.read<CartProvider>().loadCart();
             context.read<NotificationProvider>().startPolling();
             context.go('/home');

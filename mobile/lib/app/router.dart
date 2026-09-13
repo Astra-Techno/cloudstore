@@ -16,6 +16,8 @@ import '../screens/driver/driver_login_screen.dart';
 import '../screens/driver/driver_home_screen.dart';
 import '../screens/driver/delivery_detail_screen.dart';
 import '../screens/marketplace/marketplace_screen.dart';
+import '../screens/location/location_setup_screen.dart';
+import '../screens/location/map_location_picker_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -32,6 +34,14 @@ final appRouter = GoRouter(
       builder: (context, state) => const HomeScreen(),
     ),
     GoRoute(
+      path: '/location/setup',
+      builder: (context, state) => const LocationSetupScreen(),
+    ),
+    GoRoute(
+      path: '/location/map',
+      builder: (context, state) => const MapLocationPickerScreen(),
+    ),
+    GoRoute(
       path: '/marketplace',
       builder: (context, state) => const MarketplaceScreen(),
     ),
@@ -41,7 +51,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/otp-verify',
-      builder: (context, state) => OtpVerifyScreen(phone: state.extra as String),
+      builder: (context, state) =>
+          OtpVerifyScreen(phone: state.extra as String),
     ),
     GoRoute(
       path: '/onboarding',
@@ -93,8 +104,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/driver/delivery/:id',
-      builder: (context, state) =>
-          DeliveryDetailScreen(assignmentId: int.parse(state.pathParameters['id']!)),
+      builder: (context, state) => DeliveryDetailScreen(
+          assignmentId: int.parse(state.pathParameters['id']!)),
     ),
   ],
 );

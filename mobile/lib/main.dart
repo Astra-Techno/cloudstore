@@ -7,6 +7,7 @@ import 'app/providers/cart_provider.dart';
 import 'app/providers/notification_provider.dart';
 import 'app/providers/driver_provider.dart';
 import 'app/providers/favourites_provider.dart';
+import 'app/providers/location_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => DriverProvider()),
         ChangeNotifierProvider(create: (_) => FavouritesProvider()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
       ],
       child: const CloudStoreApp(),
     ),
