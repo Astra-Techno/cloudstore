@@ -168,7 +168,8 @@ if (($_GET['action'] ?? '') === 'seed') {
                        'driver_assignments','notifications','rate_limits','idempotency_keys',
                        'delivery_zones','addresses','product_addon_groups','addon_items','addon_groups',
                        'product_variants','product_images','products','categories',
-                       'otp_codes','drivers','customers','admin_permissions','admins',
+                       'otp_codes','favourites','reviews','audit_log',
+                       'drivers','customers','admin_permissions','admins',
                        'app_tokens','tenant_capabilities','tenant_branding','tenants'];
             $db->query("SET FOREIGN_KEY_CHECKS=0");
             foreach ($tables as $t) {
@@ -646,6 +647,7 @@ function runMigrations(): array {
 
             // Get SQL statements from file
             $statements = [];
+            $up = null;
             $ext = pathinfo($file, PATHINFO_EXTENSION);
             if ($ext === 'php') {
                 $migration = require $file;
@@ -654,7 +656,10 @@ function runMigrations(): array {
                     continue;
                 }
                 $up = $migration['up'];
-                if (is_array($up)) {
+                if (is_callable($up)) {
+                    // Callable migration — handled below
+                    $statements = [];
+                } elseif (is_array($up)) {
                     // Array of SQL statements
                     $statements = array_map('trim', $up);
                 } else {
@@ -673,7 +678,12 @@ function runMigrations(): array {
             }
 
             try {
-                foreach ($statements as $stmt) { $pdo->exec($stmt); }
+                // Support callable 'up' — the callable receives the PDO instance
+                if (is_callable($up)) {
+                    $up($pdo);
+                } else {
+                    foreach ($statements as $stmt) { $pdo->exec($stmt); }
+                }
                 $pdo->prepare("INSERT INTO _migrations (filename) VALUES (?)")->execute([$name]);
                 $log[] = ['status' => 'done', 'name' => $name];
             } catch (PDOException $e) {
