@@ -472,10 +472,14 @@ final class BuildController
             $basePath = dirname(__DIR__, 4); // api/ root
             $filePath = $basePath . '/' . $build['file_path'];
             if (file_exists($filePath)) {
-                // Serve APK binary
+                // Disable all output buffering and compression
                 while (ob_get_level()) {
                     ob_end_clean();
                 }
+                if (function_exists('apache_setenv')) {
+                    apache_setenv('no-gzip', '1');
+                }
+                @ini_set('zlib.output_compression', 'Off');
 
                 $appName = preg_replace('/[^a-zA-Z0-9_-]/', '', str_replace(' ', '-', $build['app_name'] ?? 'app'));
                 $filename = $appName . '-' . ($build['app_mode'] ?? 'customer') . '.apk';
@@ -487,16 +491,12 @@ final class BuildController
                 header('Content-Disposition: attachment; filename="' . $filename . '"');
                 header('Content-Length: ' . $fileSize);
                 header('Content-Transfer-Encoding: binary');
+                header('Content-Encoding: identity');
                 header('Cache-Control: no-store');
+                header('X-Content-Type-Options: nosniff');
                 header('Connection: close');
 
-                // Stream in chunks to avoid memory issues on shared hosting
-                $fp = fopen($filePath, 'rb');
-                while (!feof($fp)) {
-                    echo fread($fp, 8192);
-                    flush();
-                }
-                fclose($fp);
+                readfile($filePath);
                 exit;
             }
         }
