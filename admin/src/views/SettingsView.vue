@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { settingsApi } from '@/api/settings'
 import apiClient from '@/api/client'
 import type { StoreSettings, ApiResponse } from '@/types'
+import StoreLocationMap from '@/components/StoreLocationMap.vue'
 
 const settings = ref<StoreSettings | null>(null)
 const loading = ref(true)
@@ -303,6 +304,7 @@ onMounted(loadSettings)
             </label>
           </div>
           <div v-if="settings.delivery_enabled" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5 pt-4 border-t border-gray-100">
+            <StoreLocationMap v-model:latitude="settings.delivery_location.latitude" v-model:longitude="settings.delivery_location.longitude" />
             <div><label class="block text-sm font-medium text-gray-700 mb-1">Store latitude</label><input v-model.number="settings.delivery_location.latitude" type="number" step="any" min="-90" max="90" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="e.g. 9.9312" /></div>
             <div><label class="block text-sm font-medium text-gray-700 mb-1">Store longitude</label><input v-model.number="settings.delivery_location.longitude" type="number" step="any" min="-180" max="180" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="e.g. 76.2673" /></div>
             <p class="md:col-span-2 text-xs text-gray-500">Required for delivery distance, service-area checks, and marketplace discovery. Save after entering the shop's GPS pin.</p>
