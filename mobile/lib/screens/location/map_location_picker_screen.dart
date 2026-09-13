@@ -11,7 +11,8 @@ import '../../app/providers/notification_provider.dart';
 /// Free OpenStreetMap pin picker. It supplies the same precise coordinates as
 /// a commercial map picker without requiring a Google Maps billing key.
 class MapLocationPickerScreen extends StatefulWidget {
-  const MapLocationPickerScreen({super.key});
+  final bool returnLocation;
+  const MapLocationPickerScreen({super.key, this.returnLocation = false});
 
   @override
   State<MapLocationPickerScreen> createState() =>
@@ -29,6 +30,13 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
   }
 
   Future<void> _confirmPin() async {
+    if (widget.returnLocation) {
+      context.pop(<String, double>{
+        'latitude': _pin.latitude,
+        'longitude': _pin.longitude,
+      });
+      return;
+    }
     final location = context.read<LocationProvider>();
     final cart = context.read<CartProvider>();
     final notifications = context.read<NotificationProvider>();
@@ -47,7 +55,10 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
     final location = context.watch<LocationProvider>();
     final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
-      appBar: AppBar(title: const Text('Choose delivery location')),
+      appBar: AppBar(
+          title: Text(widget.returnLocation
+              ? 'Choose address on map'
+              : 'Choose delivery location')),
       body: Stack(children: [
         FlutterMap(
           options: MapOptions(
@@ -97,7 +108,9 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16)),
                 child: Text(
-                  'Move the map and tap your exact location. We will check delivery before showing the menu.',
+                  widget.returnLocation
+                      ? 'Move the map and tap your exact address pin. We will check delivery before saving it.'
+                      : 'Move the map and tap your exact location. We will check delivery before showing the menu.',
                   style: TextStyle(color: Colors.grey.shade700, height: 1.3),
                 ),
               ),
@@ -113,7 +126,9 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                     : const Icon(Icons.check_circle_outline),
                 label: Text(location.isChecking
                     ? 'Checking delivery availability...'
-                    : 'Confirm this location'),
+                    : widget.returnLocation
+                        ? 'Use this address pin'
+                        : 'Confirm this location'),
               ),
             ]),
           ),

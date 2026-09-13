@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_client.dart';
+import '../../models/address.dart';
 
 /// Holds the customer's currently selected delivery pin.
 ///
@@ -11,12 +12,14 @@ import '../../services/api_client.dart';
 class LocationProvider extends ChangeNotifier {
   static const _latitudeKey = 'active_delivery_latitude';
   static const _longitudeKey = 'active_delivery_longitude';
+  static const _addressUuidKey = 'active_delivery_address_uuid';
 
   double? _latitude;
   double? _longitude;
   bool _isChecking = false;
   bool _isServiceable = false;
   String? _error;
+  String? _activeAddressUuid;
 
   double? get latitude => _latitude;
   double? get longitude => _longitude;
@@ -25,6 +28,7 @@ class LocationProvider extends ChangeNotifier {
   bool get hasConfirmedLocation =>
       _isServiceable && _latitude != null && _longitude != null;
   String? get error => _error;
+  String? get activeAddressUuid => _activeAddressUuid;
 
   /// Restores the last customer pin and rechecks it with the active store.
   /// Service zones can change, so a cached pin alone never unlocks the menu.
@@ -32,7 +36,8 @@ class LocationProvider extends ChangeNotifier {
     final preferences = await SharedPreferences.getInstance();
     final latitude = preferences.getDouble(_latitudeKey);
     final longitude = preferences.getDouble(_longitudeKey);
-    if (latitude == null || longitude == null) {
+    _activeAddressUuid = preferences.getString(_addressUuidKey);
+    if (latitude == null || longitude == null || _activeAddressUuid == null) {
       _isServiceable = false;
       return false;
     }
@@ -98,14 +103,44 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
+  /// Makes a saved address the active location for menu availability and for
+  /// checkout. An order always uses this stored address UUID, never a loose
+  /// pin that could be changed halfway through checkout.
+  Future<bool> selectSavedAddress(Address address) async {
+    if (address.latitude == null || address.longitude == null) {
+      _error =
+          'This saved address has no GPS pin. Please add it again using the map or GPS.';
+      _isServiceable = false;
+      notifyListeners();
+      return false;
+    }
+
+    final accepted = await setAndValidate(
+      address.latitude!,
+      address.longitude!,
+      persist: false,
+    );
+    if (!accepted) return false;
+
+    _activeAddressUuid = address.uuid;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setDouble(_latitudeKey, address.latitude!);
+    await preferences.setDouble(_longitudeKey, address.longitude!);
+    await preferences.setString(_addressUuidKey, address.uuid);
+    notifyListeners();
+    return true;
+  }
+
   Future<void> clear() async {
     _latitude = null;
     _longitude = null;
     _isServiceable = false;
     _error = null;
+    _activeAddressUuid = null;
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_latitudeKey);
     await preferences.remove(_longitudeKey);
+    await preferences.remove(_addressUuidKey);
     notifyListeners();
   }
 }

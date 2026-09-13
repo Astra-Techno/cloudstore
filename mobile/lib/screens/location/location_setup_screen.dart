@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/location_provider.dart';
 import '../../app/providers/notification_provider.dart';
+import '../../models/address.dart';
 
 /// Mandatory customer delivery-location gate. Catalogue routes are not exposed
 /// from the normal app flow until the selected GPS/map pin is serviceable.
@@ -17,55 +17,6 @@ class LocationSetupScreen extends StatefulWidget {
 }
 
 class _LocationSetupScreenState extends State<LocationSetupScreen> {
-  bool _gettingGps = false;
-  String? _gpsError;
-
-  Future<void> _useCurrentLocation() async {
-    setState(() {
-      _gettingGps = true;
-      _gpsError = null;
-    });
-
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw StateError('Turn on your device location to continue.');
-      }
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever) {
-        throw StateError(
-            'Location permission is blocked. Enable it in phone settings.');
-      }
-      if (permission == LocationPermission.denied) {
-        throw StateError('Location permission is needed to check delivery.');
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-      if (!mounted) return;
-
-      final accepted = await context.read<LocationProvider>().setAndValidate(
-            position.latitude,
-            position.longitude,
-          );
-      if (accepted && mounted) await _continueToMenu();
-    } on StateError catch (error) {
-      if (mounted) setState(() => _gpsError = error.message.toString());
-    } catch (_) {
-      if (mounted) {
-        setState(() => _gpsError =
-            'We could not get your GPS location. Try again or choose it on the map.');
-      }
-    } finally {
-      if (mounted) setState(() => _gettingGps = false);
-    }
-  }
-
   Future<void> _continueToMenu() async {
     final cart = context.read<CartProvider>();
     final notifications = context.read<NotificationProvider>();
@@ -75,11 +26,21 @@ class _LocationSetupScreenState extends State<LocationSetupScreen> {
     if (mounted) context.go('/home');
   }
 
+  Future<void> _chooseSavedAddress() async {
+    final address = await context.push<Address>('/addresses/select');
+    if (address != null && mounted) await _continueToMenu();
+  }
+
+  Future<void> _addDeliveryAddress() async {
+    final address = await context.push<Address>('/address/add');
+    if (address != null && mounted) await _continueToMenu();
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = context.watch<LocationProvider>();
     final primary = Theme.of(context).colorScheme.primary;
-    final error = _gpsError ?? location.error;
+    final error = location.error;
 
     return Scaffold(
       body: SafeArea(
@@ -128,32 +89,19 @@ class _LocationSetupScreenState extends State<LocationSetupScreen> {
                 const SizedBox(height: 16),
               ],
               FilledButton.icon(
-                onPressed: _gettingGps || location.isChecking
-                    ? null
-                    : _useCurrentLocation,
-                icon: _gettingGps || location.isChecking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.my_location_rounded),
-                label: Text(_gettingGps || location.isChecking
-                    ? 'Checking delivery availability...'
-                    : 'Use my current GPS location'),
+                onPressed: location.isChecking ? null : _addDeliveryAddress,
+                icon: const Icon(Icons.add_location_alt_rounded),
+                label: const Text('Choose and save delivery address'),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: _gettingGps || location.isChecking
-                    ? null
-                    : () => context.push('/location/map'),
-                icon: const Icon(Icons.map_outlined),
-                label: const Text('Choose a location on map'),
+                onPressed: location.isChecking ? null : _chooseSavedAddress,
+                icon: const Icon(Icons.bookmark_outline_rounded),
+                label: const Text('Use a saved address'),
               ),
               const Spacer(),
               Text(
-                'Your location is used only to determine delivery availability and fees. You can change it anytime from your profile.',
+                'Choose a saved address to view the menu. You can switch delivery location anytime from your profile.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: Colors.grey.shade600, fontSize: 12, height: 1.35),

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../services/api_client.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/bootstrap_provider.dart';
+import '../../app/providers/location_provider.dart';
 import '../../models/address.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/state_widgets.dart';
@@ -38,6 +39,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!store.deliveryEnabled && store.pickupEnabled && mounted) {
         setState(() => _orderType = 'pickup');
       }
+      _loadSelectedDeliveryAddress();
     });
   }
 
@@ -75,8 +77,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _addressServiceable = serviceable;
           _serviceabilityWarning =
               serviceable ? null : 'This address is outside the delivery area';
-          _deliveryFeeFromValidation =
-              (d['delivery_fee'] as num?)?.toInt();
+          _deliveryFeeFromValidation = (d['delivery_fee'] as num?)?.toInt();
         });
       }
     } on DioException catch (error) {
@@ -95,11 +96,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  Future<void> _selectAddress() async {
-    final result = await context.push<Address>('/addresses/select');
-    if (result != null) {
-      setState(() => _selectedAddress = result);
+  Future<void> _loadSelectedDeliveryAddress() async {
+    try {
+      final response = await ApiClient().get('/customer/addresses');
+      final body = response.data;
+      if (body is! Map || body['success'] != true || body['data'] is! List)
+        return;
+      final addresses = (body['data'] as List)
+          .whereType<Map>()
+          .map((item) => Address.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+      if (addresses.isEmpty) return;
+
+      final activeUuid = context.read<LocationProvider>().activeAddressUuid;
+      Address? address;
+      for (final item in addresses) {
+        if (item.uuid == activeUuid) {
+          address = item;
+          break;
+        }
+      }
+      for (final item in addresses) {
+        if (address == null && item.isDefault) address = item;
+      }
+      address ??= addresses.first;
+      if (!mounted) return;
+      setState(() => _selectedAddress = address);
       _validateServiceability();
+    } catch (_) {
+      // Checkout will show a clear address requirement if the API is offline.
     }
   }
 
@@ -156,16 +181,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Your order has been placed. Please complete payment to confirm.'),
+                      const Text(
+                          'Your order has been placed. Please complete payment to confirm.'),
                       const SizedBox(height: 16),
                       Text('Order ID: ${payment['razorpay_order_id']}',
-                          style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                      Text('Amount: ${PriceText.format((payment['amount'] as num).toInt())}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.black54)),
+                      Text(
+                          'Amount: ${PriceText.format((payment['amount'] as num).toInt())}',
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       const Text(
                         'Redirecting to payment gateway...',
-                        style: TextStyle(color: Colors.blue, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                            color: Colors.blue, fontStyle: FontStyle.italic),
                       ),
                     ],
                   ),
@@ -204,8 +233,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     } on DioException catch (error) {
       final body = error.response?.data;
-      final apiError = body is Map && body['error'] is Map ? body['error'] as Map : null;
-      setState(() => _error = apiError?['message']?.toString() ?? 'Failed to place order');
+      final apiError =
+          body is Map && body['error'] is Map ? body['error'] as Map : null;
+      setState(() =>
+          _error = apiError?['message']?.toString() ?? 'Failed to place order');
     } catch (_) {
       setState(() => _error = 'Failed to place order. Please try again.');
     } finally {
@@ -248,237 +279,242 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: Stack(
         children: [
           SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_error != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child:
-                    Text(_error!, style: TextStyle(color: Colors.red.shade700)),
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (bootstrap.minOrderAmount > 0 &&
-                cart.subtotal < bootstrap.minOrderAmount) ...[
-              Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Text(
-                      'Add ${PriceText.format(bootstrap.minOrderAmount - cart.subtotal)} more to reach the store minimum.',
-                      style: TextStyle(color: Colors.orange.shade900))),
-              const SizedBox(height: 16),
-            ],
-            if (_serviceabilityWarning != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_rounded,
-                        color: Colors.orange.shade800, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _serviceabilityWarning!,
-                        style: TextStyle(color: Colors.orange.shade900),
-                      ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_error != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Order type
-            _sectionTitle(
-                context, '1. Fulfilment', 'Choose delivery or store pickup'),
-            const SizedBox(height: 8),
-            if (fulfilmentOptions.isEmpty)
-              const Text('This store is not accepting orders right now.')
-            else
-              SegmentedButton<String>(
-                segments: fulfilmentOptions,
-                selected: {_orderType},
-                onSelectionChanged: (s) {
-                  setState(() => _orderType = s.first);
-                  _validateServiceability();
-                },
-              ),
-
-            // Address (for delivery)
-            if (_orderType == 'delivery') ...[
-              const SizedBox(height: 24),
-              _sectionTitle(context, '2. Delivery address',
-                  'Where should we bring your order?'),
-              const SizedBox(height: 8),
-              Card(
-                child: ListTile(
-                  leading: Icon(
-                    _selectedAddress != null
-                        ? Icons.location_on
-                        : Icons.add_location,
-                    color: Theme.of(context).colorScheme.primary,
+                    child: Text(_error!,
+                        style: TextStyle(color: Colors.red.shade700)),
                   ),
-                  title: Text(
-                    _selectedAddress?.label ?? 'Select Address',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: _selectedAddress != null
-                      ? Text(_selectedAddress!.fullAddress,
-                          maxLines: 2, overflow: TextOverflow.ellipsis)
-                      : const Text('Tap to choose delivery address'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _selectAddress,
-                ),
-              ),
-            ],
-
-            // Payment method
-            const SizedBox(height: 24),
-            _sectionTitle(
-                context,
-                _orderType == 'delivery' ? '3. Payment' : '2. Payment',
-                'Choose how you would like to pay'),
-            const SizedBox(height: 8),
-            Card(
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    value: 'cod',
-                    groupValue: _paymentMethod,
-                    onChanged: bootstrap.paymentMethods.contains('cod')
-                        ? (value) => setState(() => _paymentMethod = value!)
-                        : null,
-                    title: Text(_orderType == 'pickup'
-                        ? 'Pay at store'
-                        : 'Cash on Delivery'),
-                    secondary: const Icon(Icons.payments_outlined),
-                  ),
-                  if (bootstrap.paymentMethods.contains('online'))
-                    RadioListTile<String>(
-                      value: 'online',
-                      groupValue: _paymentMethod,
-                      onChanged: (value) =>
-                          setState(() => _paymentMethod = value!),
-                      title: const Text('Pay Online'),
-                      subtitle: const Text(
-                        'UPI, Cards, Net Banking',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      secondary: const Icon(Icons.credit_card),
-                    ),
+                  const SizedBox(height: 16),
                 ],
-              ),
-            ),
-
-            // Notes
-            const SizedBox(height: 24),
-            _sectionTitle(
-                context, 'Order notes', 'Optional instructions for the store'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _notesController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Any special instructions...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            // Summary
-            const SizedBox(height: 24),
-            _sectionTitle(context, 'Review order',
-                'Your final total will include any applicable delivery fee, tax, or offer.'),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    ...cart.items.map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${item.quantity}x ${item.productName}',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Text(PriceText.format(item.lineTotal)),
-                            ],
+                if (bootstrap.minOrderAmount > 0 &&
+                    cart.subtotal < bootstrap.minOrderAmount) ...[
+                  Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Text(
+                          'Add ${PriceText.format(bootstrap.minOrderAmount - cart.subtotal)} more to reach the store minimum.',
+                          style: TextStyle(color: Colors.orange.shade900))),
+                  const SizedBox(height: 16),
+                ],
+                if (_serviceabilityWarning != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            color: Colors.orange.shade800, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _serviceabilityWarning!,
+                            style: TextStyle(color: Colors.orange.shade900),
                           ),
-                        )),
-                    const Divider(),
-                    _summaryRow('Subtotal', cart.subtotal),
-                    if (deliveryCharge > 0)
-                      _summaryRow('Delivery charge', deliveryCharge),
-                    if (serviceCharge > 0)
-                      _summaryRow(
-                          'Service charge (${bootstrap.serviceChargePercent}%)',
-                          serviceCharge),
-                    if (taxAmount > 0)
-                      _summaryRow('Tax (${bootstrap.taxRate}%)', taxAmount),
-                    if (deliveryCharge > 0 ||
-                        serviceCharge > 0 ||
-                        taxAmount > 0) ...[
-                      const Divider(),
-                      _summaryRow('Estimated Total', estimatedTotal,
-                          bold: true),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _placing ||
-                        _validatingAddress ||
-                        (!_addressServiceable && _orderType == 'delivery') ||
-                        fulfilmentOptions.isEmpty ||
-                        !bootstrap.paymentMethods.contains(_paymentMethod == 'online' ? 'online' : 'cod') ||
-                        cart.subtotal < bootstrap.minOrderAmount
-                    ? null
-                    : _placeOrder,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _placing || _validatingAddress
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : Text(
-                        'Place Order - ${PriceText.format(estimatedTotal)}',
-                        style: const TextStyle(fontSize: 16),
+                // Order type
+                _sectionTitle(context, '1. Fulfilment',
+                    'Choose delivery or store pickup'),
+                const SizedBox(height: 8),
+                if (fulfilmentOptions.isEmpty)
+                  const Text('This store is not accepting orders right now.')
+                else
+                  SegmentedButton<String>(
+                    segments: fulfilmentOptions,
+                    selected: {_orderType},
+                    onSelectionChanged: (s) {
+                      setState(() => _orderType = s.first);
+                      _validateServiceability();
+                    },
+                  ),
+
+                // Address (for delivery)
+                if (_orderType == 'delivery') ...[
+                  const SizedBox(height: 24),
+                  _sectionTitle(context, '2. Delivery address',
+                      'Where should we bring your order?'),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        _selectedAddress != null
+                            ? Icons.location_on
+                            : Icons.add_location,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-              ),
+                      title: Text(
+                        _selectedAddress?.label ?? 'Select Address',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: _selectedAddress != null
+                          ? Text(_selectedAddress!.fullAddress,
+                              maxLines: 2, overflow: TextOverflow.ellipsis)
+                          : const Text(
+                              'Choose a saved location from your profile first'),
+                      trailing: const Icon(Icons.verified_rounded),
+                    ),
+                  ),
+                ],
+
+                // Payment method
+                const SizedBox(height: 24),
+                _sectionTitle(
+                    context,
+                    _orderType == 'delivery' ? '3. Payment' : '2. Payment',
+                    'Choose how you would like to pay'),
+                const SizedBox(height: 8),
+                Card(
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        value: 'cod',
+                        groupValue: _paymentMethod,
+                        onChanged: bootstrap.paymentMethods.contains('cod')
+                            ? (value) => setState(() => _paymentMethod = value!)
+                            : null,
+                        title: Text(_orderType == 'pickup'
+                            ? 'Pay at store'
+                            : 'Cash on Delivery'),
+                        secondary: const Icon(Icons.payments_outlined),
+                      ),
+                      if (bootstrap.paymentMethods.contains('online'))
+                        RadioListTile<String>(
+                          value: 'online',
+                          groupValue: _paymentMethod,
+                          onChanged: (value) =>
+                              setState(() => _paymentMethod = value!),
+                          title: const Text('Pay Online'),
+                          subtitle: const Text(
+                            'UPI, Cards, Net Banking',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          secondary: const Icon(Icons.credit_card),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Notes
+                const SizedBox(height: 24),
+                _sectionTitle(context, 'Order notes',
+                    'Optional instructions for the store'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _notesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Any special instructions...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
+                // Summary
+                const SizedBox(height: 24),
+                _sectionTitle(context, 'Review order',
+                    'Your final total will include any applicable delivery fee, tax, or offer.'),
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        ...cart.items.map((item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${item.quantity}x ${item.productName}',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(PriceText.format(item.lineTotal)),
+                                ],
+                              ),
+                            )),
+                        const Divider(),
+                        _summaryRow('Subtotal', cart.subtotal),
+                        if (deliveryCharge > 0)
+                          _summaryRow('Delivery charge', deliveryCharge),
+                        if (serviceCharge > 0)
+                          _summaryRow(
+                              'Service charge (${bootstrap.serviceChargePercent}%)',
+                              serviceCharge),
+                        if (taxAmount > 0)
+                          _summaryRow('Tax (${bootstrap.taxRate}%)', taxAmount),
+                        if (deliveryCharge > 0 ||
+                            serviceCharge > 0 ||
+                            taxAmount > 0) ...[
+                          const Divider(),
+                          _summaryRow('Estimated Total', estimatedTotal,
+                              bold: true),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _placing ||
+                            _validatingAddress ||
+                            (!_addressServiceable &&
+                                _orderType == 'delivery') ||
+                            fulfilmentOptions.isEmpty ||
+                            !bootstrap.paymentMethods.contains(
+                                _paymentMethod == 'online'
+                                    ? 'online'
+                                    : 'cod') ||
+                            cart.subtotal < bootstrap.minOrderAmount
+                        ? null
+                        : _placeOrder,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: _placing || _validatingAddress
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(
+                            'Place Order - ${PriceText.format(estimatedTotal)}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+          ),
           if (_placing)
             Container(
               color: Colors.black.withAlpha(80),

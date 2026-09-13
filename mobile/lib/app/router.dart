@@ -39,7 +39,9 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/location/map',
-      builder: (context, state) => const MapLocationPickerScreen(),
+      builder: (context, state) => MapLocationPickerScreen(
+        returnLocation: state.uri.queryParameters['for'] == 'address',
+      ),
     ),
     GoRoute(
       path: '/marketplace',

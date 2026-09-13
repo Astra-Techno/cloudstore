@@ -27,14 +27,14 @@ class Address {
 
   factory Address.fromJson(Map<String, dynamic> json) {
     return Address(
-      id: json['id'] as int,
-      uuid: json['uuid'] as String,
+      id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      uuid: json['uuid']?.toString() ?? '',
       label: json['label'] as String? ?? 'Home',
-      addressLine1: json['address_line_1'] as String,
+      addressLine1: json['address_line_1']?.toString() ?? '',
       addressLine2: json['address_line_2'] as String?,
-      city: json['city'] as String,
+      city: json['city']?.toString() ?? '',
       state: json['state'] as String? ?? '',
-      postalCode: json['postal_code'] as String,
+      postalCode: json['postal_code']?.toString() ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       isDefault: json['is_default'] == 1 || json['is_default'] == true,
@@ -57,7 +57,8 @@ class Address {
 
   String get fullAddress {
     final parts = [addressLine1];
-    if (addressLine2 != null && addressLine2!.isNotEmpty) parts.add(addressLine2!);
+    if (addressLine2 != null && addressLine2!.isNotEmpty)
+      parts.add(addressLine2!);
     parts.add('$city $postalCode');
     return parts.join(', ');
   }

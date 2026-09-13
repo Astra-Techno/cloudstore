@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../app/providers/location_provider.dart';
 import '../../services/api_client.dart';
+import '../../models/address.dart';
 
 class AddAddressScreen extends StatefulWidget {
   const AddAddressScreen({super.key});
@@ -65,11 +67,17 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         'postal_code': _postalCodeController.text.trim(),
         'latitude': _latitude,
         'longitude': _longitude,
+        'is_default': true,
       });
 
       final data = response.data;
-      if (data['success'] == true) {
-        if (mounted) Navigator.of(context).pop(true);
+      if (data['success'] == true && data['data'] is Map) {
+        final address =
+            Address.fromJson(Map<String, dynamic>.from(data['data'] as Map));
+        if (mounted) {
+          await context.read<LocationProvider>().selectSavedAddress(address);
+          if (mounted) Navigator.of(context).pop(address);
+        }
       } else {
         setState(() =>
             _error = data['error']?['message'] ?? 'Failed to save address');
@@ -107,6 +115,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       final available = await context.read<LocationProvider>().setAndValidate(
             position.latitude,
             position.longitude,
+            persist: false,
           );
       if (!mounted) return;
       if (available) {
@@ -136,6 +145,44 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     } finally {
       if (mounted) setState(() => _locating = false);
     }
+  }
+
+  Future<void> _chooseLocationOnMap() async {
+    final result =
+        await context.push<Map<String, double>>('/location/map?for=address');
+    if (result == null) return;
+    setState(() {
+      _locating = true;
+      _error = null;
+      _deliveryAvailable = null;
+    });
+    final latitude = result['latitude'];
+    final longitude = result['longitude'];
+    if (latitude == null || longitude == null) {
+      if (mounted) setState(() => _locating = false);
+      return;
+    }
+    final available = await context.read<LocationProvider>().setAndValidate(
+          latitude,
+          longitude,
+          persist: false,
+        );
+    if (!mounted) return;
+    if (available) {
+      setState(() {
+        _latitude = latitude;
+        _longitude = longitude;
+        _deliveryAvailable = true;
+      });
+      _reverseGeocode(latitude, longitude);
+    } else {
+      setState(() {
+        _deliveryAvailable = false;
+        _error = context.read<LocationProvider>().error ??
+            'This location is outside the delivery area.';
+      });
+    }
+    if (mounted) setState(() => _locating = false);
   }
 
   /// Calls the Nominatim reverse geocoding API to fill in address fields from coordinates.
@@ -380,6 +427,15 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           backgroundColor: Colors.green.shade50,
                         )
                       : null,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _locating ? null : _chooseLocationOnMap,
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('Choose address pin on map'),
                 ),
               ),
               const SizedBox(height: 6),

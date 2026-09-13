@@ -29,7 +29,16 @@ final class AddressController
             return Response::unauthorized();
         }
 
-        $addresses = $this->addressRepo->findByCustomer((int) $customer['id'], TenantContext::id());
+        $customerId = (int) $customer['id'];
+        $tenantId = TenantContext::id();
+        $addresses = $this->addressRepo->findByCustomer($customerId, $tenantId);
+
+        // Repair legacy customers created before defaults were enforced.
+        if ($addresses !== [] && !array_filter($addresses, fn (array $address): bool => (bool) ($address['is_default'] ?? false))) {
+            $this->addressRepo->clearDefault($customerId, $tenantId);
+            $this->addressRepo->update((int) $addresses[0]['id'], $customerId, $tenantId, ['is_default' => 1]);
+            $addresses = $this->addressRepo->findByCustomer($customerId, $tenantId);
+        }
 
         return Response::success($addresses);
     }
@@ -56,7 +65,13 @@ final class AddressController
         $data['customer_id'] = $customerId;
         $data['tenant_id'] = $tenantId;
 
-        if (!empty($data['is_default'])) {
+        // The first saved address must always be usable as the customer's
+        // default. The app also sends this explicitly, but enforcing it here
+        // protects all clients and prevents an address list with no default.
+        $existingAddresses = $this->addressRepo->findByCustomer($customerId, $tenantId);
+        $data['is_default'] = empty($existingAddresses) || !empty($data['is_default']);
+
+        if ($data['is_default']) {
             $this->addressRepo->clearDefault($customerId, $tenantId);
         }
 
