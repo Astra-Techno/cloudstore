@@ -82,7 +82,7 @@ const adminForm = ref({ name: '', email: '', password: '', role: 'tenant_owner' 
 
 // Builds
 const tenantBuilds = ref<AppBuild[]>([])
-const buildForm = ref({ platform: 'android', app_mode: 'customer', build_type: 'apk', app_name: '', app_id: 'com.cloudmarket.cloudstore', primary_color: '#4CAF50' })
+const buildForm = ref({ platform: 'android', app_mode: 'customer', build_type: 'apk', app_name: '', app_id: 'com.cloudmarket.cloudstore', primary_color: '#E23744' })
 const copiedToken = ref('')
 const fetchingBuild = ref('')
 
@@ -248,7 +248,7 @@ async function openBuildModal() {
   buildForm.value = {
     platform: 'android', app_mode: 'customer', build_type: 'apk',
     app_name: selectedTenant.value.name, app_id: tenantToAppId(slug),
-    primary_color: '#4CAF50',
+    primary_color: '#E23744',
   }
   showBuildModal.value = true
 }

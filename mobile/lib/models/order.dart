@@ -59,6 +59,14 @@ class Order {
       updatedAt: json['updated_at']?.toString() ??
           json['created_at']?.toString() ??
           '',
+      items: (json['items'] as List<dynamic>?)
+              ?.map((i) => OrderItem.fromJson(Map<String, dynamic>.from(i as Map)))
+              .toList() ??
+          [],
+      statusHistory: (json['status_history'] as List<dynamic>?)
+              ?.map((h) => StatusHistoryEntry.fromJson(Map<String, dynamic>.from(h as Map)))
+              .toList() ??
+          [],
     );
   }
 

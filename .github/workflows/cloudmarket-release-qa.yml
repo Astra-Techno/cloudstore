@@ -39,7 +39,7 @@ on:
       primary_color:
         description: "Brand colour as #RRGGBB"
         required: true
-        default: "#4CAF50"
+        default: "#E23744"
         type: string
 
 permissions:

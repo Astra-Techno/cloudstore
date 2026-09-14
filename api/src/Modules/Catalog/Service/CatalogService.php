@@ -128,9 +128,9 @@ final class CatalogService
 
         if ($includeVariants) {
             foreach ($products as &$product) {
-                $product['category_name'] = $category['name'];
                 $product['variants'] = $this->variantRepo->findByProduct((int) $product['id']);
             }
+            unset($product);
         }
 
         return [

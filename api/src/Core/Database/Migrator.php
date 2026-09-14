@@ -82,10 +82,15 @@ final class Migrator
             throw new \RuntimeException("Migration {$file} must return an array with 'up' key.");
         }
 
-        $statements = is_array($migration['up']) ? $migration['up'] : [$migration['up']];
+        $up = $migration['up'];
 
-        foreach ($statements as $sql) {
-            $this->pdo->exec($sql);
+        if (is_callable($up)) {
+            $up($this->pdo);
+        } else {
+            $statements = is_array($up) ? $up : [$up];
+            foreach ($statements as $sql) {
+                $this->pdo->exec($sql);
+            }
         }
 
         $this->pdo->prepare("INSERT INTO migrations (migration, batch) VALUES (?, ?)")

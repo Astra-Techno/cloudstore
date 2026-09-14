@@ -7,7 +7,7 @@ return [
         CREATE TABLE tenant_branding (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             tenant_id BIGINT UNSIGNED NOT NULL UNIQUE,
-            primary_color VARCHAR(7) NOT NULL DEFAULT '#2563EB',
+            primary_color VARCHAR(7) NOT NULL DEFAULT '#E23744',
             secondary_color VARCHAR(7) NOT NULL DEFAULT '#1E40AF',
             accent_color VARCHAR(7) DEFAULT NULL,
             font VARCHAR(100) DEFAULT NULL,

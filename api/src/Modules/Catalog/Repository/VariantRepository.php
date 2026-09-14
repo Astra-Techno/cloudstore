@@ -83,12 +83,12 @@ final class VariantRepository
         $this->db->execute("DELETE FROM product_variants WHERE id = ?", [$id]);
     }
 
-    public function decrementStock(int $id, int $amount): bool
+    public function decrementStock(int $id, int $tenantId, int $amount): bool
     {
         $affected = $this->db->execute(
             "UPDATE product_variants SET stock_quantity = stock_quantity - ?
-             WHERE id = ? AND stock_mode = 'limited_stock' AND stock_quantity >= ?",
-            [$amount, $id, $amount]
+             WHERE id = ? AND tenant_id = ? AND stock_mode = 'limited_stock' AND stock_quantity >= ?",
+            [$amount, $id, $tenantId, $amount]
         );
 
         return $affected > 0;

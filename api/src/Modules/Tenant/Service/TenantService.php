@@ -56,7 +56,7 @@ final class TenantService
         return [
             'tenant' => $tenant->toPublicArray(),
             'branding' => [
-                'primary_color' => $branding['primary_color'] ?? '#2563EB',
+                'primary_color' => $branding['primary_color'] ?? '#E23744',
                 'secondary_color' => $branding['secondary_color'] ?? '#1E40AF',
                 'accent_color' => $branding['accent_color'] ?? null,
                 'font' => $branding['font'] ?? null,

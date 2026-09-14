@@ -226,7 +226,7 @@ final class CheckoutService
                     }
 
                     $success = $item['variant_id'] !== null
-                        ? $this->variantRepo->decrementStock((int) $item['variant_id'], (int) $item['quantity'])
+                        ? $this->variantRepo->decrementStock((int) $item['variant_id'], $tenantId, (int) $item['quantity'])
                         : $this->productRepo->decrementStock((int) $item['product_id'], $tenantId, (int) $item['quantity']);
 
                     if (!$success) {

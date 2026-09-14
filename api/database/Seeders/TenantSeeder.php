@@ -62,7 +62,7 @@ final class TenantSeeder
         ]);
 
         $brandingRepo->upsert($tenantB->id, [
-            'primary_color' => '#2563EB',
+            'primary_color' => '#E23744',
             'secondary_color' => '#1E40AF',
             'font' => 'Poppins',
         ]);

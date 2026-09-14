@@ -35,10 +35,25 @@ class Address {
       city: json['city']?.toString() ?? '',
       state: json['state'] as String? ?? '',
       postalCode: json['postal_code']?.toString() ?? '',
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      isDefault: json['is_default'] == 1 || json['is_default'] == true,
+      // PDO returns DECIMAL columns as strings.  Parsing both JSON numbers
+      // and database strings keeps saved addresses usable after a successful
+      // API response instead of throwing while the app builds the model.
+      latitude: _asDouble(json['latitude']),
+      longitude: _asDouble(json['longitude']),
+      isDefault: _asBool(json['is_default']),
     );
+  }
+
+  static double? _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  static bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    return value?.toString() == '1' ||
+        value?.toString().toLowerCase() == 'true';
   }
 
   Map<String, dynamic> toJson() {

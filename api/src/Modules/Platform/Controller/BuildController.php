@@ -205,7 +205,7 @@ final class BuildController
         $status = $data['status'] ?? '';
 
         if ($buildId === '' || $status === '') {
-            return Response::error('Missing build_id or status.', 400);
+            return Response::error('Missing build_id or status.', 'VALIDATION_ERROR', 400);
         }
 
         // Optionally verify webhook secret
@@ -213,7 +213,7 @@ final class BuildController
         if ($secret !== '') {
             $providedSecret = $data['secret'] ?? $request->header('X-Build-Secret') ?? '';
             if (!hash_equals($secret, (string) $providedSecret)) {
-                return Response::error('Invalid webhook secret.', 403);
+                return Response::error('Invalid webhook secret.', 'FORBIDDEN', 403);
             }
         }
 
@@ -278,7 +278,7 @@ final class BuildController
         }
 
         if (empty($build['github_run_id'])) {
-            return Response::error('No GitHub run ID — cannot fetch artifact.', 400);
+            return Response::error('No GitHub run ID — cannot fetch artifact.', 'VALIDATION_ERROR', 400);
         }
 
         // If already has a download_url, return it
@@ -464,7 +464,7 @@ final class BuildController
         }
 
         if ($build['expires_at'] !== null && strtotime($build['expires_at']) < time()) {
-            return Response::error('This download link has expired.', 410);
+            return Response::error('This download link has expired.', 'LINK_EXPIRED', 410);
         }
 
         // If file_path exists on disk, serve the APK directly

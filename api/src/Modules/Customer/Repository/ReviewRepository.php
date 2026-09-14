@@ -20,7 +20,7 @@ final class ReviewRepository
     {
         return $this->db->fetchAll(
             "SELECT r.uuid, r.rating, r.review_text, r.status, r.created_at,
-                    cu.first_name as customer_name
+                    cu.name as customer_name
              FROM reviews r
              JOIN customers cu ON cu.id = r.customer_id
              WHERE r.tenant_id = ? AND r.product_id = ? AND r.status = 'approved'

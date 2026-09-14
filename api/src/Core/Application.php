@@ -67,6 +67,7 @@ use App\Modules\Notification\Service\PushNotificationService;
 use App\Modules\Notification\Controller\NotificationController;
 use App\Modules\Notification\Controller\AdminNotificationController;
 use App\Modules\Admin\Controller\AdminSettingsController;
+use App\Modules\Admin\Controller\AdminDriverController;
 use App\Modules\Admin\Controller\AnalyticsController;
 use App\Modules\Admin\Repository\AuditLogRepository;
 use App\Modules\Catalog\Service\ImageService;
@@ -477,6 +478,7 @@ final class Application
         $this->container->singleton(AdminPosController::class, fn () => new AdminPosController(
             $this->container->get(Connection::class),
             $this->container->get(ProductRepository::class),
+            $this->container->get(VariantRepository::class),
             $this->container->get(CustomerRepository::class),
             $this->container->get(OrderRepository::class),
         ));
@@ -513,6 +515,10 @@ final class Application
             $this->container->get(OrderRepository::class),
             $this->container->get(TenantRepository::class),
             $this->container->get(BrandingRepository::class),
+        ));
+
+        $this->container->singleton(AdminDriverController::class, fn () => new AdminDriverController(
+            $this->container->get(DriverRepository::class),
         ));
 
         // Admin analytics & audit

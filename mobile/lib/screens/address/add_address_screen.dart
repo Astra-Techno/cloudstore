@@ -71,21 +71,45 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       });
 
       final data = response.data;
-      if (data['success'] == true && data['data'] is Map) {
+      if (data is Map && data['success'] == true && data['data'] is Map) {
         final address =
             Address.fromJson(Map<String, dynamic>.from(data['data'] as Map));
         if (mounted) {
-          await context.read<LocationProvider>().selectSavedAddress(address);
-          if (mounted) Navigator.of(context).pop(address);
+          final locationProvider = context.read<LocationProvider>();
+          final selected = await locationProvider.selectSavedAddress(address);
+          if (!mounted) return;
+          if (selected) {
+            Navigator.of(context).pop(address);
+          } else {
+            setState(() => _error = locationProvider.error ??
+                'Address was saved, but we could not confirm delivery availability.');
+          }
         }
       } else {
-        setState(() =>
-            _error = data['error']?['message'] ?? 'Failed to save address');
+        final apiError = data is Map && data['error'] is Map
+            ? data['error'] as Map
+            : null;
+        if (mounted) {
+          setState(() => _error = apiError?['message']?.toString() ??
+              'Unable to save the address. Please try again.');
+        }
+      }
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final apiError = body is Map && body['error'] is Map
+          ? body['error'] as Map
+          : null;
+      if (mounted) {
+        setState(() => _error = apiError?['message']?.toString() ??
+            'Unable to save the address. Please try again.');
       }
     } catch (_) {
-      setState(() => _error = 'Failed to save address');
+      if (mounted) {
+        setState(() => _error =
+            'Address was saved but could not be opened. Return to saved addresses and try again.');
+      }
     } finally {
-      setState(() => _saving = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -151,6 +175,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     final result =
         await context.push<Map<String, double>>('/location/map?for=address');
     if (result == null) return;
+    if (!mounted) return;
     setState(() {
       _locating = true;
       _error = null;
@@ -162,7 +187,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       if (mounted) setState(() => _locating = false);
       return;
     }
-    final available = await context.read<LocationProvider>().setAndValidate(
+    final locationProvider = context.read<LocationProvider>();
+    final available = await locationProvider.setAndValidate(
           latitude,
           longitude,
           persist: false,
@@ -178,7 +204,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     } else {
       setState(() {
         _deliveryAvailable = false;
-        _error = context.read<LocationProvider>().error ??
+        _error = locationProvider.error ??
             'This location is outside the delivery area.';
       });
     }

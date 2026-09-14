@@ -57,11 +57,11 @@ class Product {
               .toList() ??
           [],
       variants: (json['variants'] as List<dynamic>?)
-              ?.map((v) => ProductVariant.fromJson(v))
+              ?.map((v) => ProductVariant.fromJson(Map<String, dynamic>.from(v as Map)))
               .toList() ??
           [],
       addonGroups: (json['addon_groups'] as List<dynamic>?)
-              ?.map((g) => AddonGroup.fromJson(g))
+              ?.map((g) => AddonGroup.fromJson(Map<String, dynamic>.from(g as Map)))
               .toList() ??
           [],
     );

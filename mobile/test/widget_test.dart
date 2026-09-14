@@ -24,7 +24,7 @@ void main() {
         'name': 'Test Store',
         'business_type': 'retail'
       },
-      'branding': <String, dynamic>{'primary_color': '#4CAF50'},
+      'branding': <String, dynamic>{'primary_color': '#E23744'},
       'features': <String, dynamic>{},
     });
 

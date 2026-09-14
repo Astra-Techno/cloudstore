@@ -68,7 +68,7 @@ jobs:
             echo "build_type=${{ github.event.client_payload.build_type || 'apk' }}" >> $GITHUB_OUTPUT
             echo "webhook_url=${{ github.event.client_payload.webhook_url || '' }}" >> $GITHUB_OUTPUT
             echo "build_id=${{ github.event.client_payload.build_id || '' }}" >> $GITHUB_OUTPUT
-            echo "primary_color=${{ github.event.client_payload.primary_color || '#4CAF50' }}" >> $GITHUB_OUTPUT
+            echo "primary_color=${{ github.event.client_payload.primary_color || '#E23744' }}" >> $GITHUB_OUTPUT
             echo "webhook_secret=${{ github.event.client_payload.webhook_secret || '' }}" >> $GITHUB_OUTPUT
           else
             echo "app_token=${{ inputs.app_token }}" >> $GITHUB_OUTPUT
@@ -79,7 +79,7 @@ jobs:
             echo "build_type=${{ inputs.build_type }}" >> $GITHUB_OUTPUT
             echo "webhook_url=${{ inputs.webhook_url || '' }}" >> $GITHUB_OUTPUT
             echo "build_id=${{ inputs.build_id || '' }}" >> $GITHUB_OUTPUT
-            echo "primary_color=#4CAF50" >> $GITHUB_OUTPUT
+            echo "primary_color=#E23744" >> $GITHUB_OUTPUT
             echo "webhook_secret=" >> $GITHUB_OUTPUT
           fi
 
