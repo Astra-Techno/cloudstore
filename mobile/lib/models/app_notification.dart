@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class AppNotification {
   final int id;
   final String uuid;
@@ -23,14 +25,14 @@ class AppNotification {
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
-      id: json['id'] as int,
-      uuid: json['uuid'] as String,
-      type: json['type'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      data: json['data'] as String?,
-      readAt: json['read_at'] as String?,
-      createdAt: json['created_at'] as String,
+      id: JsonValue.integer(json['id']),
+      uuid: JsonValue.string(json['uuid']),
+      type: JsonValue.string(json['type'], 'general'),
+      title: JsonValue.string(json['title']),
+      body: JsonValue.string(json['body']),
+      data: JsonValue.nullableString(json['data']),
+      readAt: JsonValue.nullableString(json['read_at']),
+      createdAt: JsonValue.string(json['created_at']),
     );
   }
 }

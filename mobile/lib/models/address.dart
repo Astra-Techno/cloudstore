@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class Address {
   final int id;
   final String uuid;
@@ -27,34 +29,24 @@ class Address {
 
   factory Address.fromJson(Map<String, dynamic> json) {
     return Address(
-      id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
-      uuid: json['uuid']?.toString() ?? '',
-      label: json['label'] as String? ?? 'Home',
-      addressLine1: json['address_line_1']?.toString() ?? '',
-      addressLine2: json['address_line_2'] as String?,
-      city: json['city']?.toString() ?? '',
-      state: json['state'] as String? ?? '',
-      postalCode: json['postal_code']?.toString() ?? '',
+      id: JsonValue.integer(json['id']),
+      uuid: JsonValue.string(json['uuid']),
+      label: JsonValue.string(json['label'], 'Home'),
+      addressLine1: JsonValue.string(json['address_line_1']),
+      addressLine2: JsonValue.nullableString(json['address_line_2']),
+      city: JsonValue.string(json['city']),
+      state: JsonValue.string(json['state']),
+      postalCode: JsonValue.string(json['postal_code']),
       // PDO returns DECIMAL columns as strings.  Parsing both JSON numbers
       // and database strings keeps saved addresses usable after a successful
       // API response instead of throwing while the app builds the model.
       latitude: _asDouble(json['latitude']),
       longitude: _asDouble(json['longitude']),
-      isDefault: _asBool(json['is_default']),
+      isDefault: JsonValue.boolean(json['is_default']),
     );
   }
 
-  static double? _asDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '');
-  }
-
-  static bool _asBool(dynamic value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    return value?.toString() == '1' ||
-        value?.toString().toLowerCase() == 'true';
-  }
+  static double? _asDouble(dynamic value) => JsonValue.nullableDouble(value);
 
   Map<String, dynamic> toJson() {
     return {

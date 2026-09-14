@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class CartData {
   final List<CartItem> items;
   final int subtotal;
@@ -5,14 +7,11 @@ class CartData {
   CartData({required this.items, required this.subtotal});
 
   factory CartData.fromJson(Map<String, dynamic> json) {
-    final itemsList = json['items'] as List<dynamic>? ?? [];
-    final items = itemsList.map((i) => CartItem.fromJson(i)).toList();
-    final rawSubtotal = json['subtotal'];
-    final subtotal = rawSubtotal is int
-        ? rawSubtotal
-        : rawSubtotal is String
-            ? (int.tryParse(rawSubtotal) ?? 0)
-            : items.fold(0, (sum, i) => sum + i.lineTotal);
+    final items = JsonValue.objectList(json['items'])
+        .map(CartItem.fromJson)
+        .toList();
+    final subtotal = JsonValue.nullableInt(json['subtotal']) ??
+        items.fold<int>(0, (sum, item) => sum + item.lineTotal);
     return CartData(items: items, subtotal: subtotal);
   }
 }
@@ -53,11 +52,11 @@ class CartItem {
         .where((name) => name.isNotEmpty)
         .toList();
     return CartItem(
-      id: _toInt(json['id']),
-      productUuid: json['product_uuid']?.toString() ?? '',
-      productName: json['product_name']?.toString() ?? 'Product',
-      variantUuid: json['variant_uuid']?.toString(),
-      variantName: json['variant_name']?.toString(),
+      id: JsonValue.integer(json['id']),
+      productUuid: JsonValue.string(json['product_uuid']),
+      productName: JsonValue.string(json['product_name'], 'Product'),
+      variantUuid: JsonValue.nullableString(json['variant_uuid']),
+      variantName: JsonValue.nullableString(json['variant_name']),
       quantity: quantity,
       unitPrice: unitPrice,
       addonsPrice: addonsPrice,
@@ -66,10 +65,5 @@ class CartItem {
     );
   }
 
-  static int _toInt(dynamic v) {
-    if (v is int) return v;
-    if (v is double) return v.toInt();
-    if (v is String) return int.tryParse(v) ?? 0;
-    return 0;
-  }
+  static int _toInt(dynamic value) => JsonValue.integer(value);
 }

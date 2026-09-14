@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class Product {
   final int id;
   final String uuid;
@@ -39,31 +41,28 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'] as int,
-      uuid: json['uuid'] as String,
-      name: json['name'] as String,
-      slug: json['slug'] as String,
-      description: json['description'] as String?,
-      basePrice: json['base_price'] as int,
-      salePrice: json['sale_price'] as int?,
-      pricingMode: json['pricing_mode'] as String? ?? 'fixed',
-      unit: json['unit'] as String? ?? 'piece',
-      status: json['status'] as String,
-      stockMode: json['stock_mode'] as String? ?? 'unlimited',
-      stockQuantity: json['stock_quantity'] as int?,
-      categoryName: json['category_name'] as String?,
-      images: (json['images'] as List<dynamic>?)
-              ?.map((image) => ProductImage.fromJson(Map<String, dynamic>.from(image as Map)))
-              .toList() ??
-          [],
-      variants: (json['variants'] as List<dynamic>?)
-              ?.map((v) => ProductVariant.fromJson(Map<String, dynamic>.from(v as Map)))
-              .toList() ??
-          [],
-      addonGroups: (json['addon_groups'] as List<dynamic>?)
-              ?.map((g) => AddonGroup.fromJson(Map<String, dynamic>.from(g as Map)))
-              .toList() ??
-          [],
+      id: JsonValue.integer(json['id']),
+      uuid: JsonValue.string(json['uuid']),
+      name: JsonValue.string(json['name'], 'Product'),
+      slug: JsonValue.string(json['slug']),
+      description: JsonValue.nullableString(json['description']),
+      basePrice: JsonValue.integer(json['base_price']),
+      salePrice: JsonValue.nullableInt(json['sale_price']),
+      pricingMode: JsonValue.string(json['pricing_mode'], 'fixed'),
+      unit: JsonValue.string(json['unit'], 'piece'),
+      status: JsonValue.string(json['status'], 'active'),
+      stockMode: JsonValue.string(json['stock_mode'], 'unlimited'),
+      stockQuantity: JsonValue.nullableInt(json['stock_quantity']),
+      categoryName: JsonValue.nullableString(json['category_name']),
+      images: JsonValue.objectList(json['images'])
+          .map(ProductImage.fromJson)
+          .toList(),
+      variants: JsonValue.objectList(json['variants'])
+          .map(ProductVariant.fromJson)
+          .toList(),
+      addonGroups: JsonValue.objectList(json['addon_groups'])
+          .map(AddonGroup.fromJson)
+          .toList(),
     );
   }
 }
@@ -75,8 +74,8 @@ class ProductImage {
   ProductImage({required this.url, required this.isPrimary});
 
   factory ProductImage.fromJson(Map<String, dynamic> json) => ProductImage(
-        url: json['url'] as String? ?? '',
-        isPrimary: json['is_primary'] == true || json['is_primary'] == 1,
+        url: JsonValue.string(json['url']),
+        isPrimary: JsonValue.boolean(json['is_primary']),
       );
 }
 
@@ -102,12 +101,13 @@ class ProductVariant {
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
     return ProductVariant(
-      id: json['id'] as int,
-      uuid: json['uuid'] as String,
-      name: json['name'] as String,
-      price: json['price'] as int? ?? json['price_adjustment'] as int? ?? 0,
-      weightGrams: json['weight_grams'] as int?,
-      status: json['status'] as String? ?? 'active',
+      id: JsonValue.integer(json['id']),
+      uuid: JsonValue.string(json['uuid']),
+      name: JsonValue.string(json['name']),
+      price: JsonValue.integer(
+          json['price'] ?? json['price_adjustment']),
+      weightGrams: JsonValue.nullableInt(json['weight_grams']),
+      status: JsonValue.string(json['status'], 'active'),
     );
   }
 }
@@ -129,14 +129,11 @@ class AddonGroup {
 
   factory AddonGroup.fromJson(Map<String, dynamic> json) {
     return AddonGroup(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      minSelections: json['min_selections'] as int? ?? 0,
-      maxSelections: json['max_selections'] as int? ?? 1,
-      items: (json['items'] as List<dynamic>?)
-              ?.map((i) => AddonItem.fromJson(i))
-              .toList() ??
-          [],
+      id: JsonValue.integer(json['id']),
+      name: JsonValue.string(json['name']),
+      minSelections: JsonValue.integer(json['min_selections']),
+      maxSelections: JsonValue.integer(json['max_selections'], 1),
+      items: JsonValue.objectList(json['items']).map(AddonItem.fromJson).toList(),
     );
   }
 }
@@ -150,9 +147,9 @@ class AddonItem {
 
   factory AddonItem.fromJson(Map<String, dynamic> json) {
     return AddonItem(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      price: json['price'] as int? ?? 0,
+      id: JsonValue.integer(json['id']),
+      name: JsonValue.string(json['name']),
+      price: JsonValue.integer(json['price']),
     );
   }
 }

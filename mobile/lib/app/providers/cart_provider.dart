@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/cart_models.dart';
 import '../../services/api_client.dart';
 import '../../services/cache_service.dart';
+import '../../services/api_response.dart';
 
 class CartProvider extends ChangeNotifier {
   static const _cacheKey = 'cart';
@@ -25,12 +26,15 @@ class CartProvider extends ChangeNotifier {
     try {
       final response = await ApiClient().get('/customer/cart');
       final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        final cart = CartData.fromJson(data['data']);
+      final cartData = ApiResponse.dataMap(data);
+      if (ApiResponse.isSuccess(data) && cartData != null) {
+        final cart = CartData.fromJson(cartData);
         _items = cart.items;
         _subtotal = cart.subtotal;
         // Cache the cart data
-        await CacheService.put(_cacheKey, data['data'], ttl: _cacheTtl);
+        await CacheService.put(_cacheKey, cartData, ttl: _cacheTtl);
+      } else {
+        _error = ApiResponse.errorMessage(data, 'Unable to load your cart.');
       }
       _error = null;
     } catch (_) {
@@ -63,16 +67,15 @@ class CartProvider extends ChangeNotifier {
       if (variantUuid != null) payload['variant_uuid'] = variantUuid;
       if (addonIds != null && addonIds.isNotEmpty) payload['addon_ids'] = addonIds;
       final response = await ApiClient().post('/customer/cart/items', data: payload);
-      if (response.data['success'] == true) {
-        final cart = CartData.fromJson(
-          Map<String, dynamic>.from(response.data['data'] as Map),
-        );
+      final cartData = ApiResponse.dataMap(response.data);
+      if (ApiResponse.isSuccess(response.data) && cartData != null) {
+        final cart = CartData.fromJson(cartData);
         _items = cart.items;
         _subtotal = cart.subtotal;
         notifyListeners();
         return true;
       }
-      _error = response.data['error']?['message'] ?? 'Unable to add this item.';
+      _error = ApiResponse.errorMessage(response.data, 'Unable to add this item.');
     } catch (_) {
       _error = 'Unable to add this item. Please try again.';
     }
@@ -84,14 +87,15 @@ class CartProvider extends ChangeNotifier {
     _error = null;
     try {
       final response = await ApiClient().patch('/customer/cart/items/$itemId', data: {'quantity': quantity});
-      if (response.data['success'] == true) {
-        final cart = CartData.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+      final cartData = ApiResponse.dataMap(response.data);
+      if (ApiResponse.isSuccess(response.data) && cartData != null) {
+        final cart = CartData.fromJson(cartData);
         _items = cart.items;
         _subtotal = cart.subtotal;
         notifyListeners();
         return true;
       }
-      _error = response.data['error']?['message'] ?? 'Unable to update this item.';
+      _error = ApiResponse.errorMessage(response.data, 'Unable to update this item.');
     } catch (_) {
       _error = 'Unable to update this item. Please try again.';
     }
@@ -103,14 +107,15 @@ class CartProvider extends ChangeNotifier {
     _error = null;
     try {
       final response = await ApiClient().delete('/customer/cart/items/$itemId');
-      if (response.data['success'] == true) {
-        final cart = CartData.fromJson(Map<String, dynamic>.from(response.data['data'] as Map));
+      final cartData = ApiResponse.dataMap(response.data);
+      if (ApiResponse.isSuccess(response.data) && cartData != null) {
+        final cart = CartData.fromJson(cartData);
         _items = cart.items;
         _subtotal = cart.subtotal;
         notifyListeners();
         return true;
       }
-      _error = response.data['error']?['message'] ?? 'Unable to remove this item.';
+      _error = ApiResponse.errorMessage(response.data, 'Unable to remove this item.');
     } catch (_) {
       _error = 'Unable to remove this item. Please try again.';
     }
@@ -121,7 +126,7 @@ class CartProvider extends ChangeNotifier {
   Future<bool> clearCart() async {
     try {
       final response = await ApiClient().delete('/customer/cart');
-      if (response.data['success'] == true) {
+      if (ApiResponse.isSuccess(response.data)) {
         _items = [];
         _subtotal = 0;
         _error = null;

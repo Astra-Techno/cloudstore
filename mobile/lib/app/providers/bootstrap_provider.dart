@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../services/api_client.dart';
 import '../../services/cache_service.dart';
 import '../../config/app_config.dart';
+import '../../services/api_response.dart';
 
 class BootstrapProvider extends ChangeNotifier {
   String? _tenantId;
@@ -62,13 +63,15 @@ class BootstrapProvider extends ChangeNotifier {
       });
 
       final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        setTenantData(data['data']);
+      final tenantData = ApiResponse.dataMap(data);
+      if (ApiResponse.isSuccess(data) && tenantData != null) {
+        setTenantData(tenantData);
         // Cache the successful bootstrap response
-        await CacheService.put(_cacheKey, data['data'], ttl: _cacheTtl);
+        await CacheService.put(_cacheKey, tenantData, ttl: _cacheTtl);
       } else {
-        final error = data['error'] is Map
-            ? Map<String, dynamic>.from(data['error'] as Map)
+        final body = ApiResponse.body(data);
+        final error = body?['error'] is Map
+            ? Map<String, dynamic>.from(body!['error'] as Map)
             : const <String, dynamic>{};
         final code = error['code']?.toString();
         _error = switch (code) {

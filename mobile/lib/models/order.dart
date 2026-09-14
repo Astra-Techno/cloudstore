@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class Order {
   final int id;
   final String uuid;
@@ -41,39 +43,27 @@ class Order {
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
-      id: _toInt(json['id']),
-      uuid: json['uuid']?.toString() ?? '',
-      orderNumber: json['order_number']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'pending',
-      orderType: json['order_type'] as String? ?? 'delivery',
-      subtotal: _toInt(json['subtotal']),
-      deliveryFee: _toInt(json['delivery_fee']),
-      taxAmount: _toInt(json['tax_amount']),
-      discountAmount: _toInt(json['discount_amount']),
-      total: _toInt(json['total']),
-      paymentMethod: json['payment_method'] as String? ?? 'cod',
-      paymentStatus: json['payment_status'] as String? ?? 'pending',
-      notes: json['notes'] as String?,
-      addressSnapshot: json['address_snapshot'] as String?,
-      createdAt: json['created_at']?.toString() ?? '',
-      updatedAt: json['updated_at']?.toString() ??
-          json['created_at']?.toString() ??
-          '',
-      items: (json['items'] as List<dynamic>?)
-              ?.map((i) => OrderItem.fromJson(Map<String, dynamic>.from(i as Map)))
-              .toList() ??
-          [],
-      statusHistory: (json['status_history'] as List<dynamic>?)
-              ?.map((h) => StatusHistoryEntry.fromJson(Map<String, dynamic>.from(h as Map)))
-              .toList() ??
-          [],
+      id: JsonValue.integer(json['id']),
+      uuid: JsonValue.string(json['uuid']),
+      orderNumber: JsonValue.string(json['order_number']),
+      status: JsonValue.string(json['status'], 'pending'),
+      orderType: JsonValue.string(json['order_type'], 'delivery'),
+      subtotal: JsonValue.integer(json['subtotal']),
+      deliveryFee: JsonValue.integer(json['delivery_fee']),
+      taxAmount: JsonValue.integer(json['tax_amount']),
+      discountAmount: JsonValue.integer(json['discount_amount']),
+      total: JsonValue.integer(json['total']),
+      paymentMethod: JsonValue.string(json['payment_method'], 'cod'),
+      paymentStatus: JsonValue.string(json['payment_status'], 'pending'),
+      notes: JsonValue.nullableString(json['notes']),
+      addressSnapshot: JsonValue.nullableString(json['address_snapshot']),
+      createdAt: JsonValue.string(json['created_at']),
+      updatedAt: JsonValue.string(json['updated_at'] ?? json['created_at']),
+      items: JsonValue.objectList(json['items']).map(OrderItem.fromJson).toList(),
+      statusHistory: JsonValue.objectList(json['status_history'])
+          .map(StatusHistoryEntry.fromJson)
+          .toList(),
     );
-  }
-
-  static int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   String get statusDisplay => status.replaceAll('_', ' ');
@@ -107,23 +97,18 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
-      id: _toInt(json['id']),
-      productSnapshot: json['product_snapshot']?.toString() ?? '',
-      variantSnapshot: json['variant_snapshot'] as String?,
-      addonsSnapshot: json['addons_snapshot'] as String?,
-      quantity: _toInt(json['quantity']),
-      unitPrice: _toInt(json['unit_price']),
-      addonsPrice: _toInt(json['addons_price']),
-      lineTotal: _toInt(json['line_total']),
-      notes: json['notes'] as String?,
+      id: JsonValue.integer(json['id']),
+      productSnapshot: JsonValue.string(json['product_snapshot']),
+      variantSnapshot: JsonValue.nullableString(json['variant_snapshot']),
+      addonsSnapshot: JsonValue.nullableString(json['addons_snapshot']),
+      quantity: JsonValue.integer(json['quantity']),
+      unitPrice: JsonValue.integer(json['unit_price']),
+      addonsPrice: JsonValue.integer(json['addons_price']),
+      lineTotal: JsonValue.integer(json['line_total']),
+      notes: JsonValue.nullableString(json['notes']),
     );
   }
 
-  static int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
 }
 
 class StatusHistoryEntry {
@@ -143,11 +128,11 @@ class StatusHistoryEntry {
 
   factory StatusHistoryEntry.fromJson(Map<String, dynamic> json) {
     return StatusHistoryEntry(
-      fromStatus: json['from_status'] as String?,
-      toStatus: json['to_status'] as String,
-      actorType: json['actor_type'] as String?,
-      notes: json['notes'] as String?,
-      createdAt: json['created_at'] as String,
+      fromStatus: JsonValue.nullableString(json['from_status']),
+      toStatus: JsonValue.string(json['to_status']),
+      actorType: JsonValue.nullableString(json['actor_type']),
+      notes: JsonValue.nullableString(json['notes']),
+      createdAt: JsonValue.string(json['created_at']),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'json_value.dart';
+
 class DriverDelivery {
   final int id;
   final int orderId;
@@ -37,21 +39,22 @@ class DriverDelivery {
 
   factory DriverDelivery.fromJson(Map<String, dynamic> json) {
     return DriverDelivery(
-      id: json['id'] as int,
-      orderId: json['order_id'] as int,
-      orderNumber: json['order_number'] as String?,
-      orderStatus: json['order_status'] as String?,
-      orderTotal: json['order_total'] as int?,
-      customerName: json['customer_name'] as String?,
-      customerPhone: json['customer_phone'] as String?,
-      deliveryAddress: _formatAddress(json['delivery_address'] as String?),
-      status: json['status'] as String,
-      assignedAt: json['assigned_at'] as String?,
-      acceptedAt: json['accepted_at'] as String?,
-      pickedUpAt: json['picked_up_at'] as String?,
-      deliveredAt: json['delivered_at'] as String?,
-      deliveryOtp: json['delivery_otp'] as String?,
-      earnings: json['earnings'] as int?,
+      id: JsonValue.integer(json['id']),
+      orderId: JsonValue.integer(json['order_id']),
+      orderNumber: JsonValue.nullableString(json['order_number']),
+      orderStatus: JsonValue.nullableString(json['order_status']),
+      orderTotal: JsonValue.nullableInt(json['order_total']),
+      customerName: JsonValue.nullableString(json['customer_name']),
+      customerPhone: JsonValue.nullableString(json['customer_phone']),
+      deliveryAddress:
+          _formatAddress(JsonValue.nullableString(json['delivery_address'])),
+      status: JsonValue.string(json['status'], 'assigned'),
+      assignedAt: JsonValue.nullableString(json['assigned_at']),
+      acceptedAt: JsonValue.nullableString(json['accepted_at']),
+      pickedUpAt: JsonValue.nullableString(json['picked_up_at']),
+      deliveredAt: JsonValue.nullableString(json['delivered_at']),
+      deliveryOtp: JsonValue.nullableString(json['delivery_otp']),
+      earnings: JsonValue.nullableInt(json['earnings']),
     );
   }
 

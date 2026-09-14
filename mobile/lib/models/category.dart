@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class Category {
   final int id;
   final String uuid;
@@ -21,14 +23,14 @@ class Category {
 
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
-      id: json['id'] as int,
-      uuid: json['uuid'] as String,
-      name: json['name'] as String,
-      slug: json['slug'] as String,
-      description: json['description'] as String?,
-      imageUrl: json['image_url'] as String?,
-      status: json['status'] as String,
-      productCount: json['product_count'] as int?,
+      id: JsonValue.integer(json['id']),
+      uuid: JsonValue.string(json['uuid']),
+      name: JsonValue.string(json['name'], 'Category'),
+      slug: JsonValue.string(json['slug']),
+      description: JsonValue.nullableString(json['description']),
+      imageUrl: JsonValue.nullableString(json['image_url']),
+      status: JsonValue.string(json['status'], 'active'),
+      productCount: JsonValue.nullableInt(json['product_count']),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class Customer {
   final String uuid;
   final String name;
@@ -13,10 +15,10 @@ class Customer {
 
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
-      uuid: (json['uuid'] ?? json['id'] ?? '').toString(),
-      name: (json['name'] ?? '') as String,
-      phone: (json['phone'] ?? '') as String,
-      email: json['email'] as String?,
+      uuid: JsonValue.string(json['uuid'] ?? json['id']),
+      name: JsonValue.string(json['name']),
+      phone: JsonValue.string(json['phone']),
+      email: JsonValue.nullableString(json['email']),
     );
   }
 }

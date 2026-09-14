@@ -1,3 +1,5 @@
+import 'json_value.dart';
+
 class Tenant {
   final int id;
   final String name;
@@ -15,11 +17,11 @@ class Tenant {
 
   factory Tenant.fromJson(Map<String, dynamic> json) {
     return Tenant(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      slug: json['slug'] as String,
-      businessType: json['business_type'] as String,
-      status: json['status'] as String,
+      id: JsonValue.integer(json['id']),
+      name: JsonValue.string(json['name']),
+      slug: JsonValue.string(json['slug']),
+      businessType: JsonValue.string(json['business_type']),
+      status: JsonValue.string(json['status'], 'active'),
     );
   }
 }
@@ -33,9 +35,9 @@ class TenantBranding {
 
   factory TenantBranding.fromJson(Map<String, dynamic> json) {
     return TenantBranding(
-      primaryColor: json['primary_color'] as String?,
-      logoUrl: json['logo_url'] as String?,
-      tagline: json['tagline'] as String?,
+      primaryColor: JsonValue.nullableString(json['primary_color']),
+      logoUrl: JsonValue.nullableString(json['logo_url']),
+      tagline: JsonValue.nullableString(json['tagline']),
     );
   }
 }

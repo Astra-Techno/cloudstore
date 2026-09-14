@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/api_client.dart';
 import '../../models/customer.dart';
+import '../../services/api_response.dart';
 
 class AuthProvider extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
@@ -43,7 +44,9 @@ class AuthProvider extends ChangeNotifier {
       final data = response.data;
       _isLoading = false;
       notifyListeners();
-      return data['success'] == true;
+      if (ApiResponse.isSuccess(data)) return true;
+      _error = ApiResponse.errorMessage(data, 'Failed to send OTP.');
+      return false;
     } catch (e) {
       _error = 'Failed to send OTP';
       _isLoading = false;
@@ -64,12 +67,14 @@ class AuthProvider extends ChangeNotifier {
       });
       final data = response.data;
 
-      if (data['success'] == true && data['data'] != null) {
-        final authData = data['data'];
-        _token = authData['token'] as String;
-        _customer = Customer.fromJson(authData['customer']);
+      final authData = ApiResponse.dataMap(data);
+      final customerData = authData == null ? null : ApiResponse.body(authData['customer']);
+      final token = authData?['token']?.toString();
+      if (ApiResponse.isSuccess(data) && authData != null && customerData != null && token != null && token.isNotEmpty) {
+        _token = token;
+        _customer = Customer.fromJson(customerData);
         _isAuthenticated = true;
-        _isNewCustomer = authData['is_new'] == true;
+        _isNewCustomer = authData['is_new'] == true || authData['is_new'].toString() == '1';
 
         ApiClient().setAuthToken(_token!);
         await _storage.write(key: 'auth_token', value: _token);
@@ -78,7 +83,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = data['error']?['message'] ?? 'Invalid OTP';
+        _error = ApiResponse.errorMessage(data, 'Invalid OTP');
         _isLoading = false;
         notifyListeners();
         return false;
@@ -95,8 +100,9 @@ class AuthProvider extends ChangeNotifier {
     try {
       final response = await ApiClient().get('/customer/me');
       final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        _customer = Customer.fromJson(data['data']);
+      final customerData = ApiResponse.dataMap(data);
+      if (ApiResponse.isSuccess(data) && customerData != null) {
+        _customer = Customer.fromJson(customerData);
         _isAuthenticated = true;
         notifyListeners();
       } else {
@@ -129,14 +135,15 @@ class AuthProvider extends ChangeNotifier {
       final response = await ApiClient().put('/customer/me', data: payload);
       final data = response.data;
 
-      if (data['success'] == true && data['data'] != null) {
-        _customer = Customer.fromJson(data['data']);
+      final customerData = ApiResponse.dataMap(data);
+      if (ApiResponse.isSuccess(data) && customerData != null) {
+        _customer = Customer.fromJson(customerData);
         _isNewCustomer = false;
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
-        _error = data['error']?['message'] ?? 'Update failed';
+        _error = ApiResponse.errorMessage(data, 'Update failed');
         _isLoading = false;
         notifyListeners();
         return false;
