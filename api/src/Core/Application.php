@@ -39,9 +39,11 @@ use App\Modules\Catalog\Controller\PublicCatalogController;
 use App\Modules\Customer\Repository\AddressRepository;
 use App\Modules\Customer\Repository\FavouriteRepository;
 use App\Modules\Customer\Repository\ReviewRepository;
+use App\Modules\Customer\Repository\SupportTicketRepository;
 use App\Modules\Customer\Controller\AddressController;
 use App\Modules\Customer\Controller\FavouriteController;
 use App\Modules\Customer\Controller\ReviewController;
+use App\Modules\Customer\Controller\SupportTicketController;
 use App\Modules\Delivery\Repository\DeliveryZoneRepository;
 use App\Modules\Delivery\Service\DeliveryFeeService;
 use App\Modules\Cart\Repository\CartRepository;
@@ -344,6 +346,9 @@ final class Application
         $this->container->singleton(ReviewRepository::class, fn () => new ReviewRepository(
             $this->container->get(Connection::class),
         ));
+        $this->container->singleton(SupportTicketRepository::class, fn () => new SupportTicketRepository(
+            $this->container->get(Connection::class),
+        ));
 
         $this->container->singleton(FavouriteController::class, fn () => new FavouriteController(
             $this->container->get(FavouriteRepository::class),
@@ -355,6 +360,12 @@ final class Application
             $this->container->get(ReviewRepository::class),
             $this->container->get(ProductRepository::class),
             $this->container->get(CustomerRepository::class),
+        ));
+        $this->container->singleton(SupportTicketController::class, fn () => new SupportTicketController(
+            $this->container->get(SupportTicketRepository::class),
+            $this->container->get(CustomerRepository::class),
+            $this->container->get(AdminRepository::class),
+            $this->container->get(OrderRepository::class),
         ));
 
         // Delivery module

@@ -24,6 +24,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _placing = false;
   String? _error;
   final _notesController = TextEditingController();
+  final _couponController = TextEditingController();
+  String? _appliedCoupon;
+  int _couponDiscount = 0;
+  bool _applyingCoupon = false;
+  String? _couponError;
 
   // Serviceability state
   bool _validatingAddress = false;
@@ -46,6 +51,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _notesController.dispose();
+    _couponController.dispose();
     super.dispose();
   }
 
@@ -91,6 +97,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       });
     } catch (_) {
       // If validation call fails, allow proceeding — server will recheck at order time.
+      if (mounted) {
+        setState(() {
+          _addressServiceable = false;
+          _serviceabilityWarning =
+              'We could not confirm this address. Check your connection and retry.';
+        });
+      }
     } finally {
       setState(() => _validatingAddress = false);
     }
@@ -143,6 +156,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() => _error = 'Please select a delivery address');
       return;
     }
+    if (_orderType == 'delivery' &&
+        (_validatingAddress || !_addressServiceable)) {
+      setState(() => _error = _serviceabilityWarning ??
+          'Please wait while we confirm this delivery address.');
+      return;
+    }
 
     setState(() {
       _placing = true;
@@ -159,6 +178,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       if (_notesController.text.trim().isNotEmpty) {
         payload['notes'] = _notesController.text.trim();
+      }
+      if (_appliedCoupon != null) {
+        payload['coupon_code'] = _appliedCoupon;
       }
 
       final response =
@@ -246,6 +268,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _applyCoupon() async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) return;
+    setState(() { _applyingCoupon = true; _couponError = null; });
+    try {
+      final response = await ApiClient().post('/customer/cart/apply-coupon', data: {'coupon_code': code});
+      final data = response.data;
+      if (data['success'] == true && data['data'] != null) {
+        final d = data['data'];
+        setState(() {
+          _appliedCoupon = code.toUpperCase();
+          _couponDiscount = (d['discount'] as num?)?.toInt() ?? (d['total_discount'] as num?)?.toInt() ?? 0;
+        });
+      } else {
+        setState(() => _couponError = data['error']?['message']?.toString() ?? 'Invalid coupon code');
+      }
+    } catch (_) {
+      setState(() => _couponError = 'Unable to apply coupon. Try again.');
+    } finally {
+      setState(() => _applyingCoupon = false);
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _appliedCoupon = null;
+      _couponDiscount = 0;
+      _couponError = null;
+      _couponController.clear();
+    });
+  }
+
   Future<void> _showOrderPlacedCelebration() {
     return showDialog<void>(
       context: context,
@@ -258,17 +312,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               tween: Tween(begin: 0.55, end: 1),
               duration: const Duration(milliseconds: 550),
               curve: Curves.elasticOut,
-              builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+              builder: (_, scale, child) =>
+                  Transform.scale(scale: scale, child: child),
               child: const CircleAvatar(
                 radius: 38,
                 backgroundColor: Color(0x1AE23744),
-                child: Icon(Icons.check_circle_rounded, color: Color(0xFFE23744), size: 58),
+                child: Icon(Icons.check_circle_rounded,
+                    color: Color(0xFFE23744), size: 58),
               ),
             ),
             const SizedBox(height: 18),
-            const Text('Order placed!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            const Text('Order placed!',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
-            const Text('The store has received your order. We’ll keep you updated at every step.', textAlign: TextAlign.center),
+            const Text(
+                'The store has received your order. We’ll keep you updated at every step.',
+                textAlign: TextAlign.center),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -284,6 +343,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
     final bootstrap = context.watch<BootstrapProvider>();
+    final primary = Theme.of(context).colorScheme.primary;
 
     final fulfilmentOptions = <ButtonSegment<String>>[
       if (bootstrap.deliveryEnabled)
@@ -307,8 +367,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final taxAmount = bootstrap.taxRate > 0
         ? (cart.subtotal * bootstrap.taxRate / 100).round()
         : 0;
+    final discount = _couponDiscount;
     final estimatedTotal =
-        cart.subtotal + deliveryCharge + serviceCharge + taxAmount;
+        cart.subtotal + deliveryCharge + serviceCharge + taxAmount - discount;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -330,8 +391,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     child: Row(children: [
                       Icon(Icons.schedule_rounded, color: Colors.grey.shade700),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(bootstrap.orderingMessage,
-                          style: TextStyle(color: Colors.grey.shade800))),
+                      Expanded(
+                          child: Text(bootstrap.orderingMessage,
+                              style: TextStyle(color: Colors.grey.shade800))),
                     ]),
                   ),
                   const SizedBox(height: 16),
@@ -355,11 +417,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
+                          color: primary.withAlpha(20),
                           borderRadius: BorderRadius.circular(12)),
                       child: Text(
                           'Add ${PriceText.format(bootstrap.minOrderAmount - cart.subtotal)} more to reach the store minimum.',
-                          style: TextStyle(color: Colors.orange.shade900))),
+                          style: TextStyle(color: primary))),
                   const SizedBox(height: 16),
                 ],
                 if (_serviceabilityWarning != null) ...[
@@ -367,19 +429,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
+                      color: primary.withAlpha(20),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade200),
+                      border: Border.all(color: primary.withAlpha(60)),
                     ),
                     child: Row(
                       children: [
                         Icon(Icons.warning_amber_rounded,
-                            color: Colors.orange.shade800, size: 20),
+                            color: primary, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _serviceabilityWarning!,
-                            style: TextStyle(color: Colors.orange.shade900),
+                            style: TextStyle(color: primary),
                           ),
                         ),
                       ],
@@ -398,12 +460,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   SegmentedButton<String>(
                     segments: fulfilmentOptions,
                     selected: {_orderType},
-                    onSelectionChanged: bootstrap.isAcceptingOrders && !_validatingAddress
-                        ? (s) {
-                            setState(() => _orderType = s.first);
-                            _validateServiceability();
-                          }
-                        : null,
+                    onSelectionChanged:
+                        bootstrap.isAcceptingOrders && !_validatingAddress
+                            ? (s) {
+                                setState(() => _orderType = s.first);
+                                _validateServiceability();
+                              }
+                            : null,
                   ),
 
                 // Address (for delivery)
@@ -434,8 +497,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       subtitle: _selectedAddress != null
                           ? Text(_selectedAddress!.fullAddress,
                               maxLines: 2, overflow: TextOverflow.ellipsis)
-                          : const Text(
-                              'Tap to choose a delivery address'),
+                          : const Text('Tap to choose a delivery address'),
                       trailing: const Icon(Icons.chevron_right),
                     ),
                   ),
@@ -478,6 +540,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ],
                   ),
                 ),
+
+                // Coupon
+                const SizedBox(height: 24),
+                _sectionTitle(context, 'Have a coupon?', 'Apply a promo code for a discount'),
+                const SizedBox(height: 8),
+                if (_appliedCoupon != null)
+                  Card(
+                    color: Colors.green.shade50,
+                    child: ListTile(
+                      leading: Icon(Icons.local_offer_rounded, color: Colors.green.shade700),
+                      title: Text(_appliedCoupon!, style: TextStyle(fontWeight: FontWeight.w700, color: Colors.green.shade800)),
+                      subtitle: _couponDiscount > 0
+                          ? Text('You save ${PriceText.format(_couponDiscount)}', style: TextStyle(color: Colors.green.shade700, fontSize: 12))
+                          : null,
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: _removeCoupon,
+                      ),
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _couponController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            hintText: 'Enter coupon code',
+                            border: const OutlineInputBorder(),
+                            errorText: _couponError,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: _applyingCoupon ? null : _applyCoupon,
+                        child: _applyingCoupon
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Apply'),
+                      ),
+                    ],
+                  ),
 
                 // Notes
                 const SizedBox(height: 24),
@@ -529,9 +635,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               serviceCharge),
                         if (taxAmount > 0)
                           _summaryRow('Tax (${bootstrap.taxRate}%)', taxAmount),
+                        if (discount > 0)
+                          _summaryRow('Coupon discount', -discount),
                         if (deliveryCharge > 0 ||
                             serviceCharge > 0 ||
-                            taxAmount > 0) ...[
+                            taxAmount > 0 ||
+                            discount > 0) ...[
                           const Divider(),
                           _summaryRow('Estimated Total', estimatedTotal,
                               bold: true),
@@ -589,6 +698,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _summaryRow(String label, int paise, {bool bold = false}) {
+    final isNegative = paise < 0;
+    final displayText = isNegative
+        ? '-${PriceText.format(-paise)}'
+        : PriceText.format(paise);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
@@ -598,10 +711,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: TextStyle(
                   fontWeight: bold ? FontWeight.bold : FontWeight.normal,
                   fontSize: bold ? 16 : 14)),
-          Text(PriceText.format(paise),
+          Text(displayText,
               style: TextStyle(
                   fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                  fontSize: bold ? 16 : 14)),
+                  fontSize: bold ? 16 : 14,
+                  color: isNegative ? Colors.green : null)),
         ],
       ),
     );

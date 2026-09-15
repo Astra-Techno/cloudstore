@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../app/providers/bootstrap_provider.dart';
 import '../../app/providers/auth_provider.dart';
+import '../../app/providers/cart_provider.dart';
 import '../../app/providers/favourites_provider.dart';
 import '../../app/providers/notification_provider.dart';
 import '../../models/category.dart';
@@ -218,7 +219,19 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                   style: TextStyle(
                                       color: Colors.grey.shade600,
                                       fontSize: 13)),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 10),
+                              _StoreAvailabilityPill(
+                                acceptingOrders: tenant.isAcceptingOrders,
+                                message: tenant.isAcceptingOrders
+                                    ? (tenant.deliveryEnabled &&
+                                            tenant.pickupEnabled
+                                        ? 'Delivery and pickup available'
+                                        : tenant.pickupEnabled
+                                            ? 'Pickup available now'
+                                            : 'Delivery available now')
+                                    : tenant.orderingMessage,
+                              ),
+                              const SizedBox(height: 12),
                               TextField(
                                   controller: _search,
                                   onChanged: (value) =>
@@ -289,8 +302,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                           decoration: BoxDecoration(
                                               color: selected
                                                   ? primary
-                                                  : _categoryTint(
-                                                      category?.name),
+                                                  : AppTheme.primaryLight(
+                                                      primary),
                                               borderRadius:
                                                   BorderRadius.circular(18),
                                               border: Border.all(
@@ -304,13 +317,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                                       BorderRadius.circular(17),
                                                   child: Image.network(AppConfig.assetUrl(category.imageUrl!),
                                                       fit: BoxFit.cover,
-                                                      errorBuilder: (_, __, ___) =>
-                                                          Icon(_categoryIcon(category.name),
-                                                              color: selected
-                                                                  ? Colors.white
-                                                                  : primary)))
+                                                      errorBuilder: (_, __, ___) => Icon(_categoryIcon(category.name),
+                                                          color: selected
+                                                              ? Colors.white
+                                                              : primary)))
                                               : Icon(all ? Icons.grid_view_rounded : _categoryIcon(category?.name),
-                                                  color: selected ? Colors.white : _categoryAccent(category?.name))),
+                                                  color: selected ? Colors.white : primary)),
                                       const SizedBox(height: 6),
                                       Text(all ? 'All' : category!.name,
                                           maxLines: 1,
@@ -377,38 +389,6 @@ IconData _categoryIcon(String? name) {
       value.contains('mutton') ||
       value.contains('chicken')) return Icons.kebab_dining_rounded;
   return Icons.restaurant_menu_rounded;
-}
-
-Color _categoryTint(String? name) {
-  final value = (name ?? '').toLowerCase();
-  if (value.contains('biryani') || value.contains('rice'))
-    return const Color(0xFFFFE7C6);
-  if (value.contains('bread') || value.contains('bakery'))
-    return const Color(0xFFFFE0DD);
-  if (value.contains('drink') || value.contains('juice'))
-    return const Color(0xFFDDF3E8);
-  if (value.contains('sweet') || value.contains('dessert'))
-    return const Color(0xFFF4E2FF);
-  if (value.contains('meat') ||
-      value.contains('mutton') ||
-      value.contains('chicken')) return const Color(0xFFFFE0CB);
-  return const Color(0xFFE6F0FF);
-}
-
-Color _categoryAccent(String? name) {
-  final value = (name ?? '').toLowerCase();
-  if (value.contains('biryani') || value.contains('rice'))
-    return const Color(0xFFD97706);
-  if (value.contains('bread') || value.contains('bakery'))
-    return const Color(0xFFE76F51);
-  if (value.contains('drink') || value.contains('juice'))
-    return const Color(0xFF218C74);
-  if (value.contains('sweet') || value.contains('dessert'))
-    return const Color(0xFF9B51E0);
-  if (value.contains('meat') ||
-      value.contains('mutton') ||
-      value.contains('chicken')) return const Color(0xFFD35400);
-  return const Color(0xFF2F80ED);
 }
 
 class _OffersRail extends StatelessWidget {
@@ -544,16 +524,113 @@ class _OfferCard extends StatelessWidget {
   }
 }
 
-class _ProductRow extends StatelessWidget {
-  final Product product;
-  const _ProductRow({required this.product});
+class _StoreAvailabilityPill extends StatelessWidget {
+  final bool acceptingOrders;
+  final String message;
+
+  const _StoreAvailabilityPill({
+    required this.acceptingOrders,
+    required this.message,
+  });
+
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final background = acceptingOrders
+        ? AppTheme.primaryLight(primary)
+        : const Color(0xFFF1F1F1);
+    final foreground = acceptingOrders ? primary : Colors.grey.shade700;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(
+          acceptingOrders ? Icons.check_circle_rounded : Icons.schedule_rounded,
+          size: 14,
+          color: foreground,
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            message,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _ProductRow extends StatefulWidget {
+  final Product product;
+  const _ProductRow({required this.product});
+
+  @override
+  State<_ProductRow> createState() => _ProductRowState();
+}
+
+class _ProductRowState extends State<_ProductRow> {
+  bool _adding = false;
+
+  bool get _requiresCustomisation {
+    final product = widget.product;
+    return product.variants.any((variant) => variant.status == 'active') ||
+        product.addonGroups.isNotEmpty;
+  }
+
+  Future<void> _addOrCustomise() async {
+    final product = widget.product;
+    if (_requiresCustomisation) {
+      context.push('/product/${product.uuid}');
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      context.push('/login');
+      return;
+    }
+
+    setState(() => _adding = true);
+    final cart = context.read<CartProvider>();
+    final added = await cart.addItem(productUuid: product.uuid);
+    if (!mounted) return;
+    setState(() => _adding = false);
+    if (added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${product.name} added to your cart'),
+          action: SnackBarAction(
+            label: 'VIEW CART',
+            textColor: Colors.white,
+            onPressed: () => context.go('/home?tab=2'),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(cart.error ?? 'Unable to add this item.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final product = widget.product;
     final store = context.watch<BootstrapProvider>();
     final isAvailable = store.isAcceptingOrders && product.isAvailable;
-    final accent = _categoryAccent(product.categoryName);
-    final tint = _categoryTint(product.categoryName);
+    final accent = primary;
+    final tint = AppTheme.primaryLight(primary);
     final image = product.images.where((item) => item.isPrimary).firstOrNull ??
         (product.images.isNotEmpty ? product.images.first : null);
     return PressableScale(
@@ -704,7 +781,7 @@ class _ProductRow extends StatelessWidget {
                         offset: const Offset(0, -14),
                         child: OutlinedButton(
                             onPressed: isAvailable
-                                ? () => context.push('/product/${product.uuid}')
+                                ? (_adding ? null : _addOrCustomise)
                                 : null,
                             style: OutlinedButton.styleFrom(
                                 backgroundColor: isAvailable
@@ -718,14 +795,24 @@ class _ProductRow extends StatelessWidget {
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(9))),
-                            child: Text(isAvailable
-                                ? 'ADD'
-                                : product.isAvailable
-                                    ? 'CLOSED'
-                                    : 'SOLD OUT',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800)))),
+                            child: _adding
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white),
+                                  )
+                                : Text(
+                                    isAvailable
+                                        ? (_requiresCustomisation
+                                            ? 'CUSTOMISE'
+                                            : 'ADD')
+                                        : product.isAvailable
+                                            ? 'CLOSED'
+                                            : 'SOLD OUT',
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800)))),
                   ])),
             ])));
   }

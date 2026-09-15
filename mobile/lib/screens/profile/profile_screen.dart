@@ -127,6 +127,13 @@ class ProfileScreen extends StatelessWidget {
                 const Divider(height: 1),
                 _menuItem(
                   context,
+                  icon: Icons.favorite_border_rounded,
+                  label: 'Saved items',
+                  onTap: () => context.push('/favourites'),
+                ),
+                const Divider(height: 1),
+                _menuItem(
+                  context,
                   icon: Icons.my_location_rounded,
                   label: 'Change delivery location',
                   onTap: () => context.push('/location/setup'),
@@ -154,6 +161,13 @@ class ProfileScreen extends StatelessWidget {
                         : const SizedBox.shrink(),
                   ),
                   onTap: () => context.push('/notifications'),
+                ),
+                const Divider(height: 1),
+                _menuItem(
+                  context,
+                  icon: Icons.support_agent_rounded,
+                  label: 'Help & support',
+                  onTap: () => context.push('/support'),
                 ),
               ],
             ),

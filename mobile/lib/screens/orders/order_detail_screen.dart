@@ -245,8 +245,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   bool get _isActiveOrder {
     final s = _order?.status;
-    return s == 'pending' ||
+    return s == 'pending_payment' ||
+        s == 'payment_processing' ||
         s == 'confirmed' ||
+        s == 'accepted' ||
         s == 'preparing' ||
         s == 'ready' ||
         s == 'ready_for_pickup' ||
@@ -423,6 +425,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     const Divider(),
                                     _priceRow('Subtotal', _order!.subtotal),
                                     if (_order!.deliveryFee > 0) _priceRow('Delivery Fee', _order!.deliveryFee),
+                                    if (_order!.serviceCharge > 0) _priceRow('Service Charge', _order!.serviceCharge),
                                     if (_order!.taxAmount > 0) _priceRow('Tax', _order!.taxAmount),
                                     if (_order!.discountAmount > 0)
                                       _priceRow('Discount', -_order!.discountAmount),
@@ -528,7 +531,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ],
 
                             // Cancel / Reorder buttons
-                            if (_order!.status == 'pending' || _order!.status == 'confirmed') ...[
+                            if (_order!.status == 'pending_payment' || _order!.status == 'confirmed') ...[
                               const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,
@@ -543,7 +546,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 ),
                               ),
                             ],
-                            if (_order!.status == 'completed' || _order!.status == 'cancelled') ...[
+                            if (_order!.status == 'delivered' || _order!.status == 'picked_up' || _order!.status == 'cancelled') ...[
                               const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,
@@ -574,18 +577,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     String message;
 
     switch (status) {
-      case 'pending':
+      case 'pending_payment':
+      case 'payment_processing':
         icon = Icons.hourglass_top_rounded;
         message = 'Your order has been placed and is waiting for confirmation.';
       case 'confirmed':
         icon = Icons.thumb_up_alt_rounded;
         message = 'Your order has been confirmed by the store.';
+      case 'accepted':
+        icon = Icons.thumb_up_alt_rounded;
+        message = 'Your order has been accepted and will be prepared shortly.';
       case 'preparing':
         icon = Icons.restaurant_rounded;
         message = 'Your order is being prepared right now!';
       case 'ready':
         icon = Icons.inventory_2_rounded;
         message = 'Your order is packed and ready for the delivery partner.';
+      case 'ready_for_pickup':
+        icon = Icons.storefront_rounded;
+        message = 'Your order is ready! Head to the store to pick it up.';
       case 'out_for_delivery':
         icon = Icons.delivery_dining_rounded;
         message = 'Your order is on its way!';

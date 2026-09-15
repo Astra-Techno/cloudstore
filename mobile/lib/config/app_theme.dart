@@ -45,6 +45,27 @@ final class AppTheme {
       colorScheme: colorScheme,
       useMaterial3: true,
       scaffoldBackgroundColor: canvas,
+      splashFactory: InkSparkle.splashFactory,
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFFF0F0F0),
+        space: 1,
+        thickness: 1,
+      ),
+      textTheme: const TextTheme(
+        headlineSmall: TextStyle(
+          color: ink,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -.65,
+        ),
+        titleLarge: TextStyle(
+          color: ink,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -.4,
+        ),
+        titleMedium: TextStyle(color: ink, fontWeight: FontWeight.w800),
+        bodyLarge: TextStyle(color: ink),
+        bodyMedium: TextStyle(color: ink),
+      ),
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
@@ -91,6 +112,11 @@ final class AppTheme {
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),
+      chipTheme: ChipThemeData(
+        side: BorderSide(color: primary.withAlpha(45)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: primary,
@@ -99,6 +125,36 @@ final class AppTheme {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primary,
+          minimumSize: const Size(0, 48),
+          side: BorderSide(color: primary.withAlpha(85)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ink,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: canvas,
+        modalBackgroundColor: canvas,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: canvas,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(24)),
         ),
       ),
     );

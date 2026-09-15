@@ -13,14 +13,16 @@ import 'profile/profile_screen.dart';
 import 'location/location_setup_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialIndex;
+
+  const HomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   final _screens = const [
     CatalogScreen(),
@@ -28,6 +30,12 @@ class _HomeScreenState extends State<HomeScreen> {
     CartScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, _screens.length - 1);
+  }
 
   @override
   Widget build(BuildContext context) {

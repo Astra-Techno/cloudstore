@@ -68,7 +68,8 @@ class _CartScreenState extends State<CartScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: Colors.red.shade50,
-            child: Text(cart.error!, style: TextStyle(color: Colors.red.shade800, fontSize: 13)),
+            child: Text(cart.error!,
+                style: TextStyle(color: Colors.red.shade800, fontSize: 13)),
           ),
         Expanded(
           child: RefreshIndicator(
@@ -117,6 +118,7 @@ class _CartScreenState extends State<CartScreen> {
                   );
                 }
                 final item = cart.items[index - 1];
+                final changingQuantity = cart.isUpdatingItem(item.id);
                 return StaggeredEntrance(
                   index: index,
                   child: Card(
@@ -124,9 +126,9 @@ class _CartScreenState extends State<CartScreen> {
                     color: !item.isAvailable
                         ? Colors.grey.shade200
                         : index.isOdd
-                        ? Colors.white
-                        : AppTheme.primaryLight(
-                            Theme.of(context).colorScheme.primary),
+                            ? Colors.white
+                            : AppTheme.primaryLight(
+                                Theme.of(context).colorScheme.primary),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -180,13 +182,16 @@ class _CartScreenState extends State<CartScreen> {
                                     color:
                                         Theme.of(context).colorScheme.primary),
                                 iconSize: 28,
-                                onPressed: !item.isAvailable ? null : () {
-                                  if (item.quantity > 1) {
-                                    cart.updateItem(item.id, item.quantity - 1);
-                                  } else {
-                                    cart.removeItem(item.id);
-                                  }
-                                },
+                                onPressed: !item.isAvailable || changingQuantity
+                                    ? null
+                                    : () {
+                                        if (item.quantity > 1) {
+                                          cart.updateItem(
+                                              item.id, item.quantity - 1);
+                                        } else {
+                                          cart.removeItem(item.id);
+                                        }
+                                      },
                               ),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 160),
@@ -196,21 +201,30 @@ class _CartScreenState extends State<CartScreen> {
                                   child: FadeTransition(
                                       opacity: animation, child: child),
                                 ),
-                                child: Text(
-                                  '${item.quantity}',
-                                  key: ValueKey(item.quantity),
-                                  style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold),
-                                ),
+                                child: changingQuantity
+                                    ? const SizedBox(
+                                        key: ValueKey('updating'),
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      )
+                                    : Text(
+                                        '${item.quantity}',
+                                        key: ValueKey(item.quantity),
+                                        style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold),
+                                      ),
                               ),
                               IconButton(
                                 icon: Icon(Icons.add_circle,
                                     color:
                                         Theme.of(context).colorScheme.primary),
                                 iconSize: 28,
-                                onPressed: item.isAvailable
-                                    ? () => cart.updateItem(item.id, item.quantity + 1)
+                                onPressed: item.isAvailable && !changingQuantity
+                                    ? () => cart.updateItem(
+                                        item.id, item.quantity + 1)
                                     : null,
                               ),
                             ],
@@ -276,10 +290,12 @@ class _CartScreenState extends State<CartScreen> {
                     child: Row(children: [
                       Icon(Icons.schedule_rounded, color: Colors.grey.shade700),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(hasUnavailableItems
-                          ? 'Remove unavailable items before checkout.'
-                          : store.orderingMessage,
-                          style: TextStyle(color: Colors.grey.shade800))),
+                      Expanded(
+                          child: Text(
+                              hasUnavailableItems
+                                  ? 'Remove unavailable items before checkout.'
+                                  : store.orderingMessage,
+                              style: TextStyle(color: Colors.grey.shade800))),
                     ]),
                   ),
                 ],

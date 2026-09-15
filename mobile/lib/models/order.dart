@@ -8,6 +8,7 @@ class Order {
   final String orderType;
   final int subtotal;
   final int deliveryFee;
+  final int serviceCharge;
   final int taxAmount;
   final int discountAmount;
   final int total;
@@ -28,6 +29,7 @@ class Order {
     required this.orderType,
     required this.subtotal,
     required this.deliveryFee,
+    this.serviceCharge = 0,
     required this.taxAmount,
     required this.discountAmount,
     required this.total,
@@ -50,6 +52,7 @@ class Order {
       orderType: JsonValue.string(json['order_type'], 'delivery'),
       subtotal: JsonValue.integer(json['subtotal']),
       deliveryFee: JsonValue.integer(json['delivery_fee']),
+      serviceCharge: JsonValue.integer(json['service_charge']),
       taxAmount: JsonValue.integer(json['tax_amount']),
       discountAmount: JsonValue.integer(json['discount_amount']),
       total: JsonValue.integer(json['total']),

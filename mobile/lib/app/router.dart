@@ -6,6 +6,8 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/otp_verify_screen.dart';
 import '../screens/auth/onboarding_screen.dart';
 import '../screens/catalog/product_detail_screen.dart';
+import '../screens/catalog/favourites_screen.dart';
+import '../screens/support/support_screen.dart';
 import '../screens/checkout/checkout_screen.dart';
 import '../screens/orders/orders_screen.dart';
 import '../screens/orders/order_detail_screen.dart';
@@ -31,7 +33,9 @@ final appRouter = GoRouter(
     // Customer routes
     GoRoute(
       path: '/home',
-      builder: (context, state) => const HomeScreen(),
+      builder: (context, state) => HomeScreen(
+        initialIndex: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+      ),
     ),
     GoRoute(
       path: '/location/setup',
@@ -64,6 +68,14 @@ final appRouter = GoRouter(
       path: '/product/:uuid',
       builder: (context, state) =>
           ProductDetailScreen(uuid: state.pathParameters['uuid']!),
+    ),
+    GoRoute(
+      path: '/favourites',
+      builder: (context, state) => const FavouritesScreen(),
+    ),
+    GoRoute(
+      path: '/support',
+      builder: (context, state) => const SupportScreen(),
     ),
     GoRoute(
       path: '/checkout',

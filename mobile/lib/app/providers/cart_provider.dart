@@ -12,6 +12,7 @@ class CartProvider extends ChangeNotifier {
   int _subtotal = 0;
   bool _isLoading = false;
   String? _error;
+  final Set<int> _updatingItemIds = <int>{};
 
   List<CartItem> get items => List.unmodifiable(_items);
   int get itemCount => _items.fold(0, (total, item) => total + item.quantity);
@@ -19,6 +20,7 @@ class CartProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isEmpty => _items.isEmpty;
+  bool isUpdatingItem(int itemId) => _updatingItemIds.contains(itemId);
 
   Future<void> loadCart() async {
     _isLoading = true;
@@ -40,7 +42,8 @@ class CartProvider extends ChangeNotifier {
     } catch (_) {
       // On network failure, try to show cached cart
       await _loadFromCache();
-      _error = 'Unable to refresh your cart. Check your connection and try again.';
+      _error =
+          'Unable to refresh your cart. Check your connection and try again.';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -60,13 +63,22 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> addItem({required String productUuid, String? variantUuid, int quantity = 1, List<int>? addonIds}) async {
+  Future<bool> addItem(
+      {required String productUuid,
+      String? variantUuid,
+      int quantity = 1,
+      List<int>? addonIds}) async {
     _error = null;
     try {
-      final payload = <String, dynamic>{'product_uuid': productUuid, 'quantity': quantity};
+      final payload = <String, dynamic>{
+        'product_uuid': productUuid,
+        'quantity': quantity
+      };
       if (variantUuid != null) payload['variant_uuid'] = variantUuid;
-      if (addonIds != null && addonIds.isNotEmpty) payload['addon_ids'] = addonIds;
-      final response = await ApiClient().post('/customer/cart/items', data: payload);
+      if (addonIds != null && addonIds.isNotEmpty)
+        payload['addon_ids'] = addonIds;
+      final response =
+          await ApiClient().post('/customer/cart/items', data: payload);
       final cartData = ApiResponse.dataMap(response.data);
       if (ApiResponse.isSuccess(response.data) && cartData != null) {
         final cart = CartData.fromJson(cartData);
@@ -75,7 +87,8 @@ class CartProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      _error = ApiResponse.errorMessage(response.data, 'Unable to add this item.');
+      _error =
+          ApiResponse.errorMessage(response.data, 'Unable to add this item.');
     } catch (_) {
       _error = 'Unable to add this item. Please try again.';
     }
@@ -84,27 +97,36 @@ class CartProvider extends ChangeNotifier {
   }
 
   Future<bool> updateItem(int itemId, int quantity) async {
+    if (_updatingItemIds.contains(itemId)) return false;
+    _updatingItemIds.add(itemId);
     _error = null;
+    notifyListeners();
     try {
-      final response = await ApiClient().patch('/customer/cart/items/$itemId', data: {'quantity': quantity});
+      final response = await ApiClient()
+          .patch('/customer/cart/items/$itemId', data: {'quantity': quantity});
       final cartData = ApiResponse.dataMap(response.data);
       if (ApiResponse.isSuccess(response.data) && cartData != null) {
         final cart = CartData.fromJson(cartData);
         _items = cart.items;
         _subtotal = cart.subtotal;
-        notifyListeners();
         return true;
       }
-      _error = ApiResponse.errorMessage(response.data, 'Unable to update this item.');
+      _error = ApiResponse.errorMessage(
+          response.data, 'Unable to update this item.');
     } catch (_) {
       _error = 'Unable to update this item. Please try again.';
+    } finally {
+      _updatingItemIds.remove(itemId);
+      notifyListeners();
     }
-    notifyListeners();
     return false;
   }
 
   Future<bool> removeItem(int itemId) async {
+    if (_updatingItemIds.contains(itemId)) return false;
+    _updatingItemIds.add(itemId);
     _error = null;
+    notifyListeners();
     try {
       final response = await ApiClient().delete('/customer/cart/items/$itemId');
       final cartData = ApiResponse.dataMap(response.data);
@@ -112,14 +134,16 @@ class CartProvider extends ChangeNotifier {
         final cart = CartData.fromJson(cartData);
         _items = cart.items;
         _subtotal = cart.subtotal;
-        notifyListeners();
         return true;
       }
-      _error = ApiResponse.errorMessage(response.data, 'Unable to remove this item.');
+      _error = ApiResponse.errorMessage(
+          response.data, 'Unable to remove this item.');
     } catch (_) {
       _error = 'Unable to remove this item. Please try again.';
+    } finally {
+      _updatingItemIds.remove(itemId);
+      notifyListeners();
     }
-    notifyListeners();
     return false;
   }
 
@@ -128,6 +152,7 @@ class CartProvider extends ChangeNotifier {
     _subtotal = 0;
     _error = null;
     _isLoading = false;
+    _updatingItemIds.clear();
     CacheService.remove(_cacheKey);
     notifyListeners();
   }

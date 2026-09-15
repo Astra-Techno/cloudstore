@@ -13,6 +13,7 @@ use App\Modules\Catalog\Controller\PublicCatalogController;
 use App\Modules\Customer\Controller\AddressController;
 use App\Modules\Customer\Controller\FavouriteController;
 use App\Modules\Customer\Controller\ReviewController;
+use App\Modules\Customer\Controller\SupportTicketController;
 use App\Modules\Cart\Controller\CartController;
 use App\Modules\Order\Controller\CheckoutController;
 use App\Modules\Order\Controller\OrderController;
@@ -155,6 +156,12 @@ return function (Router $router): void {
             $router->get('/analytics', [AnalyticsController::class, 'getAnalytics']);
             $router->get('/audit-log', [AnalyticsController::class, 'getAuditLog']);
 
+            // Customer support workspace
+            $router->get('/support/tickets', [SupportTicketController::class, 'listAdmin']);
+            $router->get('/support/tickets/{uuid}', [SupportTicketController::class, 'showAdmin']);
+            $router->post('/support/tickets/{uuid}/messages', [SupportTicketController::class, 'addAdminMessage']);
+            $router->patch('/support/tickets/{uuid}/status', [SupportTicketController::class, 'updateStatus']);
+
             // Coupons
             $router->get('/coupons', [AdminOfferController::class, 'listCoupons']);
             $router->post('/coupons', [AdminOfferController::class, 'createCoupon']);
@@ -232,6 +239,12 @@ return function (Router $router): void {
 
                 // Reviews
                 $router->post('/reviews', [ReviewController::class, 'create']);
+
+                // Support / complaint workflow
+                $router->get('/support/tickets', [SupportTicketController::class, 'listCustomer']);
+                $router->post('/support/tickets', [SupportTicketController::class, 'create']);
+                $router->get('/support/tickets/{uuid}', [SupportTicketController::class, 'showCustomer']);
+                $router->post('/support/tickets/{uuid}/messages', [SupportTicketController::class, 'addCustomerMessage']);
 
                 // Cart
                 $router->get('/cart', [CartController::class, 'get']);
