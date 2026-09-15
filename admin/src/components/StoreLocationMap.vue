@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-const props = defineProps<{ latitude: number | null; longitude: number | null }>()
+const props = defineProps<{ latitude: number | null; longitude: number | null; mapplsKey?: string; mapProvider?: string }>()
 const emit = defineEmits<{ (e: 'update:latitude', value: number): void; (e: 'update:longitude', value: number): void }>()
 
 const mapElement = ref<HTMLElement | null>(null)
@@ -13,7 +13,7 @@ const results = ref<Array<{ display_name: string; lat: string; lon: string }>>([
 // the older ACCESS_TOKEN name too, so existing CI configuration keeps working.
 // Vite embeds this value into the compiled browser bundle; api/.env is never
 // read by a browser after deployment.
-const mapplsKey = (
+const buildMapplsKey = (
   (import.meta.env.VITE_MAPPLS_STATIC_KEY as string | undefined) ??
   (import.meta.env.VITE_MAPPLS_ACCESS_TOKEN as string | undefined)
 )?.trim()
@@ -101,7 +101,8 @@ async function loadLeaflet(initial: { lat: number; lng: number }) {
 
 async function loadMap() {
   const initial = props.latitude != null && props.longitude != null ? { lat: props.latitude, lng: props.longitude } : { lat: 20.5937, lng: 78.9629 }
-  if (mapplsKey) {
+  const mapplsKey = props.mapplsKey?.trim() || buildMapplsKey
+  if (props.mapProvider === 'mappls' && mapplsKey) {
     try {
       await new Promise<void>((resolve, reject) => {
         if ((window as any).mappls) return resolve()

@@ -33,6 +33,12 @@ export const settingsApi = {
   toggleLive(live: boolean) {
     return apiClient.post<ApiResponse>('/admin/settings/toggle-live', { live })
   },
+  getIntegrations() {
+    return apiClient.get<ApiResponse<Record<string, unknown>>>('/admin/integrations')
+  },
+  updateIntegrations(data: Record<string, unknown>) {
+    return apiClient.post<ApiResponse<Record<string, unknown>>>('/admin/integrations', data)
+  },
 
   // Enhanced Dashboard
   dashboardEnhanced() {

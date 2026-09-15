@@ -20,6 +20,7 @@ const settingsTabs = [
   { id: 'payments', label: 'Payments' },
   { id: 'hours', label: 'Business hours' },
   { id: 'security', label: 'Security' },
+  { id: 'integrations', label: 'Integrations' },
 ]
 
 const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
@@ -36,6 +37,8 @@ const passwordSaving = ref(false)
 const passwordError = ref('')
 const passwordSuccess = ref('')
 const togglingLive = ref(false)
+const integrations = ref({ map_provider: 'openstreetmap', mappls_static_key: '', mappls_browser_key: '', has_mappls_static_key: false, push_notifications_enabled: false, fcm_configured: false })
+const integrationSaving = ref(false)
 
 async function toggleStoreLive() {
   if (!settings.value) return
@@ -106,11 +109,33 @@ async function loadSettings() {
       branding: { ...defaultBranding, ...(data.data.branding ?? {}) },
       }
     }
+    const integrationResponse = await settingsApi.getIntegrations()
+    if (integrationResponse.data.success && integrationResponse.data.data) {
+      integrations.value = { ...integrations.value, ...integrationResponse.data.data } as typeof integrations.value
+    }
   } catch (e) {
     error.value = 'Failed to load settings'
   } finally {
     loading.value = false
   }
+}
+
+async function saveIntegrations() {
+  integrationSaving.value = true
+  error.value = ''
+  try {
+    const { data } = await settingsApi.updateIntegrations({
+      map_provider: integrations.value.map_provider,
+      mappls_static_key: integrations.value.mappls_static_key,
+      push_notifications_enabled: integrations.value.push_notifications_enabled,
+    })
+    if (data.success && data.data) {
+      integrations.value = { ...integrations.value, ...data.data } as typeof integrations.value
+      integrations.value.mappls_static_key = ''
+      success.value = 'Integrations saved successfully'
+    } else error.value = data.error?.message || 'Failed to save integrations'
+  } catch { error.value = 'Failed to save integrations' }
+  finally { integrationSaving.value = false }
 }
 
 async function saveSettings() {
@@ -317,7 +342,7 @@ onMounted(loadSettings)
             </label>
           </div>
           <div v-if="settings.delivery_enabled" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5 pt-4 border-t border-gray-100">
-            <StoreLocationMap v-model:latitude="settings.delivery_location.latitude" v-model:longitude="settings.delivery_location.longitude" />
+            <StoreLocationMap v-model:latitude="settings.delivery_location.latitude" v-model:longitude="settings.delivery_location.longitude" :mappls-key="integrations.mappls_browser_key" :map-provider="integrations.map_provider" />
             <div><label class="block text-sm font-medium text-gray-700 mb-1">Store latitude</label><input v-model.number="settings.delivery_location.latitude" type="number" step="any" min="-90" max="90" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="e.g. 9.9312" /></div>
             <div><label class="block text-sm font-medium text-gray-700 mb-1">Store longitude</label><input v-model.number="settings.delivery_location.longitude" type="number" step="any" min="-180" max="180" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="e.g. 76.2673" /></div>
             <p class="md:col-span-2 text-xs text-gray-500">Required for delivery distance, service-area checks, and marketplace discovery. Save after entering the shop's GPS pin.</p>
@@ -336,6 +361,19 @@ onMounted(loadSettings)
             </button>
           </div>
           <p class="mt-3 text-xs text-gray-500">Cash on delivery is active. Online, UPI, and card payments will appear only after a payment gateway is connected for this store.</p>
+        </div>
+
+        <!-- Integrations -->
+        <div v-show="activeTab === 'integrations'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-2">Maps & notifications</h2>
+          <p class="mb-5 text-sm text-gray-500">Keys are encrypted in the database. Existing keys are never sent back to this screen; leave the field blank to keep one unchanged.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Map provider</label><select v-model="integrations.map_provider" class="w-full border border-gray-300 rounded-md px-3 py-2"><option value="openstreetmap">OpenStreetMap (free)</option><option value="mappls">Mappls</option></select></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Mappls static key</label><input v-model="integrations.mappls_static_key" type="password" class="w-full border border-gray-300 rounded-md px-3 py-2" :placeholder="integrations.has_mappls_static_key ? 'Configured — enter only to replace' : 'Paste Mappls static key'" /><p class="mt-1 text-xs text-gray-500">Whitelist this admin domain in Mappls. Browser map keys are public by design; restrict allowed origins in Mappls.</p></div>
+          </div>
+          <label class="mt-5 flex items-center gap-3 text-sm font-medium text-gray-700"><input v-model="integrations.push_notifications_enabled" type="checkbox" class="w-4 h-4 text-red-600 rounded" /> Enable push-notification delivery when Firebase is configured</label>
+          <p class="mt-2 text-xs" :class="integrations.fcm_configured ? 'text-green-700' : 'text-amber-700'">{{ integrations.fcm_configured ? 'Firebase server credentials are configured.' : 'Firebase server credentials are not configured yet; notifications remain in-app.' }}</p>
+          <button @click="saveIntegrations" :disabled="integrationSaving" class="mt-5 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg disabled:opacity-50">{{ integrationSaving ? 'Saving…' : 'Save integrations' }}</button>
         </div>
 
         <!-- Password Change -->

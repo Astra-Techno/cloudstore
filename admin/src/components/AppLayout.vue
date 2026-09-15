@@ -59,6 +59,7 @@ const tenantNavItems = [
   { label: 'Customers', path: '/customers', icon: 'customers' },
   { label: 'Drivers', path: '/drivers', icon: 'drivers' },
   { label: 'Delivery Zones', path: '/delivery-zones', icon: 'zones' },
+  { label: 'Support', path: '/support', icon: 'customers' },
   { label: 'Settings', path: '/settings', icon: 'settings' },
 ]
 
