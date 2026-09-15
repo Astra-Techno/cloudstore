@@ -27,10 +27,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final Set<int> _selectedAddonIds = {};
   bool _adding = false;
 
+  // Reviews
+  List<Map<String, dynamic>> _reviews = [];
+  double _avgRating = 0;
+  int _reviewCount = 0;
+  bool _reviewsLoading = false;
+
   @override
   void initState() {
     super.initState();
     _loadProduct();
+    _loadReviews();
   }
 
   Future<void> _loadProduct() async {
@@ -122,6 +129,119 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(cart.error ?? 'Failed to add')),
         );
+    }
+  }
+
+  Future<void> _loadReviews() async {
+    setState(() => _reviewsLoading = true);
+    try {
+      final ratingRes = await ApiClient().get('/products/${widget.uuid}/rating');
+      final ratingData = ratingRes.data;
+      if (ratingData['success'] == true && ratingData['data'] != null) {
+        if (!mounted) return;
+        setState(() {
+          _avgRating = (ratingData['data']['average_rating'] as num?)?.toDouble() ?? 0;
+          _reviewCount = (ratingData['data']['review_count'] as num?)?.toInt() ?? 0;
+        });
+      }
+
+      final reviewsRes = await ApiClient().get('/products/${widget.uuid}/reviews');
+      final reviewsData = reviewsRes.data;
+      if (reviewsData['success'] == true && reviewsData['data'] is List) {
+        if (!mounted) return;
+        setState(() {
+          _reviews = (reviewsData['data'] as List)
+              .map((r) => Map<String, dynamic>.from(r as Map))
+              .toList();
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _reviewsLoading = false);
+  }
+
+  Future<void> _submitReview() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      context.push('/login');
+      return;
+    }
+    int selectedRating = 5;
+    final commentController = TextEditingController();
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Write a Review', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) => IconButton(
+                  onPressed: () => setSheetState(() => selectedRating = i + 1),
+                  icon: Icon(
+                    i < selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: Colors.amber,
+                    size: 36,
+                  ),
+                )),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Share your experience (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    try {
+                      final res = await ApiClient().post('/customer/reviews', data: {
+                        'product_uuid': widget.uuid,
+                        'rating': selectedRating,
+                        'comment': commentController.text.trim().isEmpty ? null : commentController.text.trim(),
+                      });
+                      if (res.data['success'] == true && ctx.mounted) {
+                        Navigator.pop(ctx, true);
+                      } else if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                          content: Text(res.data['error']?['message'] ?? 'Failed to submit review'),
+                        ));
+                      }
+                    } catch (_) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(content: Text('Failed to submit review')),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Submit Review'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    commentController.dispose();
+    if (submitted == true) {
+      _loadReviews();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Review submitted!')),
+        );
+      }
     }
   }
 
@@ -314,6 +434,72 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             controlAffinity: ListTileControlAffinity.leading,
                           );
                         }),
+                      ],
+
+                      // Ratings & Reviews
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Text('Ratings & Reviews', style: Theme.of(context).textTheme.titleMedium),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: _submitReview,
+                            icon: const Icon(Icons.rate_review_outlined, size: 18),
+                            label: const Text('Write Review'),
+                          ),
+                        ],
+                      ),
+                      if (_reviewCount > 0) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            ...List.generate(5, (i) => Icon(
+                              i < _avgRating.round() ? Icons.star_rounded : Icons.star_outline_rounded,
+                              color: Colors.amber,
+                              size: 20,
+                            )),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_avgRating.toStringAsFixed(1)} ($_reviewCount ${_reviewCount == 1 ? 'review' : 'reviews'})',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_reviews.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        ...(_reviews.take(3).map((r) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    ...List.generate(5, (i) => Icon(
+                                      i < ((r['rating'] as num?)?.toInt() ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded,
+                                      color: Colors.amber,
+                                      size: 16,
+                                    )),
+                                    const Spacer(),
+                                    Text(
+                                      r['customer_name']?.toString() ?? 'Customer',
+                                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                    ),
+                                  ]),
+                                  if (r['comment'] != null && r['comment'].toString().isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(r['comment'].toString(), style: const TextStyle(fontSize: 13)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ))),
+                      ] else if (!_reviewsLoading) ...[
+                        const SizedBox(height: 8),
+                        Text('No reviews yet. Be the first!', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
                       ],
 
                       // Quantity

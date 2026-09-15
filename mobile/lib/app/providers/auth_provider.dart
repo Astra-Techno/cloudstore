@@ -29,6 +29,9 @@ class AuthProvider extends ChangeNotifier {
       _token = savedToken;
       ApiClient().setAuthToken(savedToken);
       await fetchProfile();
+      if (_isAuthenticated) {
+        _registerFcmToken();
+      }
     }
   }
 
@@ -81,6 +84,9 @@ class AuthProvider extends ChangeNotifier {
 
         ApiClient().setAuthToken(_token!);
         await _storage.write(key: 'auth_token', value: _token);
+
+        // Register FCM token after successful login
+        _registerFcmToken();
 
         _isLoading = false;
         notifyListeners();
@@ -162,5 +168,30 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  /// Registers the FCM token with the API.
+  /// Called after login and loadSavedToken.
+  Future<void> _registerFcmToken() async {
+    try {
+      // Import is avoided; we use a simple platform channel approach.
+      // The actual FCM token is obtained in main.dart and stored in secure storage.
+      final fcmToken = await _storage.read(key: 'fcm_token');
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await ApiClient().post('/customer/me/fcm-token', data: {
+          'fcm_token': fcmToken,
+        });
+      }
+    } catch (_) {
+      // FCM registration is best-effort
+    }
+  }
+
+  /// Called from main.dart when FCM token is refreshed.
+  Future<void> saveFcmToken(String token) async {
+    await _storage.write(key: 'fcm_token', value: token);
+    if (_isAuthenticated) {
+      _registerFcmToken();
+    }
   }
 }

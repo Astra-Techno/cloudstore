@@ -11,7 +11,7 @@ const saving = ref(false)
 const error = ref('')
 
 const form = ref({
-  name: '', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0,
+  name: '', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0, pincodes: '',
 })
 
 function formatPrice(paise: number): string {
@@ -32,7 +32,7 @@ async function loadZones() {
 
 function openCreate() {
   editing.value = null
-  form.value = { name: '', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0 }
+  form.value = { name: '', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0, pincodes: '' }
   error.value = ''
   showForm.value = true
 }
@@ -47,6 +47,7 @@ function openEdit(zone: DeliveryZone) {
     min_order_free_delivery: (zone.min_order_free_delivery || 0) / 100,
     status: zone.status,
     sort_order: zone.sort_order,
+    pincodes: (zone as Record<string, unknown>).pincodes?.toString() ?? '',
   }
   error.value = ''
   showForm.value = true
@@ -57,7 +58,7 @@ async function saveZone() {
   error.value = ''
 
   try {
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: form.value.name,
       min_distance_km: form.value.min_distance_km,
       max_distance_km: form.value.max_distance_km,
@@ -65,6 +66,9 @@ async function saveZone() {
       min_order_free_delivery: form.value.min_order_free_delivery > 0 ? Math.round(form.value.min_order_free_delivery * 100) : null,
       status: form.value.status,
       sort_order: form.value.sort_order,
+    }
+    if (form.value.pincodes.trim()) {
+      payload.pincodes = form.value.pincodes.trim()
     }
 
     if (editing.value) {
@@ -119,12 +123,13 @@ onMounted(loadZones)
     <div v-else class="list-table-card">
       <table class="list-table">
         <thead><tr>
-          <th>Zone Name</th><th>Distance Range</th><th class="text-right">Fee</th><th class="text-right">Free Above</th><th>Status</th><th>Order</th><th></th>
+          <th>Zone Name</th><th>Distance Range</th><th>Pincodes</th><th class="text-right">Fee</th><th class="text-right">Free Above</th><th>Status</th><th>Order</th><th></th>
         </tr></thead>
         <tbody>
           <tr v-for="zone in zones" :key="zone.id" class="list-row">
             <td class="font-medium">{{ zone.name }}</td>
             <td class="list-muted">{{ zone.min_distance_km }} — {{ zone.max_distance_km }} km</td>
+            <td class="list-muted text-xs">{{ (zone as Record<string, unknown>).pincodes || '—' }}</td>
             <td class="list-total">{{ formatPrice(zone.fee) }}</td>
             <td class="text-right list-muted">{{ zone.min_order_free_delivery ? formatPrice(zone.min_order_free_delivery) : '—' }}</td>
             <td><span class="list-status" :class="zone.status === 'active' ? 'list-status--lime' : 'list-status--coral'"><i></i>{{ zone.status }}</span></td>
@@ -134,7 +139,7 @@ onMounted(loadZones)
               <button @click="deleteZone(zone)" class="text-red-600 text-sm hover:underline">Delete</button>
             </td>
           </tr>
-          <tr v-if="zones.length === 0"><td colspan="7" class="list-empty">No delivery zones configured.</td></tr>
+          <tr v-if="zones.length === 0"><td colspan="8" class="list-empty">No delivery zones configured.</td></tr>
         </tbody>
       </table>
     </div>
@@ -169,6 +174,11 @@ onMounted(loadZones)
               <input v-model.number="form.min_order_free_delivery" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
               <p class="text-xs text-gray-400 mt-1">0 = no free delivery</p>
             </div>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Pincodes (optional)</label>
+            <input v-model="form.pincodes" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="e.g. 600001,600002,600003" />
+            <p class="text-xs text-gray-400 mt-1">Comma-separated pincodes. When set, delivery is restricted to these pincodes regardless of distance.</p>
           </div>
           <div class="grid grid-cols-2 gap-4 mb-6">
             <div>

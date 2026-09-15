@@ -60,6 +60,11 @@ const tenantNavItems = [
   { label: 'Drivers', path: '/drivers', icon: 'drivers' },
   { label: 'Delivery Zones', path: '/delivery-zones', icon: 'zones' },
   { label: 'Support', path: '/support', icon: 'customers' },
+  { label: 'Reports', path: '/reports', icon: 'overview' },
+  { label: 'Audit Log', path: '/audit-log', icon: 'orders' },
+  { label: 'Refunds', path: '/refunds', icon: 'orders' },
+  { label: 'Stock Alerts', path: '/stock-alerts', icon: 'products' },
+  { label: 'Driver Earnings', path: '/driver-earnings', icon: 'drivers' },
   { label: 'Settings', path: '/settings', icon: 'settings' },
 ]
 

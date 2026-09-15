@@ -14,6 +14,7 @@ import '../../models/json_value.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/state_widgets.dart';
+import '../../services/device_actions.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final String uuid;
@@ -548,17 +549,39 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ],
                             if (_order!.status == 'delivered' || _order!.status == 'picked_up' || _order!.status == 'cancelled') ...[
                               const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed: _reorder,
-                                  icon: const Icon(Icons.replay_rounded),
-                                  label: const Text('Reorder'),
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      onPressed: _reorder,
+                                      icon: const Icon(Icons.replay_rounded),
+                                      label: const Text('Reorder'),
+                                      style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  if (_order!.status == 'delivered' || _order!.status == 'picked_up') ...[
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: _downloadInvoice,
+                                        icon: const Icon(Icons.receipt_long_outlined),
+                                        label: const Text('Invoice'),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
+                            ],
+
+                            // Live driver tracking
+                            if (_driver != null && _isActiveOrder && (_order!.status == 'out_for_delivery')) ...[
+                              const SizedBox(height: 16),
+                              _buildDriverTrackingCard(),
                             ],
                             const SizedBox(height: 32),
                           ],
@@ -786,6 +809,192 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             child: const Text('Close'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _downloadInvoice() async {
+    try {
+      final response = await ApiClient().get('/customer/orders/${widget.uuid}/invoice');
+      final data = response.data;
+      if (data['success'] == true && data['data'] != null && mounted) {
+        final invoice = Map<String, dynamic>.from(data['data'] as Map);
+        _showInvoiceSheet(invoice);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['error']?['message'] ?? 'Failed to load invoice')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load invoice')),
+        );
+      }
+    }
+  }
+
+  void _showInvoiceSheet(Map<String, dynamic> invoice) {
+    final items = (invoice['items'] as List?) ?? [];
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (_, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Text(
+                'INVOICE',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2, color: Theme.of(ctx).colorScheme.primary),
+              )),
+              const SizedBox(height: 4),
+              Center(child: Text(invoice['invoice_number']?.toString() ?? '', style: TextStyle(color: Colors.grey[600], fontSize: 13))),
+              const SizedBox(height: 16),
+              if (invoice['store'] is Map) ...[
+                Text(invoice['store']['name']?.toString() ?? 'Store', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                if (invoice['store']['address'] != null)
+                  Text(invoice['store']['address'].toString(), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                if (invoice['store']['gstin'] != null)
+                  Text('GSTIN: ${invoice['store']['gstin']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              ],
+              const Divider(height: 24),
+              ...items.map((item) {
+                final i = Map<String, dynamic>.from(item as Map);
+                final qty = (i['quantity'] as num?)?.toInt() ?? 1;
+                final total = (i['line_total'] as num?)?.toInt() ?? 0;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${i['name'] ?? 'Item'}${i['variant'] != null ? ' (${i['variant']})' : ''}', style: const TextStyle(fontSize: 13)),
+                          Text('Qty: $qty', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                        ],
+                      )),
+                      Text(PriceText.format(total), style: const TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(),
+              _invoiceRow('Subtotal', (invoice['subtotal'] as num?)?.toInt() ?? 0),
+              if (((invoice['delivery_fee'] as num?)?.toInt() ?? 0) > 0)
+                _invoiceRow('Delivery Fee', (invoice['delivery_fee'] as num).toInt()),
+              if (((invoice['service_charge'] as num?)?.toInt() ?? 0) > 0)
+                _invoiceRow('Service Charge', (invoice['service_charge'] as num).toInt()),
+              if (((invoice['tax_amount'] as num?)?.toInt() ?? 0) > 0)
+                _invoiceRow('Tax', (invoice['tax_amount'] as num).toInt()),
+              if (((invoice['discount_amount'] as num?)?.toInt() ?? 0) > 0)
+                _invoiceRow('Discount', -((invoice['discount_amount'] as num).toInt())),
+              const Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(PriceText.format((invoice['total'] as num?)?.toInt() ?? 0),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(ctx).colorScheme.primary)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Payment: ${(invoice['payment_method'] ?? '').toString().replaceAll('_', ' ')}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text('Order type: ${(invoice['order_type'] ?? '').toString()}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _invoiceRow(String label, int paise) {
+    final isNegative = paise < 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Text(
+            isNegative ? '-${PriceText.format(-paise)}' : PriceText.format(paise),
+            style: TextStyle(fontSize: 13, color: isNegative ? Colors.green : null),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDriverTrackingCard() {
+    final primary = Theme.of(context).colorScheme.primary;
+    final driverName = _driver?['name']?.toString() ?? 'Delivery partner';
+    final driverPhone = _driver?['phone']?.toString();
+    final eta = (_driver?['eta_minutes'] as num?)?.toInt();
+    final distance = (_driver?['distance_km'] as num?)?.toDouble();
+
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.delivery_dining_rounded, color: primary),
+                const SizedBox(width: 8),
+                const Text('Live Tracking', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: primary,
+                  child: Text(driverName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(driverName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if (eta != null)
+                      Text('ETA: ~$eta min${distance != null ? ' (${distance.toStringAsFixed(1)} km away)' : ''}',
+                        style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                  ],
+                )),
+                if (driverPhone != null)
+                  IconButton(
+                    onPressed: () async {
+                      final launched = await DeviceActions.call(driverPhone);
+                      if (!launched && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not open phone app')),
+                        );
+                      }
+                    },
+                    icon: Icon(Icons.call_rounded, color: primary),
+                    style: IconButton.styleFrom(backgroundColor: Colors.white),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

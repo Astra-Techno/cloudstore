@@ -9,15 +9,20 @@ use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Delivery\Service\DriverService;
 use App\Modules\Notification\Service\NotificationService;
+use App\Modules\Notification\Service\PushNotificationService;
 use Ramsey\Uuid\Uuid;
 
 final class OrderManagementService
 {
+    /** Maximum minutes after order creation during which customer can cancel. */
+    private const CANCEL_WINDOW_MINUTES = 10;
+
     public function __construct(
         private readonly Connection $db,
         private readonly OrderRepository $orderRepo,
         private readonly ?DriverService $driverService = null,
         private readonly ?NotificationService $notificationService = null,
+        private readonly ?PushNotificationService $pushService = null,
     ) {
     }
 
@@ -99,19 +104,42 @@ final class OrderManagementService
     /** @param array<string, mixed> $order */
     private function notifyCustomerOrderStatus(int $tenantId, array $order, string $status): void
     {
-        if ($this->notificationService === null || empty($order['customer_id'])) {
+        if (empty($order['customer_id'])) {
             return;
         }
 
+        $customerId = (int) $order['customer_id'];
+        $orderNumber = (string) $order['order_number'];
+
+        // In-app notification
         try {
-            $this->notificationService->notifyOrderStatus(
-                $tenantId,
-                (int) $order['customer_id'],
-                (string) $order['order_number'],
-                $status,
-            );
+            $this->notificationService?->notifyOrderStatus($tenantId, $customerId, $orderNumber, $status);
         } catch (\Throwable) {
-            // A notification outage must never undo a completed order action.
+        }
+
+        // FCM push notification
+        try {
+            $messages = [
+                OrderStatus::CONFIRMED => ['Order Confirmed', "Your order {$orderNumber} has been confirmed."],
+                OrderStatus::ACCEPTED => ['Order Accepted', "Your order {$orderNumber} is being processed."],
+                OrderStatus::PREPARING => ['Preparing Your Order', "Your order {$orderNumber} is being prepared."],
+                OrderStatus::READY => ['Order Ready', "Your order {$orderNumber} is ready for delivery."],
+                OrderStatus::READY_FOR_PICKUP => ['Ready for Pickup', "Your order {$orderNumber} is ready for pickup."],
+                OrderStatus::OUT_FOR_DELIVERY => ['Out for Delivery', "Your order {$orderNumber} is on its way!"],
+                OrderStatus::DELIVERED => ['Order Delivered', "Your order {$orderNumber} has been delivered."],
+                OrderStatus::PICKED_UP => ['Order Picked Up', "Your order {$orderNumber} has been picked up."],
+                OrderStatus::CANCELLED => ['Order Cancelled', "Your order {$orderNumber} has been cancelled."],
+            ];
+
+            $msg = $messages[$status] ?? null;
+            if ($msg !== null) {
+                $this->pushService?->sendToCustomer($customerId, $msg[0], $msg[1], [
+                    'type' => 'order_status',
+                    'order_number' => $orderNumber,
+                    'status' => $status,
+                ]);
+            }
+        } catch (\Throwable) {
         }
     }
 
@@ -135,6 +163,18 @@ final class OrderManagementService
                 'error' => 'Order can only be cancelled when status is pending or confirmed.',
                 'code' => 'CANCEL_NOT_ALLOWED',
             ];
+        }
+
+        // Enforce cancellation time window
+        $createdAt = strtotime($order['created_at']);
+        if ($createdAt !== false) {
+            $minutesSinceOrder = (time() - $createdAt) / 60;
+            if ($minutesSinceOrder > self::CANCEL_WINDOW_MINUTES) {
+                return [
+                    'error' => 'Cancellation window has expired. Orders can only be cancelled within ' . self::CANCEL_WINDOW_MINUTES . ' minutes of placement.',
+                    'code' => 'CANCEL_WINDOW_EXPIRED',
+                ];
+            }
         }
 
         $newStatus = OrderStatus::CANCELLED;

@@ -87,6 +87,9 @@ use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Modules\Platform\Controller\BuildController;
 use App\Modules\Platform\Controller\MarketplaceController;
 use App\Modules\Platform\Controller\LegalController;
+use App\Modules\Order\Controller\OrderStreamController;
+use App\Modules\Order\Controller\InvoiceController;
+use App\Modules\Catalog\Controller\SearchController;
 use App\Core\Http\Middleware\CorsMiddleware;
 use App\Core\Http\Middleware\RateLimitMiddleware;
 
@@ -491,6 +494,7 @@ final class Application
             $this->container->get(OrderRepository::class),
             $this->container->get(DriverService::class),
             $this->container->get(NotificationService::class),
+            $this->container->get(PushNotificationService::class),
         ));
 
         $this->container->singleton(AdminOrderController::class, fn () => new AdminOrderController(
@@ -579,6 +583,23 @@ final class Application
             $this->container->get(DeliveryFeeService::class),
         ));
         $this->container->singleton(LegalController::class, fn () => new LegalController());
+
+        // SSE, Invoice, Search
+        $this->container->singleton(OrderStreamController::class, fn () => new OrderStreamController(
+            $this->container->get(OrderRepository::class),
+            $this->container->get(CustomerRepository::class),
+            $this->container->get(DriverAssignmentRepository::class),
+        ));
+
+        $this->container->singleton(InvoiceController::class, fn () => new InvoiceController(
+            $this->container->get(OrderRepository::class),
+            $this->container->get(CustomerRepository::class),
+            $this->container->get(TenantRepository::class),
+        ));
+
+        $this->container->singleton(SearchController::class, fn () => new SearchController(
+            $this->container->get(Connection::class),
+        ));
 
         // Production middleware
         $this->container->singleton(CorsMiddleware::class, fn () => new CorsMiddleware(

@@ -100,6 +100,36 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/reports',
+      name: 'reports',
+      component: () => import('@/views/ReportsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/audit-log',
+      name: 'audit-log',
+      component: () => import('@/views/AuditLogView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/refunds',
+      name: 'refunds',
+      component: () => import('@/views/RefundsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/stock-alerts',
+      name: 'stock-alerts',
+      component: () => import('@/views/StockAlertsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/driver-earnings',
+      name: 'driver-earnings',
+      component: () => import('@/views/DriverEarningsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/tenants',
       name: 'tenants',
       component: () => import('@/views/TenantsView.vue'),

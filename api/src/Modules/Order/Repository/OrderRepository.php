@@ -223,4 +223,26 @@ final class OrderRepository
 
         return (int) ($row['cnt'] ?? 0);
     }
+
+    public function getLatestOrderId(int $tenantId): ?int
+    {
+        $row = $this->db->fetchOne(
+            "SELECT MAX(id) as max_id FROM orders WHERE tenant_id = ?",
+            [$tenantId]
+        );
+
+        return $row['max_id'] !== null ? (int) $row['max_id'] : null;
+    }
+
+    public function getOrdersSince(int $tenantId, int $afterId, int $limit = 20): array
+    {
+        return $this->db->fetchAll(
+            "SELECT id, uuid, order_number, status, total, order_type, created_at
+             FROM orders
+             WHERE tenant_id = ? AND id > ?
+             ORDER BY id ASC
+             LIMIT ?",
+            [$tenantId, $afterId, $limit]
+        );
+    }
 }

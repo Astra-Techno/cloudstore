@@ -33,6 +33,9 @@ use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Modules\Platform\Controller\BuildController;
 use App\Modules\Platform\Controller\MarketplaceController;
 use App\Modules\Platform\Controller\LegalController;
+use App\Modules\Order\Controller\OrderStreamController;
+use App\Modules\Order\Controller\InvoiceController;
+use App\Modules\Catalog\Controller\SearchController;
 use App\Core\Http\Middleware\TenantMiddleware;
 
 return function (Router $router): void {
@@ -76,6 +79,9 @@ return function (Router $router): void {
         $router->group('/admin', ['middleware.auth.admin'], function (Router $router) {
             // Dashboard
             $router->get('/dashboard', [AdminOrderController::class, 'dashboard']);
+
+            // Real-time SSE stream for new orders
+            $router->get('/orders/stream', [OrderStreamController::class, 'adminStream']);
 
             // Counter / POS
             $router->post('/pos/checkout', [AdminPosController::class, 'checkout']);
@@ -218,6 +224,9 @@ return function (Router $router): void {
             $router->post('/driver/login', [DriverAuthController::class, 'login']);
             $router->get('/driver/me', [DriverAuthController::class, 'me'], ['middleware.auth.driver']);
 
+            // Search
+            $router->get('/search/suggestions', [SearchController::class, 'suggestions']);
+
             // Public catalog
             $router->get('/offers', [PublicOfferController::class, 'activeOffers']);
             $router->get('/catalog', [PublicCatalogController::class, 'catalog']);
@@ -266,6 +275,8 @@ return function (Router $router): void {
                 $router->post('/checkout/validate', [CheckoutController::class, 'validateServiceability']);
                 $router->get('/orders', [OrderController::class, 'list']);
                 $router->get('/orders/{uuid}', [OrderController::class, 'show']);
+                $router->get('/orders/{uuid}/stream', [OrderStreamController::class, 'stream']);
+                $router->get('/orders/{uuid}/invoice', [InvoiceController::class, 'getInvoice']);
                 $router->post('/orders/{uuid}/cancel', [OrderController::class, 'cancel']);
                 $router->post('/orders/{uuid}/reorder', [OrderController::class, 'reorder']);
 
