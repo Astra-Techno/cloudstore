@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -17,23 +18,53 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<Order> _orders = [];
   bool _loading = true;
   String? _error;
+  Timer? _refreshTimer;
 
   @override
-  void initState() { super.initState(); _loadOrders(); }
+  void initState() {
+    super.initState();
+    _loadOrders();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _loadOrders(background: true);
+    });
+  }
 
-  Future<void> _loadOrders() async {
-    if (mounted) setState(() { _loading = true; _error = null; });
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadOrders({bool background = false}) async {
+    if (mounted && !background) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final response = await ApiClient().get('/customer/orders');
       final data = response.data;
       if (data['success'] == true && data['data'] is List) {
-        _orders = (data['data'] as List).map((item) => Order.fromJson(Map<String, dynamic>.from(item as Map))).toList();
+        final orders = (data['data'] as List)
+            .whereType<Map>()
+            .map((item) => Order.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+        if (!mounted) return;
+        setState(() {
+          _orders = orders;
+          _error = null;
+        });
       } else {
-        _error = data['error']?['message'] ?? 'Unable to load orders.';
+        if (!mounted || background) return;
+        setState(() => _error = data['error']?['message'] ?? 'Unable to load orders.');
       }
     } catch (_) {
-      _error = 'Unable to load orders. Check your connection and try again.';
-    } finally { if (mounted) setState(() => _loading = false); }
+      if (!mounted || background) return;
+      setState(() => _error = 'Unable to load orders. Check your connection and try again.');
+    } finally {
+      if (mounted && !background) setState(() => _loading = false);
+    }
   }
 
   @override

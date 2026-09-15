@@ -10,6 +10,7 @@ use App\Modules\Catalog\Domain\PricingCalculator;
 use App\Modules\Catalog\Repository\ProductRepository;
 use App\Modules\Catalog\Repository\VariantRepository;
 use App\Modules\Customer\Repository\AddressRepository;
+use App\Modules\Auth\Repository\AdminRepository;
 use App\Modules\Delivery\Service\DeliveryFeeService;
 use App\Modules\Offer\Service\DiscountCalculator;
 use App\Modules\Offer\Repository\CouponRepository;
@@ -17,6 +18,7 @@ use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Exception\InsufficientStockException;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Tenant\Domain\TenantContext;
+use App\Modules\Notification\Service\NotificationService;
 use Ramsey\Uuid\Uuid;
 
 final class CheckoutService
@@ -31,6 +33,8 @@ final class CheckoutService
         private readonly DeliveryFeeService $deliveryFeeService,
         private readonly DiscountCalculator $discountCalc,
         private readonly CouponRepository $couponRepo,
+        private readonly AdminRepository $adminRepo,
+        private readonly NotificationService $notificationService,
     ) {
     }
 
@@ -214,7 +218,7 @@ final class CheckoutService
 
         // Create order inside transaction
         try {
-            return $this->db->transaction(function () use (
+            $result = $this->db->transaction(function () use (
                 $tenantId, $customerId, $cart, $address, $addressSnapshot,
                 $subtotal, $deliveryFee, $serviceCharge, $taxAmount, $total, $discountAmount, $couponCode, $discountResult,
                 $orderType, $paymentMethod, $initialStatus, $orderItems, $input, $items
@@ -285,6 +289,19 @@ final class CheckoutService
                     'items' => $this->orderRepo->getItems($orderId),
                 ];
             });
+
+            foreach ($this->adminRepo->findByTenant($tenantId) as $admin) {
+                if (($admin['status'] ?? 'active') === 'active') {
+                    $this->notificationService->notifyNewOrder(
+                        $tenantId,
+                        (int) $admin['id'],
+                        (string) $result['order']['order_number'],
+                        (int) $result['order']['total'],
+                    );
+                }
+            }
+
+            return $result;
         } catch (InsufficientStockException $exception) {
             return [
                 'error' => "Insufficient stock for '{$exception->getProductName()}'.",

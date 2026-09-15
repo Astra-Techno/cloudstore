@@ -9,6 +9,7 @@ use App\Modules\Auth\Repository\DriverRepository;
 use App\Modules\Delivery\Repository\DriverAssignmentRepository;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
+use App\Modules\Notification\Service\NotificationService;
 
 final class DriverService
 {
@@ -17,6 +18,7 @@ final class DriverService
         private readonly DriverRepository $driverRepo,
         private readonly DriverAssignmentRepository $assignmentRepo,
         private readonly OrderRepository $orderRepo,
+        private readonly ?NotificationService $notificationService = null,
     ) {
     }
 
@@ -101,7 +103,7 @@ final class DriverService
             return ['error' => 'Invalid status transition.', 'code' => 'INVALID_TRANSITION'];
         }
 
-        return $this->db->transaction(function () use ($assignment, $assignmentId, $newStatus) {
+        $result = $this->db->transaction(function () use ($assignment, $assignmentId, $newStatus) {
             $orderId = (int) $assignment['order_id'];
             $tenantId = (int) $assignment['tenant_id'];
             $order = $this->orderRepo->findById($orderId, $tenantId);
@@ -144,6 +146,17 @@ final class DriverService
 
             return ['status' => $newStatus, 'order_id' => $orderId];
         });
+
+        if (!isset($result['error']) && in_array($newStatus, ['picked_up', 'delivered'], true)) {
+            $order = $this->orderRepo->findById((int) $result['order_id'], (int) $assignment['tenant_id']);
+            if ($order !== null) {
+                $this->notifyCustomerOrderStatus((int) $assignment['tenant_id'], $order, $newStatus === 'picked_up'
+                    ? OrderStatus::OUT_FOR_DELIVERY
+                    : OrderStatus::DELIVERED);
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -191,7 +204,7 @@ final class DriverService
             return ['error' => 'Invalid OTP.', 'code' => 'INVALID_OTP'];
         }
 
-        return $this->db->transaction(function () use ($assignment, $assignmentId) {
+        $result = $this->db->transaction(function () use ($assignment, $assignmentId) {
             $orderId = (int) $assignment['order_id'];
             $tenantId = (int) $assignment['tenant_id'];
             $order = $this->orderRepo->findById($orderId, $tenantId);
@@ -216,6 +229,15 @@ final class DriverService
                 'order_id' => $orderId,
             ];
         });
+
+        if (!isset($result['error'])) {
+            $order = $this->orderRepo->findById((int) $result['order_id'], (int) $assignment['tenant_id']);
+            if ($order !== null) {
+                $this->notifyCustomerOrderStatus((int) $assignment['tenant_id'], $order, OrderStatus::DELIVERED);
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -239,5 +261,24 @@ final class DriverService
              ORDER BY last_location_at DESC",
             [$tenantId]
         );
+    }
+
+    /** @param array<string, mixed> $order */
+    private function notifyCustomerOrderStatus(int $tenantId, array $order, string $status): void
+    {
+        if ($this->notificationService === null || empty($order['customer_id'])) {
+            return;
+        }
+
+        try {
+            $this->notificationService->notifyOrderStatus(
+                $tenantId,
+                (int) $order['customer_id'],
+                (string) $order['order_number'],
+                $status,
+            );
+        } catch (\Throwable) {
+            // Delivery state must not be rolled back because notification storage failed.
+        }
     }
 }

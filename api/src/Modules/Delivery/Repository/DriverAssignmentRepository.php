@@ -32,7 +32,7 @@ final class DriverAssignmentRepository
         return $this->db->fetchOne(
             "SELECT da.*, d.name as driver_name, d.phone as driver_phone,
                     d.vehicle_type, d.vehicle_number,
-                    d.last_location_lat, d.last_location_lng
+                    d.last_location_lat, d.last_location_lng, d.last_location_at
              FROM driver_assignments da
              JOIN drivers d ON d.id = da.driver_id
              WHERE da.order_id = ? AND da.status != 'cancelled'

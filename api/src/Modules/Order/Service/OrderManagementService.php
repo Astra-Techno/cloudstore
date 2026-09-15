@@ -8,6 +8,7 @@ use App\Core\Database\Connection;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Delivery\Service\DriverService;
+use App\Modules\Notification\Service\NotificationService;
 use Ramsey\Uuid\Uuid;
 
 final class OrderManagementService
@@ -16,6 +17,7 @@ final class OrderManagementService
         private readonly Connection $db,
         private readonly OrderRepository $orderRepo,
         private readonly ?DriverService $driverService = null,
+        private readonly ?NotificationService $notificationService = null,
     ) {
     }
 
@@ -83,11 +85,34 @@ final class OrderManagementService
             }
         }
 
+        // The order detail screen polls for this update, while the notification
+        // lets the customer know even when they are not currently viewing it.
+        $this->notifyCustomerOrderStatus($tenantId, $order, $newStatus);
+
         return [
             'order_id' => $orderId,
             'previous_status' => $order['status'],
             'new_status' => $newStatus,
         ];
+    }
+
+    /** @param array<string, mixed> $order */
+    private function notifyCustomerOrderStatus(int $tenantId, array $order, string $status): void
+    {
+        if ($this->notificationService === null || empty($order['customer_id'])) {
+            return;
+        }
+
+        try {
+            $this->notificationService->notifyOrderStatus(
+                $tenantId,
+                (int) $order['customer_id'],
+                (string) $order['order_number'],
+                $status,
+            );
+        } catch (\Throwable) {
+            // A notification outage must never undo a completed order action.
+        }
     }
 
     /**

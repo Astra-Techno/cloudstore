@@ -16,6 +16,8 @@ const loading = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 let lastKnownCount = 0
+let hasInitialSnapshot = false
+let audioContext: AudioContext | null = null
 
 const hasUnread = computed(() => unreadCount.value > 0)
 
@@ -28,20 +30,17 @@ async function fetchNotifications() {
       const newCount = data.data.unread_count
 
       // Show toast + play sound if new notifications arrived
-      if (newCount > lastKnownCount && lastKnownCount >= 0) {
-        const diff = newCount - lastKnownCount
-        if (lastKnownCount > 0) {
-          // Only alert for genuinely new ones (not initial load)
-          const newest = data.data.notifications.find(n => !n.read_at)
-          if (newest) {
-            triggerToast(newest.title + ': ' + newest.body)
-            playNotificationSound()
-          }
+      if (hasInitialSnapshot && newCount > lastKnownCount) {
+        const newest = data.data.notifications.find(n => !n.read_at)
+        if (newest) {
+          triggerToast(newest.title + ': ' + newest.body)
+          playNotificationSound()
         }
       }
 
       lastKnownCount = newCount
       unreadCount.value = newCount
+      hasInitialSnapshot = true
     }
   } catch (e) {
     // silently fail polling
@@ -59,7 +58,9 @@ function triggerToast(message: string) {
 
 function playNotificationSound() {
   try {
-    const ctx = new AudioContext()
+    const ctx = audioContext ?? new AudioContext()
+    audioContext = ctx
+    if (ctx.state !== 'running') return
     const oscillator = ctx.createOscillator()
     const gain = ctx.createGain()
     oscillator.connect(gain)
@@ -72,6 +73,15 @@ function playNotificationSound() {
     oscillator.stop(ctx.currentTime + 0.3)
   } catch {
     // AudioContext not available
+  }
+}
+
+function unlockAudio() {
+  try {
+    audioContext ??= new AudioContext()
+    void audioContext.resume()
+  } catch {
+    // Browser audio is optional; toast/badge still announce the new order.
   }
 }
 
@@ -129,12 +139,14 @@ onMounted(() => {
   fetchNotifications()
   pollTimer = setInterval(fetchNotifications, 15000) // Poll every 15 seconds
   document.addEventListener('click', closeDropdown)
+  document.addEventListener('pointerdown', unlockAudio, { once: true })
 })
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
   if (toastTimer) clearTimeout(toastTimer)
   document.removeEventListener('click', closeDropdown)
+  document.removeEventListener('pointerdown', unlockAudio)
 })
 </script>
 

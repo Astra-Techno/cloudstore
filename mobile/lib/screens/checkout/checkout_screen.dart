@@ -100,14 +100,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final response = await ApiClient().get('/customer/addresses');
       final body = response.data;
-      if (body is! Map || body['success'] != true || body['data'] is! List)
+      if (body is! Map || body['success'] != true || body['data'] is! List) {
         return;
+      }
       final addresses = (body['data'] as List)
           .whereType<Map>()
           .map((item) => Address.fromJson(Map<String, dynamic>.from(item)))
           .toList();
       if (addresses.isEmpty) return;
 
+      if (!mounted) return;
       final activeUuid = context.read<LocationProvider>().activeAddressUuid;
       Address? address;
       for (final item in addresses) {
@@ -217,9 +219,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             return;
           }
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order placed successfully!')),
-          );
+          await _showOrderPlacedCelebration();
+          if (!mounted) return;
 
           if (orderUuid != null) {
             context.go('/order/$orderUuid');
@@ -242,6 +243,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } finally {
       setState(() => _placing = false);
     }
+  }
+
+  Future<void> _showOrderPlacedCelebration() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.55, end: 1),
+              duration: const Duration(milliseconds: 550),
+              curve: Curves.elasticOut,
+              builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+              child: const CircleAvatar(
+                radius: 38,
+                backgroundColor: Color(0x1AE23744),
+                child: Icon(Icons.check_circle_rounded, color: Color(0xFFE23744), size: 58),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text('Order placed!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            const Text('The store has received your order. We’ll keep you updated at every step.', textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Track order'),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   @override

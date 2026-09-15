@@ -398,6 +398,8 @@ final class Application
             $this->container->get(DeliveryFeeService::class),
             $this->container->get(DiscountCalculator::class),
             $this->container->get(CouponRepository::class),
+            $this->container->get(AdminRepository::class),
+            $this->container->get(NotificationService::class),
         ));
 
         $this->container->singleton(CheckoutController::class, fn () => new CheckoutController(
@@ -416,6 +418,7 @@ final class Application
             $this->container->get(CartRepository::class),
             $this->container->get(ProductRepository::class),
             $this->container->get(VariantRepository::class),
+            $this->container->get(DriverAssignmentRepository::class),
         ));
 
         // Payment module
@@ -451,6 +454,7 @@ final class Application
             $this->container->get(DriverRepository::class),
             $this->container->get(DriverAssignmentRepository::class),
             $this->container->get(OrderRepository::class),
+            $this->container->get(NotificationService::class),
         ));
 
         $this->container->singleton(DriverDeliveryController::class, fn () => new DriverDeliveryController(
@@ -464,6 +468,7 @@ final class Application
             $this->container->get(Connection::class),
             $this->container->get(OrderRepository::class),
             $this->container->get(DriverService::class),
+            $this->container->get(NotificationService::class),
         ));
 
         $this->container->singleton(AdminOrderController::class, fn () => new AdminOrderController(

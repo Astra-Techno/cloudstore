@@ -11,6 +11,8 @@ use App\Modules\Cart\Repository\CartRepository;
 use App\Modules\Catalog\Domain\PricingCalculator;
 use App\Modules\Catalog\Repository\ProductRepository;
 use App\Modules\Catalog\Repository\VariantRepository;
+use App\Modules\Delivery\Repository\DriverAssignmentRepository;
+use App\Modules\Delivery\Service\DeliveryFeeService;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Order\Service\OrderManagementService;
 use App\Modules\Tenant\Domain\TenantContext;
@@ -25,6 +27,7 @@ final class OrderController
         private readonly CartRepository $cartRepo,
         private readonly ProductRepository $productRepo,
         private readonly VariantRepository $variantRepo,
+        private readonly DriverAssignmentRepository $assignmentRepo,
     ) {
     }
 
@@ -68,6 +71,7 @@ final class OrderController
             'order' => $order,
             'items' => $items,
             'status_history' => $history,
+            'driver' => $this->buildDriverTracking((int) $order['id'], $order['address_snapshot'] ?? null),
         ]);
     }
 
@@ -103,6 +107,41 @@ final class OrderController
             'items' => $items,
             'status_history' => $history,
         ]);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function buildDriverTracking(int $orderId, ?string $addressSnapshot): ?array
+    {
+        $assignment = $this->assignmentRepo->findByOrderId($orderId);
+        if ($assignment === null) {
+            return null;
+        }
+
+        $driver = [
+            'name' => $assignment['driver_name'] ?? 'Your delivery partner',
+            'phone' => $assignment['driver_phone'] ?? null,
+            'vehicle_type' => $assignment['vehicle_type'] ?? null,
+            'vehicle_number' => $assignment['vehicle_number'] ?? null,
+            'latitude' => is_numeric($assignment['last_location_lat'] ?? null) ? (float) $assignment['last_location_lat'] : null,
+            'longitude' => is_numeric($assignment['last_location_lng'] ?? null) ? (float) $assignment['last_location_lng'] : null,
+            'location_updated_at' => $assignment['last_location_at'] ?? null,
+        ];
+
+        $destination = json_decode((string) $addressSnapshot, true);
+        if (is_array($destination)
+            && is_numeric($driver['latitude']) && is_numeric($driver['longitude'])
+            && is_numeric($destination['latitude'] ?? null) && is_numeric($destination['longitude'] ?? null)) {
+            $distanceKm = DeliveryFeeService::haversineDistance(
+                (float) $driver['latitude'],
+                (float) $driver['longitude'],
+                (float) $destination['latitude'],
+                (float) $destination['longitude'],
+            );
+            $driver['distance_km'] = round($distanceKm, 1);
+            $driver['eta_minutes'] = max(1, (int) ceil(($distanceKm * 1.25) / 22 * 60));
+        }
+
+        return $driver;
     }
 
     public function reorder(Request $request, array $params): Response

@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
@@ -26,19 +29,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Map<String, dynamic>? _driver;
   bool _loading = true;
   String? _error;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadOrder();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_isActiveOrder) _loadOrder(background: true);
+    });
   }
 
-  Future<void> _loadOrder() async {
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadOrder({bool background = false}) async {
     try {
       final response = await ApiClient().get('/customer/orders/${widget.uuid}');
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
         final d = data['data'];
+        if (!mounted) return;
         setState(() {
           _order = Order.fromJson(d['order']);
           _items = (d['items'] as List<dynamic>?)
@@ -54,13 +68,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               : null;
           _error = null;
         });
-      } else {
+      } else if (mounted) {
         setState(() => _error = data['error']?['message'] ?? 'Order not found');
       }
     } catch (_) {
+      if (!mounted) return;
+      // Preserve an already-visible order during a background refresh; a
+      // momentary network loss must not hide tracking information.
+      if (background && _order != null) return;
       setState(() => _error = 'Unable to load order details.');
     }
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _cancelOrder() async {
@@ -227,6 +245,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return s == 'pending' ||
         s == 'confirmed' ||
         s == 'preparing' ||
+        s == 'ready' ||
+        s == 'ready_for_pickup' ||
         s == 'out_for_delivery';
   }
 
@@ -545,32 +565,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   /// Builds a contextual status message banner for the active order.
   Widget _buildStatusMessage() {
     final status = _order!.status;
+    final primary = Theme.of(context).colorScheme.primary;
+    final primaryContainer = Theme.of(context).colorScheme.primaryContainer;
     IconData icon;
     String message;
-    Color bgColor;
-    Color fgColor;
 
     switch (status) {
       case 'pending':
         icon = Icons.hourglass_top_rounded;
         message = 'Your order has been placed and is waiting for confirmation.';
-        bgColor = Colors.orange.shade50;
-        fgColor = Colors.orange.shade800;
       case 'confirmed':
         icon = Icons.thumb_up_alt_rounded;
         message = 'Your order has been confirmed by the store.';
-        bgColor = Colors.blue.shade50;
-        fgColor = Colors.blue.shade800;
       case 'preparing':
         icon = Icons.restaurant_rounded;
         message = 'Your order is being prepared right now!';
-        bgColor = Colors.amber.shade50;
-        fgColor = Colors.amber.shade900;
+      case 'ready':
+        icon = Icons.inventory_2_rounded;
+        message = 'Your order is packed and ready for the delivery partner.';
       case 'out_for_delivery':
         icon = Icons.delivery_dining_rounded;
         message = 'Your order is on its way!';
-        bgColor = Colors.green.shade50;
-        fgColor = Colors.green.shade800;
       default:
         return const SizedBox.shrink();
     }
@@ -578,17 +593,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: primaryContainer.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          Icon(icon, color: fgColor, size: 22),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: Duration(milliseconds: status == 'preparing' ? 1000 : 700),
+            curve: Curves.easeInOut,
+            builder: (_, progress, child) {
+              if (status == 'preparing') {
+                return Transform.rotate(angle: progress * 6.283, child: child);
+              }
+              if (status == 'out_for_delivery') {
+                return Transform.translate(
+                  offset: Offset((1 - progress) * -18, 0),
+                  child: child,
+                );
+              }
+              return Transform.scale(scale: 0.86 + (progress * 0.14), child: child);
+            },
+            child: Icon(icon, color: primary, size: 22),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(color: fgColor, fontSize: 13, fontWeight: FontWeight.w600),
+              style: TextStyle(color: primary, fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -598,11 +630,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   /// Builds the driver info card shown during out_for_delivery.
   Widget _buildDriverCard() {
+    final primary = Theme.of(context).colorScheme.primary;
+    final primaryContainer = Theme.of(context).colorScheme.primaryContainer;
     final driverName = _driver?['name']?.toString() ?? 'Your delivery partner';
     final driverPhone = _driver?['phone']?.toString();
+    final latitude = _asDouble(_driver?['latitude']);
+    final longitude = _asDouble(_driver?['longitude']);
+    final destination = _parseSnapshot(_order?.addressSnapshot);
+    final destinationLat = _asDouble(destination['latitude']);
+    final destinationLng = _asDouble(destination['longitude']);
+    final eta = _driver?['eta_minutes'];
 
     return Card(
-      color: Colors.green.shade50,
+      color: primaryContainer.withValues(alpha: 0.45),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -611,8 +651,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.green.shade100,
-                  child: Icon(Icons.delivery_dining_rounded, color: Colors.green.shade700),
+                  backgroundColor: primaryContainer,
+                  child: Icon(Icons.delivery_dining_rounded, color: primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -637,8 +677,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     icon: const Icon(Icons.call, size: 18),
                     label: const Text('Call'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade100,
-                      foregroundColor: Colors.green.shade800,
+                      backgroundColor: primaryContainer,
+                      foregroundColor: primary,
                     ),
                   ),
               ],
@@ -647,13 +687,58 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               const SizedBox(height: 8),
               Text(
                 'A delivery partner will be assigned shortly.',
-                style: TextStyle(color: Colors.green.shade700, fontSize: 12),
+                style: TextStyle(color: primary, fontSize: 12),
               ),
+            ],
+            if (latitude != null && longitude != null) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 190,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: FlutterMap(
+                    options: MapOptions(initialCenter: LatLng(latitude, longitude), initialZoom: 14),
+                    children: [
+                      TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                      MarkerLayer(markers: [
+                        Marker(
+                          point: LatLng(latitude, longitude),
+                          width: 48,
+                          height: 48,
+                          child: const Icon(Icons.delivery_dining_rounded, color: Colors.red, size: 38),
+                        ),
+                        if (destinationLat != null && destinationLng != null)
+                          Marker(
+                            point: LatLng(destinationLat, destinationLng),
+                            width: 42,
+                            height: 42,
+                            child: const Icon(Icons.home_rounded, color: Colors.black87, size: 30),
+                          ),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                const Icon(Icons.timer_outlined, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  eta is num ? 'Estimated arrival in ${eta.toInt()} min' : 'Updating delivery location…',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ]),
+              Text('Live location refreshes automatically every 15 seconds.', style: TextStyle(color: Colors.grey[700], fontSize: 12)),
             ],
           ],
         ),
       ),
     );
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 
   /// Launches the phone dialer for the given number.
