@@ -83,6 +83,17 @@ final class CartRepository
         return (int) $this->db->lastInsertId();
     }
 
+    public function getExistingQuantity(int $cartId, int $productId, ?int $variantId): int
+    {
+        $row = $this->db->fetchOne(
+            "SELECT quantity FROM cart_items WHERE cart_id = ? AND product_id = ?
+             AND (variant_id = ? OR (variant_id IS NULL AND ? IS NULL))",
+            [$cartId, $productId, $variantId, $variantId],
+        );
+
+        return (int) ($row['quantity'] ?? 0);
+    }
+
     public function updateItemQuantity(int $itemId, int $cartId, int $quantity): void
     {
         $this->db->execute(

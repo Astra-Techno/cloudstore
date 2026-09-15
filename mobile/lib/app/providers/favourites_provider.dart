@@ -32,6 +32,12 @@ class FavouritesProvider extends ChangeNotifier {
     }
   }
 
+  void reset() {
+    _favouriteProductUuids = [];
+    _isLoading = false;
+    notifyListeners();
+  }
+
   Future<void> toggleFavourite(String productUuid) async {
     // Optimistic update
     final wasFavourite = isFavourite(productUuid);

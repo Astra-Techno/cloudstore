@@ -38,6 +38,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final response = await ApiClient().get('/products/${widget.uuid}');
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
+        if (!mounted) return;
         setState(() {
           _product = Product.fromJson(data['data']);
           final availableVariants = _product!.variants
@@ -47,8 +48,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           }
         });
       }
-    } catch (_) {}
-    setState(() => _loading = false);
+    } catch (_) {
+      // The screen renders its standard not-found state if loading fails.
+    }
+    if (mounted) setState(() => _loading = false);
   }
 
   int get _calculatedPrice {
@@ -106,20 +109,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       addonIds: _selectedAddonIds.toList(),
     );
 
+    if (!mounted) return;
     setState(() => _adding = false);
 
-    if (mounted) {
-      if (success) {
+    if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Added to cart'), duration: Duration(seconds: 1)),
         );
         Navigator.of(context).pop();
-      } else {
+    } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(cart.error ?? 'Failed to add')),
         );
-      }
     }
   }
 

@@ -167,7 +167,7 @@ async function openDetail(tenant: Tenant) {
   tokenFeedback.value = ''
   // Load the independent panels in parallel.
   try {
-    const [adminsRes, tenantRes] = await Promise.all([
+    const [adminsRes, tenantRes, _] = await Promise.all([
       platformApi.getTenantAdmins(tenant.id),
       platformApi.getTenant(tenant.id),
       loadBuilds(tenant.id),

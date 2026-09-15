@@ -33,10 +33,10 @@ class CartProvider extends ChangeNotifier {
         _subtotal = cart.subtotal;
         // Cache the cart data
         await CacheService.put(_cacheKey, cartData, ttl: _cacheTtl);
+        _error = null;
       } else {
         _error = ApiResponse.errorMessage(data, 'Unable to load your cart.');
       }
-      _error = null;
     } catch (_) {
       // On network failure, try to show cached cart
       await _loadFromCache();
@@ -121,6 +121,15 @@ class CartProvider extends ChangeNotifier {
     }
     notifyListeners();
     return false;
+  }
+
+  void reset() {
+    _items = [];
+    _subtotal = 0;
+    _error = null;
+    _isLoading = false;
+    CacheService.remove(_cacheKey);
+    notifyListeners();
   }
 
   Future<bool> clearCart() async {

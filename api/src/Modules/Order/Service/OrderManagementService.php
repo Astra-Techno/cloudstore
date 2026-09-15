@@ -75,7 +75,7 @@ final class OrderManagementService
         // delivery or pickup. Branded merchants never receive a platform fee.
         if (in_array($newStatus, [OrderStatus::DELIVERED, OrderStatus::PICKED_UP], true)) {
             $tenant = $this->db->fetchOne('SELECT commercial_plan FROM tenants WHERE id = ?', [$tenantId]);
-            if (($tenant['commercial_plan'] ?? 'branded') === 'marketplace') {
+            if ($tenant !== null && ($tenant['commercial_plan'] ?? 'branded') === 'marketplace') {
                 $fee = min((int) round((int) $order['total'] * 0.01), 500);
                 $this->db->execute(
                     'INSERT IGNORE INTO platform_fee_ledger (uuid, tenant_id, order_id, gross_order_value, fee_amount)
@@ -145,7 +145,7 @@ final class OrderManagementService
             $this->db->execute("UPDATE orders SET cancel_reason = ? WHERE id = ?", [$reason, $orderId]);
         }
 
-        return $this->orderRepo->findById($orderId, $tenantId);
+        return $this->orderRepo->findById($orderId, $tenantId) ?? ['error' => 'Order not found after cancellation.', 'code' => 'ORDER_NOT_FOUND'];
     }
 
     /**

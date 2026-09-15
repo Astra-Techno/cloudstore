@@ -43,9 +43,12 @@ class AuthProvider extends ChangeNotifier {
       });
       final data = response.data;
       _isLoading = false;
-      notifyListeners();
-      if (ApiResponse.isSuccess(data)) return true;
+      if (ApiResponse.isSuccess(data)) {
+        notifyListeners();
+        return true;
+      }
       _error = ApiResponse.errorMessage(data, 'Failed to send OTP.');
+      notifyListeners();
       return false;
     } catch (e) {
       _error = 'Failed to send OTP';

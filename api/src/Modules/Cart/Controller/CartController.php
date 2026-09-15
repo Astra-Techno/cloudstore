@@ -108,6 +108,20 @@ final class CartController
             $cartId = (int) $cart['id'];
         }
 
+        $totalQuantity = $this->cartRepo->getExistingQuantity(
+            $cartId,
+            (int) $product['id'],
+            $variant ? (int) $variant['id'] : null,
+        ) + $quantity;
+        if (($product['stock_mode'] ?? 'unlimited') === 'limited_stock'
+            && $totalQuantity > (int) ($product['stock_quantity'] ?? 0)) {
+            return Response::error('This item no longer has enough stock.', 'INSUFFICIENT_STOCK', 422);
+        }
+        if ($variant !== null && ($variant['stock_mode'] ?? 'unlimited') === 'limited_stock'
+            && $totalQuantity > (int) ($variant['stock_quantity'] ?? 0)) {
+            return Response::error('This option no longer has enough stock.', 'INSUFFICIENT_STOCK', 422);
+        }
+
         $addonIds = $data['addon_ids'] ?? [];
         if (!is_array($addonIds)) {
             return Response::error('Invalid add-on selection.', 'INVALID_ADDON_SELECTION', 422);
@@ -189,7 +203,31 @@ final class CartController
         }
 
         $itemId = (int) $params['itemId'];
-        $this->cartRepo->updateItemQuantity($itemId, (int) $cart['id'], (int) $data['quantity']);
+        $items = $this->cartRepo->getItems((int) $cart['id']);
+        $item = null;
+        foreach ($items as $row) {
+            if ((int) $row['id'] === $itemId) {
+                $item = $row;
+                break;
+            }
+        }
+        if ($item === null) {
+            return Response::notFound('Cart item not found.');
+        }
+        if (($item['product_status'] ?? '') !== 'active'
+            || ($item['variant_id'] !== null && ($item['variant_status'] ?? '') !== 'active')) {
+            return Response::error('This item is no longer available.', 'PRODUCT_UNAVAILABLE', 422);
+        }
+        $quantity = (int) $data['quantity'];
+        if (($item['stock_mode'] ?? 'unlimited') === 'limited_stock'
+            && $quantity > (int) ($item['stock_quantity'] ?? 0)) {
+            return Response::error('This item no longer has enough stock.', 'INSUFFICIENT_STOCK', 422);
+        }
+        if ($item['variant_id'] !== null && ($item['variant_stock_mode'] ?? 'unlimited') === 'limited_stock'
+            && $quantity > (int) ($item['variant_stock_quantity'] ?? 0)) {
+            return Response::error('This option no longer has enough stock.', 'INSUFFICIENT_STOCK', 422);
+        }
+        $this->cartRepo->updateItemQuantity($itemId, (int) $cart['id'], $quantity);
 
         $items = $this->formatItems($this->cartRepo->getItems((int) $cart['id']));
 
@@ -261,6 +299,10 @@ final class CartController
                 'addons_price' => $addonsPrice,
                 'addons' => $addons,
                 'line_total' => ($unitPrice + $addonsPrice) * $quantity,
+                'is_available' => $row['product_status'] === 'active'
+                    && ($row['variant_id'] === null || $row['variant_status'] === 'active')
+                    && (($row['stock_mode'] ?? 'unlimited') !== 'limited_stock' || (int) ($row['stock_quantity'] ?? 0) > 0)
+                    && ($row['variant_id'] === null || ($row['variant_stock_mode'] ?? 'unlimited') !== 'limited_stock' || (int) ($row['variant_stock_quantity'] ?? 0) > 0),
             ];
         }, $rows);
     }

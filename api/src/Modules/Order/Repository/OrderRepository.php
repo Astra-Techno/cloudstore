@@ -77,12 +77,17 @@ final class OrderRepository
         return (int) $this->db->lastInsertId();
     }
 
+    private const ALLOWED_TIMESTAMP_FIELDS = [
+        'confirmed_at', 'preparing_at', 'ready_at', 'picked_up_at',
+        'delivered_at', 'completed_at', 'cancelled_at',
+    ];
+
     public function updateStatus(int $id, int $tenantId, string $status, ?string $timestampField = null): void
     {
         $sql = "UPDATE orders SET status = ?";
         $params = [$status];
 
-        if ($timestampField !== null) {
+        if ($timestampField !== null && in_array($timestampField, self::ALLOWED_TIMESTAMP_FIELDS, true)) {
             $sql .= ", {$timestampField} = NOW()";
         }
 

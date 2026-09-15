@@ -85,6 +85,7 @@ async function updateStatus(newStatus: string) {
 
 // Driver assignment
 async function openDriverModal() {
+  selectedDriver.value = ''
   loadingDrivers.value = true
   showDriverModal.value = true
   try {

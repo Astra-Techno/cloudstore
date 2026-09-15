@@ -28,6 +28,7 @@ class _CartScreenState extends State<CartScreen> {
     final cart = context.watch<CartProvider>();
     final auth = context.watch<AuthProvider>();
     final store = context.watch<BootstrapProvider>();
+    final hasUnavailableItems = cart.items.any((item) => !item.isAvailable);
 
     if (!auth.isAuthenticated) {
       return EmptyStateWidget(
@@ -43,6 +44,13 @@ class _CartScreenState extends State<CartScreen> {
       return const LoadingStateWidget(message: 'Loading your cart...');
     }
 
+    if (cart.error != null && cart.items.isEmpty) {
+      return ErrorStateWidget(
+        message: cart.error!,
+        onRetry: () => cart.loadCart(),
+      );
+    }
+
     if (cart.isEmpty) {
       return EmptyStateWidget(
         icon: Icons.shopping_cart_outlined,
@@ -55,6 +63,13 @@ class _CartScreenState extends State<CartScreen> {
 
     return Column(
       children: [
+        if (cart.error != null && cart.items.isNotEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: Colors.red.shade50,
+            child: Text(cart.error!, style: TextStyle(color: Colors.red.shade800, fontSize: 13)),
+          ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: cart.loadCart,
@@ -106,7 +121,9 @@ class _CartScreenState extends State<CartScreen> {
                   index: index,
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
-                    color: index.isOdd
+                    color: !item.isAvailable
+                        ? Colors.grey.shade200
+                        : index.isOdd
                         ? Colors.white
                         : AppTheme.primaryLight(
                             Theme.of(context).colorScheme.primary),
@@ -144,6 +161,15 @@ class _CartScreenState extends State<CartScreen> {
                                   ),
                                 const SizedBox(height: 4),
                                 PriceText(paise: item.lineTotal),
+                                if (!item.isAvailable)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text('Currently unavailable',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade700,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700)),
+                                  ),
                               ],
                             ),
                           ),
@@ -154,7 +180,7 @@ class _CartScreenState extends State<CartScreen> {
                                     color:
                                         Theme.of(context).colorScheme.primary),
                                 iconSize: 28,
-                                onPressed: () {
+                                onPressed: !item.isAvailable ? null : () {
                                   if (item.quantity > 1) {
                                     cart.updateItem(item.id, item.quantity - 1);
                                   } else {
@@ -183,8 +209,9 @@ class _CartScreenState extends State<CartScreen> {
                                     color:
                                         Theme.of(context).colorScheme.primary),
                                 iconSize: 28,
-                                onPressed: () =>
-                                    cart.updateItem(item.id, item.quantity + 1),
+                                onPressed: item.isAvailable
+                                    ? () => cart.updateItem(item.id, item.quantity + 1)
+                                    : null,
                               ),
                             ],
                           ),
@@ -237,7 +264,7 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (!store.isAcceptingOrders) ...[
+                if (!store.isAcceptingOrders || hasUnavailableItems) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
@@ -249,7 +276,9 @@ class _CartScreenState extends State<CartScreen> {
                     child: Row(children: [
                       Icon(Icons.schedule_rounded, color: Colors.grey.shade700),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(store.orderingMessage,
+                      Expanded(child: Text(hasUnavailableItems
+                          ? 'Remove unavailable items before checkout.'
+                          : store.orderingMessage,
                           style: TextStyle(color: Colors.grey.shade800))),
                     ]),
                   ),
@@ -257,14 +286,14 @@ class _CartScreenState extends State<CartScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: store.isAcceptingOrders
+                    onPressed: store.isAcceptingOrders && !hasUnavailableItems
                         ? () => context.push('/checkout')
                         : null,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: Text(
-                        store.isAcceptingOrders
+                        store.isAcceptingOrders && !hasUnavailableItems
                             ? 'Proceed to Checkout'
                             : 'Ordering unavailable',
                         style: const TextStyle(fontSize: 16)),

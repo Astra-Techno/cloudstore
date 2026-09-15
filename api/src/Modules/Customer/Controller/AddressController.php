@@ -61,6 +61,11 @@ final class AddressController
             return Response::validationError($validator->getErrors());
         }
 
+        $availability = $this->checkDeliveryAvailability($data['latitude'] ?? null, $data['longitude'] ?? null);
+        if (isset($availability['error'])) {
+            return Response::error($availability['error'], $availability['code'], 422);
+        }
+
         $data['uuid'] = Uuid::uuid4()->toString();
         $data['customer_id'] = $customerId;
         $data['tenant_id'] = $tenantId;
@@ -89,30 +94,15 @@ final class AddressController
         }
 
         $data = $request->json();
-        if (!is_numeric($data['latitude'] ?? null) || !is_numeric($data['longitude'] ?? null)) {
-            return Response::validationError([
-                'location' => ['A GPS location is required to check delivery availability.'],
-            ]);
+        $availability = $this->checkDeliveryAvailability($data['latitude'] ?? null, $data['longitude'] ?? null);
+        if (isset($availability['error'])) {
+            return Response::error($availability['error'], $availability['code'], 422);
         }
-
-        $tenant = TenantContext::get();
-        $storeLocation = ($tenant->configuration ?? [])['delivery'] ?? [];
-        if (!is_numeric($storeLocation['latitude'] ?? null) || !is_numeric($storeLocation['longitude'] ?? null)) {
-            return Response::error('This store has not configured its delivery location yet.', 'STORE_LOCATION_REQUIRED', 422);
-        }
-
-        $distanceKm = DeliveryFeeService::haversineDistance(
-            (float) $storeLocation['latitude'],
-            (float) $storeLocation['longitude'],
-            (float) $data['latitude'],
-            (float) $data['longitude'],
-        );
-        $fee = $this->deliveryFeeService->calculate(TenantContext::id(), $distanceKm, 0);
 
         return Response::success([
-            'available' => $fee !== null,
-            'distance_km' => round($distanceKm, 2),
-            'delivery_fee' => $fee,
+            'available' => true,
+            'distance_km' => $availability['distance_km'],
+            'delivery_fee' => $availability['delivery_fee'],
         ]);
     }
 
@@ -140,6 +130,16 @@ final class AddressController
 
         if (empty($updates)) {
             return Response::error('No valid fields to update.', 'VALIDATION_ERROR', 422);
+        }
+
+        if (array_key_exists('latitude', $updates) || array_key_exists('longitude', $updates)) {
+            $availability = $this->checkDeliveryAvailability(
+                $updates['latitude'] ?? $address['latitude'],
+                $updates['longitude'] ?? $address['longitude'],
+            );
+            if (isset($availability['error'])) {
+                return Response::error($availability['error'], $availability['code'], 422);
+            }
         }
 
         if (!empty($updates['is_default'])) {
@@ -180,5 +180,33 @@ final class AddressController
         }
 
         return $this->customerRepo->findByUuid($claims['sub']);
+    }
+
+    /** @return array{distance_km: float, delivery_fee: int}|array{error: string, code: string} */
+    private function checkDeliveryAvailability(mixed $latitude, mixed $longitude): array
+    {
+        if (!is_numeric($latitude) || !is_numeric($longitude)
+            || abs((float) $latitude) > 90 || abs((float) $longitude) > 180) {
+            return ['error' => 'A valid GPS location is required for delivery.', 'code' => 'LOCATION_REQUIRED'];
+        }
+
+        $tenant = TenantContext::get();
+        $storeLocation = ($tenant->configuration ?? [])['delivery'] ?? [];
+        if (!is_numeric($storeLocation['latitude'] ?? null) || !is_numeric($storeLocation['longitude'] ?? null)) {
+            return ['error' => 'This store has not configured its delivery location yet.', 'code' => 'STORE_LOCATION_REQUIRED'];
+        }
+
+        $distanceKm = DeliveryFeeService::haversineDistance(
+            (float) $storeLocation['latitude'],
+            (float) $storeLocation['longitude'],
+            (float) $latitude,
+            (float) $longitude,
+        );
+        $fee = $this->deliveryFeeService->calculate(TenantContext::id(), $distanceKm, 0);
+        if ($fee === null) {
+            return ['error' => 'This location is outside the store delivery area.', 'code' => 'ADDRESS_OUTSIDE_DELIVERY_AREA'];
+        }
+
+        return ['distance_km' => round($distanceKm, 2), 'delivery_fee' => $fee];
     }
 }

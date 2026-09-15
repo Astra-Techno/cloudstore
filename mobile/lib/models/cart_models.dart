@@ -27,6 +27,7 @@ class CartItem {
   final int addonsPrice;
   final List<String> addonNames;
   final int lineTotal;
+  final bool isAvailable;
 
   CartItem({
     required this.id,
@@ -39,6 +40,7 @@ class CartItem {
     required this.addonsPrice,
     this.addonNames = const [],
     required this.lineTotal,
+    this.isAvailable = true,
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
@@ -62,6 +64,7 @@ class CartItem {
       addonsPrice: addonsPrice,
       addonNames: addonNames,
       lineTotal: lineTotal > 0 ? lineTotal : (unitPrice + addonsPrice) * quantity,
+      isAvailable: JsonValue.boolean(json['is_available'], true),
     );
   }
 

@@ -2,8 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:dio/dio.dart';
 import '../../services/api_client.dart';
+import '../../services/api_response.dart';
 import '../../models/driver.dart';
+import '../../models/json_value.dart';
 
 class DriverProvider extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
@@ -48,12 +51,20 @@ class DriverProvider extends ChangeNotifier {
         'phone': phone,
         'password': password,
       });
-      final data = response.data;
+      final payload = ApiResponse.dataMap(response.data);
 
-      if (data['success'] == true && data['data'] != null) {
-        _token = data['data']['token'] as String;
-        _driver = data['data']['driver'] as Map<String, dynamic>;
-        _availability = _driver?['availability'] as String? ?? 'offline';
+      if (ApiResponse.isSuccess(response.data) && payload != null) {
+        final token = JsonValue.nullableString(payload['token']);
+        final driver = JsonValue.object(payload['driver']);
+        if (token == null || driver == null) {
+          _error = 'The driver account response was incomplete. Please try again.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+        _token = token;
+        _driver = driver;
+        _availability = JsonValue.string(_driver?['availability'], 'offline');
         _isAuthenticated = true;
         ApiClient().setAuthToken(_token!);
         await _storage.write(key: 'driver_token', value: _token);
@@ -61,7 +72,7 @@ class DriverProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = data['error']?['message'] ?? 'Login failed';
+        _error = ApiResponse.errorMessage(response.data, 'Login failed');
         _isLoading = false;
         notifyListeners();
         return false;
@@ -77,27 +88,38 @@ class DriverProvider extends ChangeNotifier {
   Future<void> fetchProfile() async {
     try {
       final response = await ApiClient().get('/driver/me');
-      final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        _driver = data['data'];
-        _availability = _driver?['availability'] as String? ?? 'offline';
+      final driver = ApiResponse.dataMap(response.data);
+      if (ApiResponse.isSuccess(response.data) && driver != null) {
+        _driver = driver;
+        _availability = JsonValue.string(_driver?['availability'], 'offline');
         _isAuthenticated = true;
+        _error = null;
         notifyListeners();
       } else {
         await logout();
       }
+    } on DioException catch (error) {
+      // A brief offline period must not erase a driver's saved session.
+      if (error.response?.statusCode == 401) {
+        await logout();
+      } else {
+        _error = 'Unable to refresh your driver profile. Check your connection.';
+        notifyListeners();
+      }
     } catch (_) {
-      await logout();
+      _error = 'Unable to refresh your driver profile. Please try again.';
+      notifyListeners();
     }
   }
 
   Future<void> fetchDeliveries() async {
     try {
       final response = await ApiClient().get('/driver/deliveries');
-      final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        final list = data['data'] as List<dynamic>;
-        _deliveries = list.map((d) => DriverDelivery.fromJson(d)).toList();
+      final data = ApiResponse.body(response.data);
+      if (ApiResponse.isSuccess(response.data) && data?['data'] is List) {
+        _deliveries = JsonValue.objectList(data!['data'])
+            .map(DriverDelivery.fromJson)
+            .toList();
         notifyListeners();
       }
     } catch (_) {}
@@ -112,15 +134,13 @@ class DriverProvider extends ChangeNotifier {
         '/driver/deliveries/$assignmentId/status',
         data: {'status': status},
       );
-      final data = response.data;
-
-      if (data['success'] == true) {
+      if (ApiResponse.isSuccess(response.data)) {
         await fetchDeliveries();
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
-        _error = data['error']?['message'] ?? 'Failed to update status';
+        _error = ApiResponse.errorMessage(response.data, 'Failed to update status');
         _isLoading = false;
         notifyListeners();
         return false;
@@ -142,16 +162,14 @@ class DriverProvider extends ChangeNotifier {
         '/driver/deliveries/$assignmentId/verify-otp',
         data: {'otp': otp},
       );
-      final data = response.data;
-
-      if (data['success'] == true) {
+      if (ApiResponse.isSuccess(response.data)) {
         await fetchDeliveries();
         await fetchEarnings();
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
-        _error = data['error']?['message'] ?? 'OTP verification failed';
+        _error = ApiResponse.errorMessage(response.data, 'OTP verification failed');
         _isLoading = false;
         notifyListeners();
         return false;
@@ -167,9 +185,9 @@ class DriverProvider extends ChangeNotifier {
   Future<void> fetchEarnings() async {
     try {
       final response = await ApiClient().get('/driver/earnings');
-      final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        _earnings = data['data'] as Map<String, dynamic>;
+      final earnings = ApiResponse.dataMap(response.data);
+      if (ApiResponse.isSuccess(response.data) && earnings != null) {
+        _earnings = earnings;
         notifyListeners();
       }
     } catch (_) {}
@@ -202,7 +220,7 @@ class DriverProvider extends ChangeNotifier {
       final response = await ApiClient().post('/driver/availability', data: {
         'availability': status,
       });
-      if (response.data['success'] == true) {
+      if (ApiResponse.isSuccess(response.data)) {
         _availability = status;
         if (status == 'available') await shareCurrentLocation();
         notifyListeners();

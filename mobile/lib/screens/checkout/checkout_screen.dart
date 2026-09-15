@@ -398,7 +398,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   SegmentedButton<String>(
                     segments: fulfilmentOptions,
                     selected: {_orderType},
-                    onSelectionChanged: bootstrap.isAcceptingOrders
+                    onSelectionChanged: bootstrap.isAcceptingOrders && !_validatingAddress
                         ? (s) {
                             setState(() => _orderType = s.first);
                             _validateServiceability();
@@ -414,6 +414,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(height: 8),
                   Card(
                     child: ListTile(
+                      onTap: () async {
+                        final result = await context.push('/addresses/select');
+                        if (result != null && result is Address && mounted) {
+                          setState(() => _selectedAddress = result);
+                          _validateServiceability();
+                        }
+                      },
                       leading: Icon(
                         _selectedAddress != null
                             ? Icons.location_on
@@ -428,8 +435,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ? Text(_selectedAddress!.fullAddress,
                               maxLines: 2, overflow: TextOverflow.ellipsis)
                           : const Text(
-                              'Choose a saved location from your profile first'),
-                      trailing: const Icon(Icons.verified_rounded),
+                              'Tap to choose a delivery address'),
+                      trailing: const Icon(Icons.chevron_right),
                     ),
                   ),
                 ],

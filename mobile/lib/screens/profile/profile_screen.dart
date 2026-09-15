@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../app/providers/auth_provider.dart';
 import '../../app/providers/notification_provider.dart';
+import '../../app/providers/cart_provider.dart';
+import '../../app/providers/favourites_provider.dart';
 import '../../services/api_client.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -195,10 +197,12 @@ class ProfileScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 context.read<NotificationProvider>().stopPolling();
-                auth.logout();
-                context.go('/home');
+                context.read<CartProvider>().reset();
+                context.read<FavouritesProvider>().reset();
+                await auth.logout();
+                if (context.mounted) context.go('/home');
               },
               icon: const Icon(Icons.logout, color: Colors.red),
               label: const Text('Logout', style: TextStyle(color: Colors.red)),
@@ -263,8 +267,9 @@ class ProfileScreen extends StatelessWidget {
                   onPressed: () async {
                     final ok = await auth.updateProfile(
                         name: name.text, email: email.text);
-                    if (sheetContext.mounted && ok)
+                    if (sheetContext.mounted && ok) {
                       Navigator.pop(sheetContext, true);
+                    }
                   },
                   child: const Text('Save changes')),
             ]),
@@ -272,9 +277,10 @@ class ProfileScreen extends StatelessWidget {
     );
     name.dispose();
     email.dispose();
-    if (saved == true && context.mounted)
+    if (saved == true && context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Profile updated')));
+    }
   }
 
   void _showLegalPage(BuildContext context, String title, String endpoint) {
@@ -365,16 +371,19 @@ class _LegalContentScreenState extends State<_LegalContentScreen> {
       final response = await ApiClient().get(widget.endpoint);
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
+        if (!mounted) return;
         setState(() {
           _content =
               data['data']['content']?.toString() ?? data['data'].toString();
         });
       }
     } catch (_) {
-      setState(
-          () => _content = 'Unable to load content. Please try again later.');
+      if (mounted) {
+        setState(
+            () => _content = 'Unable to load content. Please try again later.');
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 

@@ -108,6 +108,10 @@ final class DriverService
             $tenantId = (int) $assignment['tenant_id'];
             $order = $this->orderRepo->findById($orderId, $tenantId);
 
+            if ($order === null) {
+                return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
+            }
+
             if ($newStatus === 'picked_up' && $order['status'] !== OrderStatus::READY) {
                 return ['error' => 'The order is not ready for pickup.', 'code' => 'ORDER_NOT_READY'];
             }
@@ -208,6 +212,10 @@ final class DriverService
             $orderId = (int) $assignment['order_id'];
             $tenantId = (int) $assignment['tenant_id'];
             $order = $this->orderRepo->findById($orderId, $tenantId);
+
+            if ($order === null) {
+                return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
+            }
 
             // Calculate earnings from delivery fee
             $earnings = (int) ($order['delivery_fee'] ?? 0);

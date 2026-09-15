@@ -26,7 +26,12 @@ class _AddressesScreenState extends State<AddressesScreen> {
   }
 
   Future<void> _loadAddresses() async {
-    setState(() => _loading = true);
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final response = await ApiClient().get('/customer/addresses');
       final data = response.data;
@@ -45,9 +50,10 @@ class _AddressesScreenState extends State<AddressesScreen> {
             'Unable to load saved addresses.');
       }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(
             () => _error = 'Unable to load saved addresses. Please try again.');
+      }
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -90,9 +96,19 @@ class _AddressesScreenState extends State<AddressesScreen> {
 
     if (confirmed == true) {
       try {
-        await ApiClient().delete('/customer/addresses/$uuid');
-        _loadAddresses();
-      } catch (_) {}
+        final response = await ApiClient().delete('/customer/addresses/$uuid');
+        if (response.data is Map && response.data['success'] == true) {
+          await _loadAddresses();
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Unable to delete this address.')));
+        }
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Unable to delete this address. Please try again.')));
+        }
+      }
     }
   }
 

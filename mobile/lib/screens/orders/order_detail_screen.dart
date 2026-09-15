@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../services/api_client.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../models/order.dart';
+import '../../models/json_value.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/state_widgets.dart';
@@ -50,26 +51,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       final response = await ApiClient().get('/customer/orders/${widget.uuid}');
       final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        final d = data['data'];
+      final d = data is Map && data['data'] is Map
+          ? Map<String, dynamic>.from(data['data'] as Map)
+          : null;
+      final orderJson = d == null ? null : JsonValue.object(d['order']);
+      if (data is Map && data['success'] == true && d != null && orderJson != null) {
         if (!mounted) return;
         setState(() {
-          _order = Order.fromJson(d['order']);
-          _items = (d['items'] as List<dynamic>?)
-                  ?.map((i) => OrderItem.fromJson(i))
-                  .toList() ??
-              [];
-          _history = (d['status_history'] as List<dynamic>?)
-                  ?.map((h) => StatusHistoryEntry.fromJson(h))
-                  .toList() ??
-              [];
+          _order = Order.fromJson(orderJson);
+          _items = JsonValue.objectList(d['items']).map(OrderItem.fromJson).toList();
+          _history = JsonValue.objectList(d['status_history'])
+              .map(StatusHistoryEntry.fromJson)
+              .toList();
           _driver = d['driver'] is Map
               ? Map<String, dynamic>.from(d['driver'] as Map)
               : null;
           _error = null;
         });
       } else if (mounted) {
-        setState(() => _error = data['error']?['message'] ?? 'Order not found');
+        final message = data is Map && data['error'] is Map
+            ? data['error']['message']?.toString()
+            : null;
+        setState(() => _error = message ?? 'Order not found');
       }
     } catch (_) {
       if (!mounted) return;
@@ -785,7 +788,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         children: [
           Text(label, style: TextStyle(color: Colors.grey[600])),
           Text(
-            value[0].toUpperCase() + value.substring(1),
+            value.isEmpty ? '' : value[0].toUpperCase() + value.substring(1),
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
         ],

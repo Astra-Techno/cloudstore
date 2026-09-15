@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../services/notification_service.dart';
 import '../../models/app_notification.dart';
+import '../../models/json_value.dart';
+import '../../services/api_response.dart';
 
 class NotificationProvider extends ChangeNotifier {
   List<AppNotification> _notifications = [];
@@ -29,11 +31,12 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> fetchNotifications() async {
     try {
       final response = await ApiClient().get('/customer/notifications');
-      final data = response.data;
-      if (data['success'] == true && data['data'] != null) {
-        final list = data['data']['notifications'] as List<dynamic>? ?? [];
-        _notifications = list.map((n) => AppNotification.fromJson(n)).toList();
-        final newUnread = data['data']['unread_count'] as int? ?? 0;
+      final data = ApiResponse.dataMap(response.data);
+      if (ApiResponse.isSuccess(response.data) && data != null) {
+        _notifications = JsonValue.objectList(data['notifications'])
+            .map(AppNotification.fromJson)
+            .toList();
+        final newUnread = JsonValue.integer(data['unread_count']);
 
         // Show local notification for new items
         if (_lastKnownCount >= 0 && newUnread > _lastKnownCount) {
