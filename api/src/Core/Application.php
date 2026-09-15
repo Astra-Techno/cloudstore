@@ -14,9 +14,11 @@ use App\Modules\Tenant\Repository\TenantRepository;
 use App\Modules\Tenant\Repository\AppTokenRepository;
 use App\Modules\Tenant\Repository\BrandingRepository;
 use App\Modules\Tenant\Repository\CapabilityRepository;
+use App\Modules\Tenant\Repository\TenantIntegrationRepository;
 use App\Modules\Tenant\Service\TenantService;
 use App\Modules\Tenant\Service\AppTokenService;
 use App\Modules\Tenant\Controller\BootstrapController;
+use App\Modules\Tenant\Controller\TenantIntegrationController;
 use App\Modules\Auth\Service\JwtService;
 use App\Modules\Auth\Service\PasswordService;
 use App\Modules\Auth\Service\OtpService;
@@ -159,6 +161,9 @@ final class Application
         $this->container->singleton(CapabilityRepository::class, fn () => new CapabilityRepository(
             $this->container->get(Connection::class),
         ));
+        $this->container->singleton(TenantIntegrationRepository::class, fn () => new TenantIntegrationRepository(
+            $this->container->get(Connection::class),
+        ));
 
         $this->container->singleton(AppTokenService::class, fn () => new AppTokenService(
             $this->container->get(AppTokenRepository::class),
@@ -174,6 +179,11 @@ final class Application
         $this->container->singleton(BootstrapController::class, fn () => new BootstrapController(
             $this->container->get(AppTokenService::class),
             $this->container->get(TenantService::class),
+        ));
+        $this->container->singleton(TenantIntegrationController::class, fn () => new TenantIntegrationController(
+            $this->container->get(TenantIntegrationRepository::class),
+            $this->container->get(Config::class),
+            $this->container->get(AdminRepository::class),
         ));
 
         // Auth module
@@ -366,6 +376,7 @@ final class Application
             $this->container->get(CustomerRepository::class),
             $this->container->get(AdminRepository::class),
             $this->container->get(OrderRepository::class),
+            $this->container->get(NotificationService::class),
         ));
 
         // Delivery module

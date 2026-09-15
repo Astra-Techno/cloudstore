@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Core\Http\Router;
 use App\Http\Controllers\HealthController;
 use App\Modules\Tenant\Controller\BootstrapController;
+use App\Modules\Tenant\Controller\TenantIntegrationController;
 use App\Modules\Auth\Controller\AdminAuthController;
 use App\Modules\Auth\Controller\CustomerAuthController;
 use App\Modules\Auth\Controller\DriverAuthController;
@@ -148,6 +149,8 @@ return function (Router $router): void {
             $router->put('/settings', [AdminSettingsController::class, 'updateSettings']);
             $router->post('/settings', [AdminSettingsController::class, 'updateSettings']);
             $router->post('/settings/toggle-live', [AdminSettingsController::class, 'toggleLive']);
+            $router->get('/integrations', [TenantIntegrationController::class, 'get']);
+            $router->post('/integrations', [TenantIntegrationController::class, 'update']);
 
             // Enhanced dashboard
             $router->get('/dashboard/enhanced', [AdminSettingsController::class, 'dashboardEnhanced']);

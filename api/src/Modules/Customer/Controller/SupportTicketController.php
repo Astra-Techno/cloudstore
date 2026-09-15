@@ -11,6 +11,7 @@ use App\Modules\Auth\Repository\AdminRepository;
 use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Customer\Repository\SupportTicketRepository;
 use App\Modules\Order\Repository\OrderRepository;
+use App\Modules\Notification\Service\NotificationService;
 use App\Modules\Tenant\Domain\TenantContext;
 use Ramsey\Uuid\Uuid;
 
@@ -21,6 +22,7 @@ final class SupportTicketController
         private readonly CustomerRepository $customers,
         private readonly AdminRepository $admins,
         private readonly OrderRepository $orders,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function listCustomer(Request $request, array $params): Response
@@ -66,6 +68,9 @@ final class SupportTicketController
             'priority' => $data['priority'] ?? 'normal',
         ]);
         $this->tickets->addMessage($ticketId, Uuid::uuid4()->toString(), 'customer', (int) $customer['id'], trim((string) $data['message']));
+        foreach ($this->admins->findByTenant($tenantId) as $admin) {
+            $this->notifications->send($tenantId, 'admin', (int) $admin['id'], 'support_ticket', 'New support request', trim((string) $data['subject']), ['ticket_uuid' => $ticketUuid]);
+        }
         return Response::success(['uuid' => $ticketUuid], status: 201);
     }
 
@@ -115,6 +120,7 @@ final class SupportTicketController
         $body = trim((string) ($request->json()['message'] ?? ''));
         if ($body === '' || mb_strlen($body) > 4000) return Response::validationError(['message' => ['Enter a message up to 4000 characters.']]);
         $this->tickets->addMessage((int) $ticket['id'], Uuid::uuid4()->toString(), 'admin', (int) $admin['id'], $body);
+        $this->notifications->send(TenantContext::id(), 'customer', (int) $ticket['customer_id'], 'support_reply', 'Support replied', 'The store team replied to: ' . $ticket['subject'], ['ticket_uuid' => $ticket['uuid']]);
         return Response::success(['sent' => true]);
     }
 

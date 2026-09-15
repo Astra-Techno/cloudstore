@@ -147,6 +147,134 @@ class _SupportScreenState extends State<SupportScreen> {
     }
   }
 
+  Future<void> _openTicket(Map<String, dynamic> ticket) async {
+    try {
+      final response =
+          await ApiClient().get('/customer/support/tickets/${ticket['uuid']}');
+      final body = response.data;
+      if (!mounted ||
+          body is! Map ||
+          body['success'] != true ||
+          body['data'] is! Map) {
+        return;
+      }
+      final data = Map<String, dynamic>.from(body['data'] as Map);
+      final messages = (data['messages'] as List? ?? [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      final reply = TextEditingController();
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, 8, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * .72,
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(ticket['subject']?.toString() ?? 'Support request',
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Text('The store team will reply here.',
+                        style: TextStyle(color: Colors.grey.shade600)),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: messages.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (_, index) {
+                          final message = messages[index];
+                          final own = message['sender_type'] == 'customer';
+                          return Align(
+                            alignment: own
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              constraints: const BoxConstraints(maxWidth: 290),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 11),
+                              decoration: BoxDecoration(
+                                color: own
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(message['body']?.toString() ?? '',
+                                  style: TextStyle(
+                                      color: own ? Colors.white : null)),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(
+                        child: TextField(
+                          controller: reply,
+                          maxLength: 4000,
+                          decoration: const InputDecoration(
+                            hintText: 'Add more details…',
+                            counterText: '',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        tooltip: 'Send message',
+                        onPressed: () async {
+                          final text = reply.text.trim();
+                          if (text.isEmpty) return;
+                          try {
+                            final sent = await ApiClient().post(
+                              '/customer/support/tickets/${ticket['uuid']}/messages',
+                              data: {'message': text},
+                            );
+                            if (sent.data is Map &&
+                                sent.data['success'] == true) {
+                              setSheetState(() {
+                                messages.add({
+                                  'uuid':
+                                      'local-${DateTime.now().microsecondsSinceEpoch}',
+                                  'sender_type': 'customer',
+                                  'body': text,
+                                });
+                                reply.clear();
+                              });
+                            }
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('Unable to send message.')));
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.send_rounded),
+                      ),
+                    ]),
+                  ]),
+            ),
+          ),
+        ),
+      );
+      reply.dispose();
+      _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unable to open support request.')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!context.watch<AuthProvider>().isAuthenticated) {
@@ -190,6 +318,7 @@ class _SupportScreenState extends State<SupportScreen> {
                           final primary = Theme.of(context).colorScheme.primary;
                           return Card(
                             child: ListTile(
+                              onTap: () => _openTicket(ticket),
                               leading: CircleAvatar(
                                 backgroundColor: primary.withAlpha(20),
                                 child: Icon(Icons.support_agent_rounded,
