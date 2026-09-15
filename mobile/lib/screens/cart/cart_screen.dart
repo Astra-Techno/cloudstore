@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/auth_provider.dart';
+import '../../app/providers/bootstrap_provider.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/state_widgets.dart';
 import '../../widgets/motion_widgets.dart';
@@ -26,6 +27,7 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
     final auth = context.watch<AuthProvider>();
+    final store = context.watch<BootstrapProvider>();
 
     if (!auth.isAuthenticated) {
       return EmptyStateWidget(
@@ -235,15 +237,37 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (!store.isAcceptingOrders) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.schedule_rounded, color: Colors.grey.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(store.orderingMessage,
+                          style: TextStyle(color: Colors.grey.shade800))),
+                    ]),
+                  ),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: () => context.push('/checkout'),
+                    onPressed: store.isAcceptingOrders
+                        ? () => context.push('/checkout')
+                        : null,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text('Proceed to Checkout',
-                        style: TextStyle(fontSize: 16)),
+                    child: Text(
+                        store.isAcceptingOrders
+                            ? 'Proceed to Checkout'
+                            : 'Ordering unavailable',
+                        style: const TextStyle(fontSize: 16)),
                   ),
                 ),
               ],

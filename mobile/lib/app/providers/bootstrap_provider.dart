@@ -18,6 +18,8 @@ class BootstrapProvider extends ChangeNotifier {
   double _taxRate = 0;
   bool _deliveryEnabled = true;
   bool _pickupEnabled = true;
+  bool _isAcceptingOrders = true;
+  String? _orderingMessage;
   List<String> _paymentMethods = const ['cod'];
   Map<String, bool> _capabilities = {};
   bool _isLoaded = false;
@@ -35,6 +37,9 @@ class BootstrapProvider extends ChangeNotifier {
   double get taxRate => _taxRate;
   bool get deliveryEnabled => _deliveryEnabled;
   bool get pickupEnabled => _pickupEnabled;
+  bool get isAcceptingOrders => _isAcceptingOrders;
+  String get orderingMessage => _orderingMessage ??
+      (_isAcceptingOrders ? 'Accepting orders' : 'Orders are currently unavailable');
   List<String> get paymentMethods => List.unmodifiable(_paymentMethods);
   Map<String, bool> get capabilities => _capabilities;
   bool get isLoaded => _isLoaded;
@@ -189,6 +194,15 @@ class BootstrapProvider extends ChangeNotifier {
     if (fulfilment is Map) {
       _deliveryEnabled = fulfilment['delivery_enabled'] != false;
       _pickupEnabled = fulfilment['pickup_enabled'] != false;
+    }
+    final ordering = data['ordering'];
+    if (ordering is Map) {
+      _isAcceptingOrders = ordering['is_open'] != false;
+      _orderingMessage = ordering['message']?.toString();
+    } else {
+      // Backward-compatible behaviour for cached responses from older APIs.
+      _isAcceptingOrders = true;
+      _orderingMessage = null;
     }
     final payments = data['payment_methods'];
     if (payments is List) {

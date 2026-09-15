@@ -133,6 +133,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _placeOrder() async {
     final store = context.read<BootstrapProvider>();
     final cart = context.read<CartProvider>();
+    if (!store.isAcceptingOrders) return;
     if (cart.subtotal < store.minOrderAmount) {
       setState(() => _error =
           'Minimum order value is ${PriceText.format(store.minOrderAmount)}');
@@ -318,6 +319,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (!bootstrap.isAcceptingOrders) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.schedule_rounded, color: Colors.grey.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(bootstrap.orderingMessage,
+                          style: TextStyle(color: Colors.grey.shade800))),
+                    ]),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 if (_error != null) ...[
                   Container(
                     width: double.infinity,
@@ -380,10 +398,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   SegmentedButton<String>(
                     segments: fulfilmentOptions,
                     selected: {_orderType},
-                    onSelectionChanged: (s) {
-                      setState(() => _orderType = s.first);
-                      _validateServiceability();
-                    },
+                    onSelectionChanged: bootstrap.isAcceptingOrders
+                        ? (s) {
+                            setState(() => _orderType = s.first);
+                            _validateServiceability();
+                          }
+                        : null,
                   ),
 
                 // Address (for delivery)
@@ -519,6 +539,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _placing ||
+                            !bootstrap.isAcceptingOrders ||
                             _validatingAddress ||
                             (!_addressServiceable &&
                                 _orderType == 'delivery') ||

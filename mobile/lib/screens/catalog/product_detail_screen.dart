@@ -5,6 +5,7 @@ import '../../models/product.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/auth_provider.dart';
 import '../../app/providers/favourites_provider.dart';
+import '../../app/providers/bootstrap_provider.dart';
 import '../../widgets/price_text.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/app_config.dart';
@@ -39,8 +40,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (data['success'] == true && data['data'] != null) {
         setState(() {
           _product = Product.fromJson(data['data']);
-          if (_product!.variants.isNotEmpty) {
-            _selectedVariant = _product!.variants.first;
+          final availableVariants = _product!.variants
+              .where((variant) => variant.status == 'active');
+          if (availableVariants.isNotEmpty) {
+            _selectedVariant = availableVariants.first;
           }
         });
       }
@@ -71,6 +74,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _addToCart() async {
+    final store = context.read<BootstrapProvider>();
+    if (!store.isAcceptingOrders || _product == null || !_product!.isAvailable) {
+      return;
+    }
     final auth = context.read<AuthProvider>();
     if (!auth.isAuthenticated) {
       context.push('/login');
@@ -118,6 +125,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final store = context.watch<BootstrapProvider>();
+    final canOrder = _product != null &&
+        _product!.isAvailable &&
+        store.isAcceptingOrders;
     return Scaffold(
       appBar: AppBar(
         title: Text(_product?.name ?? 'Product'),
@@ -155,6 +166,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (!canOrder)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(children: [
+                            Icon(Icons.info_outline, color: Colors.grey.shade700),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(
+                              _product!.isAvailable
+                                  ? store.orderingMessage
+                                  : 'This item is currently unavailable',
+                              style: TextStyle(color: Colors.grey.shade800),
+                            )),
+                          ]),
+                        ),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(22),
                         child: SizedBox(
@@ -243,8 +274,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             return ChoiceChip(
                               label: Text(label),
                               selected: isSelected,
-                              onSelected: (_) =>
-                                  setState(() => _selectedVariant = v),
+                              onSelected: canOrder && v.status == 'active'
+                                  ? (_) => setState(() => _selectedVariant = v)
+                                  : null,
                             );
                           }).toList(),
                         ),
@@ -263,7 +295,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               _selectedAddonIds.contains(item.id);
                           return CheckboxListTile(
                             value: isSelected,
-                            onChanged: (val) {
+                            onChanged: canOrder ? (val) {
                               setState(() {
                                 if (val == true) {
                                   _selectedAddonIds.add(item.id);
@@ -271,7 +303,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   _selectedAddonIds.remove(item.id);
                                 }
                               });
-                            },
+                            } : null,
                             title: Text(item.name),
                             subtitle: item.price > 0
                                 ? Text('+${PriceText.format(item.price)}')
@@ -290,7 +322,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               style: Theme.of(context).textTheme.titleMedium),
                           const Spacer(),
                           IconButton.outlined(
-                            onPressed: _quantity > 1
+                            onPressed: canOrder && _quantity > 1
                                 ? () => setState(() => _quantity--)
                                 : null,
                             icon: const Icon(Icons.remove),
@@ -304,7 +336,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ),
                           ),
                           IconButton.outlined(
-                            onPressed: () => setState(() => _quantity++),
+                            onPressed: canOrder
+                                ? () => setState(() => _quantity++)
+                                : null,
                             icon: const Icon(Icons.add),
                           ),
                         ],
@@ -319,7 +353,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: FilledButton(
-                  onPressed: _adding ? null : _addToCart,
+                  onPressed: _adding || !canOrder ? null : _addToCart,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -331,7 +365,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               strokeWidth: 2, color: Colors.white),
                         )
                       : Text(
-                          'Add to Cart - ${PriceText.format(_calculatedPrice)}',
+                          canOrder
+                              ? 'Add to Cart - ${PriceText.format(_calculatedPrice)}'
+                              : _product!.isAvailable
+                                  ? 'Store currently closed'
+                                  : 'Currently unavailable',
                           style: const TextStyle(fontSize: 16),
                         ),
                 ),

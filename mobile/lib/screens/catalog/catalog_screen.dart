@@ -550,6 +550,8 @@ class _ProductRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final store = context.watch<BootstrapProvider>();
+    final isAvailable = store.isAcceptingOrders && product.isAvailable;
     final accent = _categoryAccent(product.categoryName);
     final tint = _categoryTint(product.categoryName);
     final image = product.images.where((item) => item.isPrimary).firstOrNull ??
@@ -623,6 +625,17 @@ class _ProductRow extends StatelessWidget {
                                           color: Colors.red,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700))),
+                            if (!isAvailable)
+                              Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                      product.isAvailable
+                                          ? store.orderingMessage
+                                          : 'Currently unavailable',
+                                      style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700))),
                           ]))),
               SizedBox(
                   width: 118,
@@ -690,17 +703,26 @@ class _ProductRow extends StatelessWidget {
                     Transform.translate(
                         offset: const Offset(0, -14),
                         child: OutlinedButton(
-                            onPressed: () =>
-                                context.push('/product/${product.uuid}'),
+                            onPressed: isAvailable
+                                ? () => context.push('/product/${product.uuid}')
+                                : null,
                             style: OutlinedButton.styleFrom(
-                                backgroundColor: primary,
-                                foregroundColor: Colors.white,
+                                backgroundColor: isAvailable
+                                    ? primary
+                                    : Colors.grey.shade300,
+                                foregroundColor: isAvailable
+                                    ? Colors.white
+                                    : Colors.grey.shade700,
                                 side: BorderSide.none,
                                 minimumSize: const Size(78, 34),
                                 padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(9))),
-                            child: const Text('ADD',
+                            child: Text(isAvailable
+                                ? 'ADD'
+                                : product.isAvailable
+                                    ? 'CLOSED'
+                                    : 'SOLD OUT',
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800)))),

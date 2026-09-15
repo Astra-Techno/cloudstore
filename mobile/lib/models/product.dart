@@ -39,6 +39,10 @@ class Product {
 
   int get effectivePrice => salePrice ?? basePrice;
 
+  bool get isAvailable =>
+      status == 'active' &&
+      !(stockMode == 'limited_stock' && (stockQuantity ?? 0) <= 0);
+
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       id: JsonValue.integer(json['id']),

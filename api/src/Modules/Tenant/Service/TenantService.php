@@ -52,6 +52,7 @@ final class TenantService
 
         $branding = $this->brandingRepo->findByTenant($tenantId);
         $capabilities = $this->capabilityRepo->getForTenant($tenantId);
+        $ordering = $this->getOrderingStatus($tenant->configuration, $tenant->timezone);
 
         return [
             'tenant' => $tenant->toPublicArray(),
@@ -75,6 +76,9 @@ final class TenantService
                 'delivery_enabled' => (bool) ($tenant->configuration['delivery_enabled'] ?? true),
                 'pickup_enabled' => (bool) ($tenant->configuration['pickup_enabled'] ?? true),
             ],
+            // The mobile app uses this to disable Add/Checkout controls before
+            // a customer can build a cart that the server must reject.
+            'ordering' => $ordering,
             'payment_methods' => $tenant->configuration['payment_methods'] ?? ['cod'],
             'localization' => [
                 'currency' => $tenant->currency,
@@ -82,6 +86,51 @@ final class TenantService
                 'timezone' => $tenant->timezone,
             ],
         ];
+    }
+
+    /** @return array{is_open: bool, message: string} */
+    private function getOrderingStatus(array $configuration, string $timezone): array
+    {
+        $hours = $configuration['business_hours'] ?? null;
+        if (!is_array($hours) || $hours === []) {
+            return ['is_open' => true, 'message' => 'Accepting orders'];
+        }
+
+        try {
+            $now = new \DateTimeImmutable('now', new \DateTimeZone($timezone));
+        } catch (\Exception) {
+            $now = new \DateTimeImmutable('now', new \DateTimeZone('Asia/Kolkata'));
+        }
+
+        $dayKeys = [strtolower($now->format('l')), strtolower(substr($now->format('l'), 0, 3))];
+        $schedule = null;
+        foreach ($dayKeys as $day) {
+            if (isset($hours[$day]) && is_array($hours[$day])) {
+                $schedule = $hours[$day];
+                break;
+            }
+        }
+        if ($schedule === null) {
+            return ['is_open' => true, 'message' => 'Accepting orders'];
+        }
+        if (($schedule['open'] ?? true) === false) {
+            return ['is_open' => false, 'message' => 'Orders are unavailable today'];
+        }
+
+        $opensAt = $schedule['open_time'] ?? $schedule['start'] ?? null;
+        $closesAt = $schedule['close_time'] ?? $schedule['end'] ?? null;
+        if (!is_string($opensAt) || !is_string($closesAt)) {
+            return ['is_open' => true, 'message' => 'Accepting orders'];
+        }
+
+        $current = $now->format('H:i');
+        $isOpen = $opensAt <= $closesAt
+            ? $current >= $opensAt && $current <= $closesAt
+            : $current >= $opensAt || $current <= $closesAt;
+
+        return $isOpen
+            ? ['is_open' => true, 'message' => 'Accepting orders until ' . $closesAt]
+            : ['is_open' => false, 'message' => 'Currently closed. Orders open at ' . $opensAt];
     }
 
     private function generateSlug(string $name): string
