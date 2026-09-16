@@ -4,10 +4,20 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
+    // Firebase configuration is tenant/deployment specific. Keep the APK
+    // buildable before a Firebase project is connected.
+    id("com.google.gms.google-services") apply false
+    id("com.google.firebase.crashlytics") apply false
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Applying these plugins without google-services.json makes every tenant APK
+// build fail. When the file is supplied by CI or placed in android/app, push
+// notifications and Crashlytics are enabled automatically.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")
