@@ -180,8 +180,10 @@ export interface DeliveryZone {
   uuid: string
   tenant_id: number
   name: string
+  zone_type?: 'distance' | 'pincode'
   min_distance_km: number
   max_distance_km: number
+  pincodes?: string[] | null
   fee: number
   min_order_free_delivery: number | null
   status: string

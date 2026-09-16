@@ -11,7 +11,7 @@ const saving = ref(false)
 const error = ref('')
 
 const form = ref({
-  name: '', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0, pincodes: '',
+  name: '', zone_type: 'distance', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0, pincodes: '',
 })
 
 function formatPrice(paise: number): string {
@@ -32,7 +32,7 @@ async function loadZones() {
 
 function openCreate() {
   editing.value = null
-  form.value = { name: '', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0, pincodes: '' }
+  form.value = { name: '', zone_type: 'distance', min_distance_km: 0, max_distance_km: 5, fee: 0, min_order_free_delivery: 0, status: 'active', sort_order: 0, pincodes: '' }
   error.value = ''
   showForm.value = true
 }
@@ -41,13 +41,14 @@ function openEdit(zone: DeliveryZone) {
   editing.value = zone
   form.value = {
     name: zone.name,
+    zone_type: zone.zone_type === 'pincode' ? 'pincode' : 'distance',
     min_distance_km: zone.min_distance_km,
     max_distance_km: zone.max_distance_km,
     fee: zone.fee / 100,
     min_order_free_delivery: (zone.min_order_free_delivery || 0) / 100,
     status: zone.status,
     sort_order: zone.sort_order,
-    pincodes: (zone as Record<string, unknown>).pincodes?.toString() ?? '',
+    pincodes: Array.isArray(zone.pincodes) ? zone.pincodes.join(', ') : '',
   }
   error.value = ''
   showForm.value = true
@@ -60,15 +61,22 @@ async function saveZone() {
   try {
     const payload: Record<string, unknown> = {
       name: form.value.name,
-      min_distance_km: form.value.min_distance_km,
-      max_distance_km: form.value.max_distance_km,
+      zone_type: form.value.zone_type,
       fee: Math.round(form.value.fee * 100),
       min_order_free_delivery: form.value.min_order_free_delivery > 0 ? Math.round(form.value.min_order_free_delivery * 100) : null,
       status: form.value.status,
       sort_order: form.value.sort_order,
     }
-    if (form.value.pincodes.trim()) {
-      payload.pincodes = form.value.pincodes.trim()
+    if (form.value.zone_type === 'distance') {
+      payload.min_distance_km = form.value.min_distance_km
+      payload.max_distance_km = form.value.max_distance_km
+    } else {
+      const pincodes = form.value.pincodes.split(',').map((value) => value.trim()).filter(Boolean)
+      if (!pincodes.length) {
+        error.value = 'Enter at least one pincode for a pincode delivery zone.'
+        return
+      }
+      payload.pincodes = pincodes
     }
 
     if (editing.value) {
@@ -128,8 +136,8 @@ onMounted(loadZones)
         <tbody>
           <tr v-for="zone in zones" :key="zone.id" class="list-row">
             <td class="font-medium">{{ zone.name }}</td>
-            <td class="list-muted">{{ zone.min_distance_km }} — {{ zone.max_distance_km }} km</td>
-            <td class="list-muted text-xs">{{ (zone as Record<string, unknown>).pincodes || '—' }}</td>
+            <td class="list-muted">{{ zone.zone_type === 'pincode' ? 'Pincode based' : `${zone.min_distance_km} to ${zone.max_distance_km} km` }}</td>
+            <td class="list-muted text-xs">{{ zone.pincodes?.join(', ') || '—' }}</td>
             <td class="list-total">{{ formatPrice(zone.fee) }}</td>
             <td class="text-right list-muted">{{ zone.min_order_free_delivery ? formatPrice(zone.min_order_free_delivery) : '—' }}</td>
             <td><span class="list-status" :class="zone.status === 'active' ? 'list-status--lime' : 'list-status--coral'"><i></i>{{ zone.status }}</span></td>
@@ -154,7 +162,14 @@ onMounted(loadZones)
             <label class="block text-sm font-medium text-gray-700 mb-1">Zone Name</label>
             <input v-model="form.name" type="text" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="e.g. Nearby, City Wide" />
           </div>
-          <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Service area type</label>
+            <select v-model="form.zone_type" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
+              <option value="distance">Distance band</option>
+              <option value="pincode">Pincode list</option>
+            </select>
+          </div>
+          <div v-if="form.zone_type === 'distance'" class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Min Distance (km)</label>
               <input v-model.number="form.min_distance_km" type="number" step="0.1" min="0" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" />
@@ -175,10 +190,10 @@ onMounted(loadZones)
               <p class="text-xs text-gray-400 mt-1">0 = no free delivery</p>
             </div>
           </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Pincodes (optional)</label>
+          <div v-if="form.zone_type === 'pincode'" class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Pincodes</label>
             <input v-model="form.pincodes" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="e.g. 600001,600002,600003" />
-            <p class="text-xs text-gray-400 mt-1">Comma-separated pincodes. When set, delivery is restricted to these pincodes regardless of distance.</p>
+            <p class="text-xs text-gray-400 mt-1">Comma-separated six-digit Indian pincodes. Customers must be in this list to order.</p>
           </div>
           <div class="grid grid-cols-2 gap-4 mb-6">
             <div>

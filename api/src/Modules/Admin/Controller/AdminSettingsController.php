@@ -43,6 +43,9 @@ final class AdminSettingsController
         $data = $request->json();
 
         $zoneType = $data['zone_type'] ?? 'distance';
+        if (!in_array($zoneType, ['distance', 'pincode'], true)) {
+            return Response::validationError(['zone_type' => ['Choose distance or pincode.']]);
+        }
         $rules = [
             'name' => ['required', 'string', 'min:1', 'max:255'],
             'fee' => ['required', 'integer'],
@@ -59,8 +62,14 @@ final class AdminSettingsController
             return Response::validationError($validator->getErrors());
         }
 
-        if ($zoneType === 'pincode' && (empty($data['pincodes']) || !is_array($data['pincodes']))) {
-            return Response::validationError(['pincodes' => ['Pincodes array is required for pincode zones.']]);
+        if ($zoneType === 'pincode') {
+            $pincodes = $this->normalisePincodes($data['pincodes'] ?? null);
+            if ($pincodes === null) {
+                return Response::validationError(['pincodes' => ['Enter one or more valid six-digit pincodes.']]);
+            }
+            $data['pincodes'] = $pincodes;
+        } elseif (!$this->validDistanceRange($data['min_distance_km'] ?? null, $data['max_distance_km'] ?? null)) {
+            return Response::validationError(['max_distance_km' => ['Maximum distance must be greater than or equal to minimum distance.']]);
         }
 
         $id = $this->zoneRepo->create([
@@ -92,6 +101,28 @@ final class AdminSettingsController
             return Response::notFound('Delivery zone not found.');
         }
 
+        $zoneType = $data['zone_type'] ?? ($zone['zone_type'] ?? 'distance');
+        if (!in_array($zoneType, ['distance', 'pincode'], true)) {
+            return Response::validationError(['zone_type' => ['Choose distance or pincode.']]);
+        }
+        if ($zoneType === 'pincode') {
+            $candidatePincodes = $data['pincodes'] ?? (($zone['zone_type'] ?? 'distance') === 'pincode' ? json_decode((string) ($zone['pincodes'] ?? '[]'), true) : null);
+            $pincodes = $this->normalisePincodes($candidatePincodes);
+            if ($pincodes === null) {
+                return Response::validationError(['pincodes' => ['Enter one or more valid six-digit pincodes.']]);
+            }
+            // Preserve the stored list when an unrelated field on a pincode
+            // zone is edited; otherwise persist the supplied normalised list.
+            if (array_key_exists('pincodes', $data)) {
+                $data['pincodes'] = $pincodes;
+            }
+        } elseif (!$this->validDistanceRange(
+            $data['min_distance_km'] ?? $zone['min_distance_km'],
+            $data['max_distance_km'] ?? $zone['max_distance_km'],
+        )) {
+            return Response::validationError(['max_distance_km' => ['Maximum distance must be greater than or equal to minimum distance.']]);
+        }
+
         $this->zoneRepo->update((int) $params['zoneId'], $tenantId, $data);
         $updated = $this->zoneRepo->findById((int) $params['zoneId'], $tenantId);
 
@@ -108,6 +139,29 @@ final class AdminSettingsController
         }
 
         return Response::success(['deleted' => true]);
+    }
+
+    /** @return list<string>|null */
+    private function normalisePincodes(mixed $pincodes): ?array
+    {
+        if (!is_array($pincodes)) {
+            return null;
+        }
+
+        $values = array_values(array_unique(array_filter(array_map(
+            static fn(mixed $value): string => trim((string) $value),
+            $pincodes,
+        ), static fn(string $value): bool => preg_match('/^\\d{6}$/', $value) === 1)));
+
+        return $values === [] ? null : $values;
+    }
+
+    private function validDistanceRange(mixed $minimum, mixed $maximum): bool
+    {
+        return is_numeric($minimum)
+            && is_numeric($maximum)
+            && (float) $minimum >= 0
+            && (float) $maximum >= (float) $minimum;
     }
 
     // --- Customers ---
