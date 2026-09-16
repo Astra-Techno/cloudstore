@@ -1,0 +1,11 @@
+# CloudStore crontab entries
+# Install with: crontab scripts/crontab.example
+# Edit PROJECT_DIR below to match your installation path.
+
+PROJECT_DIR=/var/www/cloudstore
+
+# Database backup — daily at 2:00 AM, keep 30 days
+0 2 * * * $PROJECT_DIR/scripts/backup_db.sh $PROJECT_DIR/backups >> $PROJECT_DIR/backups/cron.log 2>&1
+
+# Health check — every 5 minutes, log failures
+*/5 * * * * curl -sf http://localhost:8000/health > /dev/null || echo "$(date) HEALTH CHECK FAILED" >> $PROJECT_DIR/backups/health.log

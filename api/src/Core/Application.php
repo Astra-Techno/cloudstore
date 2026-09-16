@@ -648,6 +648,9 @@ final class Application
                 'line' => $e->getLine(),
             ]);
 
+            // Structured error log for monitoring
+            $this->logErrorToFile($request, $e);
+
             $debug = $this->container->get(Config::class)->get('APP_DEBUG', 'false') === 'true';
 
             $errorMessage = $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine();
@@ -661,6 +664,12 @@ final class Application
 
         // Send CORS headers on actual responses
         CorsMiddleware::sendHeaders($request);
+
+        // Log slow requests (> 3 seconds)
+        $durationMs = (microtime(true) - $startedAt) * 1000;
+        if ($durationMs > 3000) {
+            $this->logSlowRequest($request, $durationMs);
+        }
 
         $this->logApiRequest($request, $response, $startedAt);
 
@@ -693,6 +702,67 @@ final class Application
             'has_bearer_token' => $request->bearerToken() !== null,
             'error_code' => $response->getData()['error']['code'] ?? null,
         ]);
+    }
+
+    /**
+     * Log unhandled exceptions to a structured JSONL file for monitoring dashboards.
+     */
+    private function logErrorToFile(Request $request, \Throwable $e): void
+    {
+        $logDir = $this->basePath . '/storage/logs';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+
+        $entry = [
+            'timestamp' => date('c'),
+            'level'     => 'ERROR',
+            'method'    => $request->method,
+            'uri'       => $request->path,
+            'ip'        => $request->ip(),
+            'error'     => $e->getMessage(),
+            'file'      => $e->getFile() . ':' . $e->getLine(),
+            'trace'     => array_slice(
+                array_map(
+                    fn($f) => ($f['file'] ?? '?') . ':' . ($f['line'] ?? '?') . ' ' . ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? ''),
+                    $e->getTrace()
+                ),
+                0,
+                10
+            ),
+        ];
+
+        @file_put_contents(
+            $logDir . '/errors.jsonl',
+            json_encode($entry, JSON_UNESCAPED_SLASHES) . "\n",
+            FILE_APPEND | LOCK_EX
+        );
+    }
+
+    /**
+     * Log slow API requests (> 3s) for performance monitoring.
+     */
+    private function logSlowRequest(Request $request, float $durationMs): void
+    {
+        $logDir = $this->basePath . '/storage/logs';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+
+        $entry = [
+            'timestamp' => date('c'),
+            'level'     => 'SLOW',
+            'method'    => $request->method,
+            'uri'       => $request->path,
+            'duration'  => round($durationMs) . 'ms',
+            'ip'        => $request->ip(),
+        ];
+
+        @file_put_contents(
+            $logDir . '/slow_requests.jsonl',
+            json_encode($entry, JSON_UNESCAPED_SLASHES) . "\n",
+            FILE_APPEND | LOCK_EX
+        );
     }
 
     public function getContainer(): Container

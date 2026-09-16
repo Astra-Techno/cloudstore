@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import '../../services/api_client.dart';
 import '../../services/api_response.dart';
+import '../../services/background_location_service.dart';
 import '../../models/driver.dart';
 import '../../models/json_value.dart';
 
@@ -222,7 +223,11 @@ class DriverProvider extends ChangeNotifier {
       });
       if (ApiResponse.isSuccess(response.data)) {
         _availability = status;
-        if (status == 'available') await shareCurrentLocation();
+        if (status == 'available') {
+          BackgroundLocationService().start();
+        } else {
+          BackgroundLocationService().stop();
+        }
         notifyListeners();
         return true;
       }
@@ -236,20 +241,24 @@ class DriverProvider extends ChangeNotifier {
     _pollTimer?.cancel();
     fetchDeliveries();
     fetchEarnings();
-    shareCurrentLocation();
+    // Start background location service (foreground service + GPS)
+    if (_availability == 'available') {
+      BackgroundLocationService().start();
+    }
     _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       fetchDeliveries();
-      if (_availability == 'available') shareCurrentLocation();
     });
   }
 
   void stopPolling() {
     _pollTimer?.cancel();
     _pollTimer = null;
+    BackgroundLocationService().stop();
   }
 
   Future<void> logout() async {
     stopPolling();
+    BackgroundLocationService().stop();
     _token = null;
     _driver = null;
     _isAuthenticated = false;

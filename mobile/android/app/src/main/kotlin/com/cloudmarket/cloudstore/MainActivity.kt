@@ -9,6 +9,8 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // Device actions channel (phone dialer, maps)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "cloudmarket/device_actions")
             .setMethodCallHandler { call, result ->
                 val intent = when (call.method) {
@@ -34,6 +36,24 @@ class MainActivity : FlutterActivity() {
                 }
                 startActivity(intent)
                 result.success(true)
+            }
+
+        // Background location service channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "cloudmarket/location_service")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startService" -> {
+                        val serviceIntent = Intent(this, LocationForegroundService::class.java)
+                        startForegroundService(serviceIntent)
+                        result.success(true)
+                    }
+                    "stopService" -> {
+                        val serviceIntent = Intent(this, LocationForegroundService::class.java)
+                        stopService(serviceIntent)
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
             }
     }
 }
