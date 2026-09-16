@@ -25,6 +25,10 @@ final class OperationalConfigController
         'github_repo' => false,
         'build_webhook_secret' => true,
         'mobile_api_origin' => false,
+        // This is a browser key, protected by the Mappls allowed-origin
+        // whitelist. It is encrypted at rest but is intentionally returned to
+        // authenticated tenant administrators to render their store map.
+        'mappls_static_key' => false,
     ];
 
     public function __construct(

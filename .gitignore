@@ -23,3 +23,6 @@ keystore-base64.txt
 # Java crash logs
 mobile/android/hs_err_pid*.log
 mobile/android/replay_pid*.log
+
+# Project-local Gradle wrapper cache (used when a machine-level cache is broken)
+.gradle-user-home/

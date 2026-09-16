@@ -197,6 +197,7 @@ final class Application
             $this->container->get(TenantIntegrationRepository::class),
             $this->container->get(Config::class),
             $this->container->get(AdminRepository::class),
+            $this->container->get(OperationalConfig::class),
         ));
         $this->container->singleton(OperationalConfigController::class, fn () => new OperationalConfigController(
             $this->container->get(OperationalConfigRepository::class),

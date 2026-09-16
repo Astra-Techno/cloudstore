@@ -151,7 +151,10 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
-      meta: { requiresAuth: true },
+      // Store settings belong to tenant operators. Platform operators use the
+      // dedicated configuration screen, where global/tenant credential values
+      // are encrypted and never exposed back to the browser.
+      meta: { requiresAuth: true, tenantOnly: true },
     },
     {
       path: '/:pathMatch(.*)*',
@@ -168,6 +171,9 @@ router.beforeEach((to) => {
   }
   if (to.meta.platformOnly && auth.user?.role !== 'platform_admin') {
     return { name: 'dashboard' }
+  }
+  if (to.meta.tenantOnly && auth.user?.role === 'platform_admin') {
+    return { name: 'platform-config' }
   }
   if (to.name === 'login' && auth.isAuthenticated) {
     return { name: 'dashboard' }

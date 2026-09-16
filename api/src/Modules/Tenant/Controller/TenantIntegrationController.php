@@ -8,6 +8,7 @@ use App\Core\Config\Config;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Modules\Auth\Repository\AdminRepository;
+use App\Modules\Platform\Service\OperationalConfig;
 use App\Modules\Tenant\Repository\TenantIntegrationRepository;
 
 final class TenantIntegrationController
@@ -16,7 +17,12 @@ final class TenantIntegrationController
     private const MAP_PROVIDER = 'map_provider';
     private const PUSH_ENABLED = 'push_notifications_enabled';
 
-    public function __construct(private readonly TenantIntegrationRepository $repo, private readonly Config $config, private readonly AdminRepository $admins) {}
+    public function __construct(
+        private readonly TenantIntegrationRepository $repo,
+        private readonly Config $config,
+        private readonly AdminRepository $admins,
+        private readonly OperationalConfig $operationalConfig,
+    ) {}
 
     public function get(Request $request, array $params): Response
     {
@@ -26,13 +32,17 @@ final class TenantIntegrationController
         // real protection is Mappls' allowed-origin whitelist. Keep FCM and
         // any other server credentials out of this response entirely.
         $mapKey = $this->value($tenantId, self::MAPPLS_KEY)
-            ?: $this->config->get('MAPPLS_STATIC_KEY', $this->config->get('VITE_MAPPLS_STATIC_KEY'));
+            ?: $this->operationalConfig->get(
+                self::MAPPLS_KEY,
+                $tenantId,
+                $this->config->get('MAPPLS_STATIC_KEY', $this->config->get('VITE_MAPPLS_STATIC_KEY')),
+            );
         return Response::success([
             'map_provider' => $this->value($tenantId, self::MAP_PROVIDER) ?: 'openstreetmap',
             'mappls_browser_key' => $mapKey,
             'has_mappls_static_key' => $mapKey !== '',
             'push_notifications_enabled' => $this->enabled($tenantId, self::PUSH_ENABLED),
-            'fcm_configured' => $this->config->get('FCM_SERVER_KEY') !== '',
+            'fcm_configured' => $this->operationalConfig->get('fcm_server_key', $tenantId) !== '',
         ]);
     }
 

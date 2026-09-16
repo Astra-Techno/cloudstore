@@ -23,6 +23,7 @@ const fields = [
   ['github_repo', 'GitHub repository', 'Repository in owner/name format used for automated builds.'],
   ['build_webhook_secret', 'Build webhook secret', 'Validates callbacks from the build workflow.'],
   ['mobile_api_origin', 'Mobile API origin', 'Public HTTPS server origin embedded in new mobile builds.'],
+  ['mappls_static_key', 'Mappls browser key', 'Default map/search key. Restrict it to your CloudMarket domain in Mappls.'],
 ] as const
 
 async function load() {
