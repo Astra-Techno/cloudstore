@@ -12,6 +12,7 @@ use App\Core\Config\Config;
 use App\Modules\Tenant\Repository\TenantRepository;
 use App\Modules\Tenant\Service\AppTokenService;
 use App\Modules\Auth\Domain\Role;
+use App\Modules\Platform\Service\OperationalConfig;
 use Ramsey\Uuid\Uuid;
 
 final class BuildController
@@ -20,6 +21,7 @@ final class BuildController
         private readonly Connection $db,
         private readonly TenantRepository $tenantRepo,
         private readonly Config $config,
+        private readonly OperationalConfig $operationalConfig,
         private readonly AppTokenService $appTokenService,
     ) {
     }
@@ -91,8 +93,9 @@ final class BuildController
 
         $buildUuid = Uuid::uuid4()->toString();
         $shareToken = bin2hex(random_bytes(24));
-        $publicAppUrl = rtrim($this->config->get(
+        $publicAppUrl = rtrim($this->operationalConfig->get(
             'MOBILE_API_ORIGIN',
+            0,
             $this->config->get('APP_URL', 'https://market.cloudkart24.com'),
         ), '/');
         $apiBaseUrl = $publicAppUrl . '/api/v1';
@@ -114,9 +117,9 @@ final class BuildController
         );
 
         // Dispatch to GitHub Actions
-        $githubToken = $this->config->get('GITHUB_TOKEN');
-        $githubRepo = $this->config->get('GITHUB_REPO', 'Astra-Techno/cloudstore');
-        $webhookSecret = $this->config->get('BUILD_WEBHOOK_SECRET', '');
+        $githubToken = $this->operationalConfig->get('GITHUB_TOKEN');
+        $githubRepo = $this->operationalConfig->get('GITHUB_REPO', 0, 'Astra-Techno/cloudstore');
+        $webhookSecret = $this->operationalConfig->get('BUILD_WEBHOOK_SECRET');
 
         $dispatched = false;
         if ($githubToken !== '') {
@@ -209,7 +212,7 @@ final class BuildController
         }
 
         // Optionally verify webhook secret
-        $secret = $this->config->get('BUILD_WEBHOOK_SECRET');
+        $secret = $this->operationalConfig->get('BUILD_WEBHOOK_SECRET');
         if ($secret !== '') {
             $providedSecret = $data['secret'] ?? $request->header('X-Build-Secret') ?? '';
             if (!hash_equals($secret, (string) $providedSecret)) {
@@ -303,8 +306,8 @@ final class BuildController
      */
     private function fetchArtifactFromGitHub(string $buildUuid, string $runId): bool
     {
-        $githubToken = $this->config->get('GITHUB_TOKEN');
-        $githubRepo = $this->config->get('GITHUB_REPO', 'Astra-Techno/cloudstore');
+        $githubToken = $this->operationalConfig->get('GITHUB_TOKEN');
+        $githubRepo = $this->operationalConfig->get('GITHUB_REPO', 0, 'Astra-Techno/cloudstore');
 
         if ($githubToken === '') {
             return false;

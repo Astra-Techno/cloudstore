@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payment\Service;
 
 use App\Core\Database\Connection;
-use App\Core\Config\Config;
+use App\Modules\Platform\Service\OperationalConfig;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Payment\Repository\PaymentRepository;
@@ -14,20 +14,13 @@ use Ramsey\Uuid\Uuid;
 
 final class PaymentService
 {
-    private readonly string $razorpayKeyId;
-    private readonly string $razorpayKeySecret;
-
     public function __construct(
         private readonly Connection $db,
         private readonly PaymentRepository $paymentRepo,
         private readonly RefundRepository $refundRepo,
         private readonly OrderRepository $orderRepo,
-        private readonly string $gatewaySecret,
-        Config $config,
-    ) {
-        $this->razorpayKeyId = $config->get('RAZORPAY_KEY_ID', '');
-        $this->razorpayKeySecret = $config->get('RAZORPAY_KEY_SECRET', '');
-    }
+        private readonly OperationalConfig $config,
+    ) {}
 
     /**
      * Initiate payment by order UUID (used by controllers).
@@ -57,7 +50,8 @@ final class PaymentService
             return ['error' => 'Order uses cash on delivery.', 'code' => 'INVALID_PAYMENT_METHOD'];
         }
 
-        if ($this->razorpayKeyId === '' || $this->razorpayKeySecret === '') {
+        $credentials = $this->credentials($tenantId);
+        if ($credentials['key_id'] === '' || $credentials['key_secret'] === '') {
             return ['error' => 'Online payments not configured', 'code' => 'PAYMENT_NOT_CONFIGURED'];
         }
 
@@ -66,7 +60,7 @@ final class PaymentService
         if ($existing !== null && $existing['status'] === 'pending' && !empty($existing['gateway_order_id'])) {
             return [
                 'razorpay_order_id' => $existing['gateway_order_id'],
-                'razorpay_key_id' => $this->razorpayKeyId,
+                'razorpay_key_id' => $credentials['key_id'],
                 'amount' => (int) $existing['amount'],
                 'currency' => $existing['currency'] ?? 'INR',
             ];
@@ -76,7 +70,7 @@ final class PaymentService
         $receipt = $order['uuid'];
 
         // Create Razorpay order via cURL
-        $razorpayResult = $this->createRazorpayOrder($amount, 'INR', $receipt);
+        $razorpayResult = $this->createRazorpayOrder($amount, 'INR', $receipt, $credentials);
         if (isset($razorpayResult['error'])) {
             return $razorpayResult;
         }
@@ -99,7 +93,7 @@ final class PaymentService
 
         return [
             'razorpay_order_id' => $gatewayOrderId,
-            'razorpay_key_id' => $this->razorpayKeyId,
+            'razorpay_key_id' => $credentials['key_id'],
             'amount' => $amount,
             'currency' => 'INR',
         ];
@@ -108,7 +102,8 @@ final class PaymentService
     /**
      * Create a Razorpay order via their REST API using cURL.
      */
-    private function createRazorpayOrder(int $amountPaise, string $currency, string $receipt): array
+    /** @param array{key_id:string,key_secret:string,webhook_secret:string} $credentials */
+    private function createRazorpayOrder(int $amountPaise, string $currency, string $receipt, array $credentials): array
     {
         $url = 'https://api.razorpay.com/v1/orders';
         $payload = json_encode([
@@ -123,7 +118,7 @@ final class PaymentService
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_USERPWD => $this->razorpayKeyId . ':' . $this->razorpayKeySecret,
+            CURLOPT_USERPWD => $credentials['key_id'] . ':' . $credentials['key_secret'],
             CURLOPT_TIMEOUT => 30,
         ]);
 
@@ -161,11 +156,12 @@ final class PaymentService
             return ['error' => 'Payment already confirmed.', 'code' => 'ALREADY_CONFIRMED'];
         }
 
-        if ($this->gatewaySecret === '') {
+        $credentials = $this->credentials((int) $payment['tenant_id']);
+        if ($credentials['webhook_secret'] === '') {
             return ['error' => 'Payment gateway is not configured.', 'code' => 'PAYMENT_NOT_CONFIGURED'];
         }
 
-        $expectedSignature = hash_hmac('sha256', $gatewayOrderId . '|' . $gatewayPaymentId, $this->gatewaySecret);
+        $expectedSignature = hash_hmac('sha256', $gatewayOrderId . '|' . $gatewayPaymentId, $credentials['webhook_secret']);
         if ($signature === '' || !hash_equals($expectedSignature, $signature)) {
             return ['error' => 'Invalid payment signature.', 'code' => 'INVALID_PAYMENT_SIGNATURE'];
         }
@@ -253,12 +249,13 @@ final class PaymentService
                 // If paid via Razorpay, call the refund API
                 if ($payment['gateway'] === 'razorpay'
                     && !empty($payment['gateway_payment_id'])
-                    && $this->razorpayKeyId !== ''
-                    && $this->razorpayKeySecret !== ''
+                    && $this->credentials($tenantId)['key_id'] !== ''
+                    && $this->credentials($tenantId)['key_secret'] !== ''
                 ) {
                     $refundResult = $this->processRazorpayRefund(
                         $payment['gateway_payment_id'],
                         $refundAmount,
+                        $this->credentials($tenantId),
                     );
                     if (isset($refundResult['error'])) {
                         // Log but still record the refund locally as pending
@@ -306,7 +303,8 @@ final class PaymentService
     /**
      * Call Razorpay refund API via cURL.
      */
-    private function processRazorpayRefund(string $gatewayPaymentId, int $amountPaise): array
+    /** @param array{key_id:string,key_secret:string,webhook_secret:string} $credentials */
+    private function processRazorpayRefund(string $gatewayPaymentId, int $amountPaise, array $credentials): array
     {
         $url = "https://api.razorpay.com/v1/payments/{$gatewayPaymentId}/refund";
         $payload = json_encode([
@@ -319,7 +317,7 @@ final class PaymentService
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_USERPWD => $this->razorpayKeyId . ':' . $this->razorpayKeySecret,
+            CURLOPT_USERPWD => $credentials['key_id'] . ':' . $credentials['key_secret'],
             CURLOPT_TIMEOUT => 30,
         ]);
 
@@ -340,5 +338,19 @@ final class PaymentService
         }
 
         return $data;
+    }
+
+    /** @return array{key_id:string,key_secret:string,webhook_secret:string} */
+    private function credentials(int $tenantId): array
+    {
+        return [
+            'key_id' => $this->config->get('RAZORPAY_KEY_ID', $tenantId),
+            'key_secret' => $this->config->get('RAZORPAY_KEY_SECRET', $tenantId),
+            'webhook_secret' => $this->config->get(
+                'RAZORPAY_WEBHOOK_SECRET',
+                $tenantId,
+                $this->config->get('PAYMENT_SECRET', $tenantId),
+            ),
+        ];
     }
 }

@@ -1,6 +1,8 @@
 import apiClient from './client'
 
 export const platformApi = {
+  getConfig: (tenantId = 0) => apiClient.get('/platform/config', { params: { tenant_id: tenantId } }),
+  updateConfig: (tenantId: number, settings: Record<string, string>) => apiClient.post('/platform/config', { tenant_id: tenantId, settings }),
   // Dashboard
   getDashboard: () => apiClient.get('/platform/dashboard'),
   getFeeLedger: (status?: 'accrued' | 'settled') => apiClient.get('/platform/fees', { params: { status } }),

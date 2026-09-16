@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Auth\Service;
 
 use App\Core\Config\Config;
+use App\Modules\Platform\Service\OperationalConfig;
+use App\Modules\Tenant\Domain\TenantContext;
 
 /**
  * Delivers one-time codes through a configurable trusted SMS/WhatsApp relay.
@@ -13,7 +15,7 @@ use App\Core\Config\Config;
  */
 final class OtpDeliveryService
 {
-    public function __construct(private readonly Config $config)
+    public function __construct(private readonly Config $config, private readonly OperationalConfig $operationalConfig)
     {
     }
 
@@ -23,13 +25,14 @@ final class OtpDeliveryService
             return true;
         }
 
-        $url = $this->config->get('OTP_WEBHOOK_URL');
+        $tenantId = TenantContext::has() ? TenantContext::id() : 0;
+        $url = $this->operationalConfig->get('OTP_WEBHOOK_URL', $tenantId);
         if ($url === '' || !function_exists('curl_init')) {
             return false;
         }
 
         $headers = ['Content-Type: application/json', 'Accept: application/json'];
-        $token = $this->config->get('OTP_WEBHOOK_TOKEN');
+        $token = $this->operationalConfig->get('OTP_WEBHOOK_TOKEN', $tenantId);
         if ($token !== '') {
             $headers[] = 'Authorization: Bearer ' . $token;
         }

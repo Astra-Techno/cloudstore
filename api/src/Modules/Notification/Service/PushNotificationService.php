@@ -7,18 +7,15 @@ namespace App\Modules\Notification\Service;
 use App\Core\Config\Config;
 use App\Core\Database\Connection;
 use App\Core\Logging\Logger;
+use App\Modules\Platform\Service\OperationalConfig;
 
 final class PushNotificationService
 {
-    private readonly string $fcmServerKey;
-
     public function __construct(
         private readonly Connection $db,
         private readonly Logger $logger,
-        Config $config,
-    ) {
-        $this->fcmServerKey = $config->get('FCM_SERVER_KEY', '');
-    }
+        private readonly OperationalConfig $config,
+    ) {}
 
     /**
      * Send a push notification to a customer by their internal ID.
@@ -26,7 +23,7 @@ final class PushNotificationService
     public function sendToCustomer(int $customerId, string $title, string $body, array $data = []): bool
     {
         $customer = $this->db->fetchOne(
-            "SELECT fcm_token FROM customers WHERE id = ? AND deleted_at IS NULL",
+            "SELECT fcm_token, tenant_id FROM customers WHERE id = ? AND deleted_at IS NULL",
             [$customerId]
         );
 
@@ -34,7 +31,7 @@ final class PushNotificationService
             return false;
         }
 
-        return $this->sendToToken($customer['fcm_token'], $title, $body, $data);
+        return $this->sendToToken($customer['fcm_token'], (int) $customer['tenant_id'], $title, $body, $data);
     }
 
     /**
@@ -43,7 +40,7 @@ final class PushNotificationService
     public function sendToDriver(int $driverId, string $title, string $body, array $data = []): bool
     {
         $driver = $this->db->fetchOne(
-            "SELECT fcm_token FROM drivers WHERE id = ?",
+            "SELECT fcm_token, tenant_id FROM drivers WHERE id = ?",
             [$driverId]
         );
 
@@ -51,15 +48,16 @@ final class PushNotificationService
             return false;
         }
 
-        return $this->sendToToken($driver['fcm_token'], $title, $body, $data);
+        return $this->sendToToken($driver['fcm_token'], (int) $driver['tenant_id'], $title, $body, $data);
     }
 
     /**
      * Send push notification to a specific FCM token using the legacy HTTP API.
      */
-    private function sendToToken(string $token, string $title, string $body, array $data = []): bool
+    private function sendToToken(string $token, int $tenantId, string $title, string $body, array $data = []): bool
     {
-        if ($this->fcmServerKey === '') {
+        $fcmServerKey = $this->config->get('FCM_SERVER_KEY', $tenantId);
+        if ($fcmServerKey === '') {
             $this->logger->debug('FCM push skipped: FCM_SERVER_KEY not configured');
             return false;
         }
@@ -81,7 +79,7 @@ final class PushNotificationService
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'Authorization: key=' . $this->fcmServerKey,
+                'Authorization: key=' . $fcmServerKey,
             ],
             CURLOPT_TIMEOUT => 10,
         ]);

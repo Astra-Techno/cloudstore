@@ -142,6 +142,12 @@ const router = createRouter({
       meta: { requiresAuth: true, platformOnly: true },
     },
     {
+      path: '/platform-config',
+      name: 'platform-config',
+      component: () => import('@/views/PlatformConfigView.vue'),
+      meta: { requiresAuth: true, platformOnly: true },
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),

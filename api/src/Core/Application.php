@@ -87,6 +87,9 @@ use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Modules\Platform\Controller\BuildController;
 use App\Modules\Platform\Controller\MarketplaceController;
 use App\Modules\Platform\Controller\LegalController;
+use App\Modules\Platform\Controller\OperationalConfigController;
+use App\Modules\Platform\Repository\OperationalConfigRepository;
+use App\Modules\Platform\Service\OperationalConfig;
 use App\Modules\Order\Controller\OrderStreamController;
 use App\Modules\Order\Controller\InvoiceController;
 use App\Modules\Catalog\Controller\SearchController;
@@ -167,6 +170,13 @@ final class Application
         $this->container->singleton(TenantIntegrationRepository::class, fn () => new TenantIntegrationRepository(
             $this->container->get(Connection::class),
         ));
+        $this->container->singleton(OperationalConfigRepository::class, fn () => new OperationalConfigRepository(
+            $this->container->get(Connection::class),
+        ));
+        $this->container->singleton(OperationalConfig::class, fn () => new OperationalConfig(
+            $this->container->get(OperationalConfigRepository::class),
+            $this->container->get(Config::class),
+        ));
 
         $this->container->singleton(AppTokenService::class, fn () => new AppTokenService(
             $this->container->get(AppTokenRepository::class),
@@ -185,6 +195,11 @@ final class Application
         ));
         $this->container->singleton(TenantIntegrationController::class, fn () => new TenantIntegrationController(
             $this->container->get(TenantIntegrationRepository::class),
+            $this->container->get(Config::class),
+            $this->container->get(AdminRepository::class),
+        ));
+        $this->container->singleton(OperationalConfigController::class, fn () => new OperationalConfigController(
+            $this->container->get(OperationalConfigRepository::class),
             $this->container->get(Config::class),
             $this->container->get(AdminRepository::class),
         ));
@@ -208,6 +223,7 @@ final class Application
 
         $this->container->singleton(OtpDeliveryService::class, fn () => new OtpDeliveryService(
             $this->container->get(Config::class),
+            $this->container->get(OperationalConfig::class),
         ));
 
         $this->container->singleton(AdminRepository::class, fn () => new AdminRepository(
@@ -460,8 +476,7 @@ final class Application
             $this->container->get(PaymentRepository::class),
             $this->container->get(RefundRepository::class),
             $this->container->get(OrderRepository::class),
-            $this->container->get(Config::class)->get('PAYMENT_SECRET'),
-            $this->container->get(Config::class),
+            $this->container->get(OperationalConfig::class),
         ));
 
         $this->container->singleton(PaymentController::class, fn () => new PaymentController(
@@ -526,7 +541,7 @@ final class Application
         $this->container->singleton(PushNotificationService::class, fn () => new PushNotificationService(
             $this->container->get(Connection::class),
             $this->container->get(Logger::class),
-            $this->container->get(Config::class),
+            $this->container->get(OperationalConfig::class),
         ));
 
         $this->container->singleton(NotificationController::class, fn () => new NotificationController(
@@ -575,6 +590,7 @@ final class Application
             $this->container->get(Connection::class),
             $this->container->get(TenantRepository::class),
             $this->container->get(Config::class),
+            $this->container->get(OperationalConfig::class),
             $this->container->get(AppTokenService::class),
         ));
         $this->container->singleton(MarketplaceController::class, fn () => new MarketplaceController(

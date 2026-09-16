@@ -33,6 +33,7 @@ use App\Modules\Platform\Controller\PlatformAdminController;
 use App\Modules\Platform\Controller\BuildController;
 use App\Modules\Platform\Controller\MarketplaceController;
 use App\Modules\Platform\Controller\LegalController;
+use App\Modules\Platform\Controller\OperationalConfigController;
 use App\Modules\Order\Controller\OrderStreamController;
 use App\Modules\Order\Controller\InvoiceController;
 use App\Modules\Catalog\Controller\SearchController;
@@ -67,6 +68,8 @@ return function (Router $router): void {
             $router->post('/tenants/{uuid}/regenerate-token', [PlatformAdminController::class, 'regenerateToken']);
             $router->get('/fees', [PlatformAdminController::class, 'listFeeLedger']);
             $router->post('/fees/{uuid}/settle', [PlatformAdminController::class, 'settleFeeLedger']);
+            $router->get('/config', [OperationalConfigController::class, 'get']);
+            $router->post('/config', [OperationalConfigController::class, 'update']);
 
             // App builds
             $router->get('/tenants/{uuid}/builds', [BuildController::class, 'listBuilds']);

@@ -45,6 +45,7 @@ const platformNavItems = [
   { label: 'Dashboard', path: '/', icon: 'overview' },
   { label: 'Tenants', path: '/tenants', icon: 'customers' },
   { label: 'Fee ledger', path: '/marketplace-fees', icon: 'orders' },
+  { label: 'Service config', path: '/platform-config', icon: 'settings' },
 ]
 
 const tenantNavItems = [
