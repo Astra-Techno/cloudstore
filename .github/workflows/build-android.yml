@@ -106,7 +106,10 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
             ~/.pub-cache
-          key: gradle-pub-${{ runner.os }}-${{ hashFiles('mobile/pubspec.lock', 'mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          # Android plugin and Gradle-property changes must invalidate this
+          # cache too. Otherwise CI can restore Kotlin compiler artifacts that
+          # do not match the checked-out build scripts.
+          key: gradle-pub-${{ runner.os }}-${{ hashFiles('mobile/pubspec.lock', 'mobile/android/**/*.gradle*', 'mobile/android/gradle.properties') }}
           restore-keys: |
             gradle-pub-${{ runner.os }}-
 
@@ -151,6 +154,7 @@ jobs:
 
       - name: Build universal APK
         if: steps.config.outputs.build_type == 'apk' || steps.config.outputs.build_type == 'both'
+        timeout-minutes: 12
         working-directory: mobile
         run: |
           # A universal APK is intentional: each tenant download must run on
@@ -164,6 +168,7 @@ jobs:
 
       - name: Build App Bundle (AAB)
         if: steps.config.outputs.build_type == 'appbundle' || steps.config.outputs.build_type == 'both'
+        timeout-minutes: 12
         working-directory: mobile
         run: |
           flutter build appbundle --release \
