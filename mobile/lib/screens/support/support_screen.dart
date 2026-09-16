@@ -68,7 +68,7 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              initialValue: category,
+              value: category,
               decoration: const InputDecoration(labelText: 'Help topic'),
               items: const [
                 DropdownMenuItem(value: 'order', child: Text('Order issue')),
