@@ -36,8 +36,8 @@ final class DriverService
             return ['error' => 'Order is not a delivery order.', 'code' => 'NOT_DELIVERY'];
         }
 
-        if (!in_array($order['status'], [OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY], true)) {
-            return ['error' => 'A driver can only be assigned after the order is accepted.', 'code' => 'ORDER_NOT_READY_FOR_ASSIGNMENT'];
+        if (!in_array($order['status'], [OrderStatus::CONFIRMED, OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY], true)) {
+            return ['error' => 'A driver can only be assigned to an active delivery order.', 'code' => 'ORDER_NOT_READY_FOR_ASSIGNMENT'];
         }
 
         $existingAssignment = $this->assignmentRepo->findByOrderId($orderId);
@@ -93,7 +93,7 @@ final class DriverService
         }
 
         $validTransitions = [
-            'assigned' => ['accepted', 'cancelled'],
+            'assigned' => ['accepted', 'picked_up', 'cancelled'],
             'accepted' => ['picked_up', 'cancelled'],
             'picked_up' => ['delivered'],
         ];
@@ -112,8 +112,12 @@ final class DriverService
                 return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
             }
 
-            if ($newStatus === 'picked_up' && $order['status'] !== OrderStatus::READY) {
-                return ['error' => 'The order is not ready for pickup.', 'code' => 'ORDER_NOT_READY'];
+            if ($newStatus === 'picked_up' && !in_array($order['status'], [OrderStatus::READY, OrderStatus::PREPARING, OrderStatus::ACCEPTED, OrderStatus::CONFIRMED], true)) {
+                return ['error' => 'The order must be accepted or prepared before pickup.', 'code' => 'ORDER_NOT_READY'];
+            }
+
+            if ($newStatus === 'picked_up' && $assignment['status'] === 'assigned') {
+                $this->assignmentRepo->updateStatus($assignmentId, 'accepted');
             }
 
             $this->assignmentRepo->updateStatus($assignmentId, $newStatus);
@@ -126,7 +130,7 @@ final class DriverService
 
             // Map driver assignment status to order status
             $orderStatusMap = [
-                'accepted' => null, // order stays as-is when driver accepts
+                'accepted' => OrderStatus::ACCEPTED,
                 'picked_up' => OrderStatus::OUT_FOR_DELIVERY,
                 'delivered' => OrderStatus::DELIVERED,
                 'cancelled' => null,
@@ -134,7 +138,9 @@ final class DriverService
 
             $newOrderStatus = $orderStatusMap[$newStatus] ?? null;
 
-            if ($newOrderStatus !== null && OrderStatus::canTransition($order['status'], $newOrderStatus)) {
+            if ($newStatus === 'picked_up' && !OrderStatus::canTransition($order['status'], $newOrderStatus)) {
+                $this->advanceDeliveryOrderToOutForDelivery($orderId, $tenantId, $order, (int) $assignment['driver_id']);
+            } elseif ($newOrderStatus !== null && OrderStatus::canTransition($order['status'], $newOrderStatus)) {
                 $timestampField = match ($newOrderStatus) {
                     OrderStatus::OUT_FOR_DELIVERY => 'picked_up_at',
                     OrderStatus::DELIVERED => 'delivered_at',
@@ -161,6 +167,36 @@ final class DriverService
         }
 
         return $result;
+    }
+
+    /** @param array<string, mixed> $order */
+    private function advanceDeliveryOrderToOutForDelivery(int $orderId, int $tenantId, array $order, int $driverId): void
+    {
+        $current = (string) $order['status'];
+        $steps = match ($current) {
+            OrderStatus::CONFIRMED => [OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY, OrderStatus::OUT_FOR_DELIVERY],
+            OrderStatus::ACCEPTED => [OrderStatus::PREPARING, OrderStatus::READY, OrderStatus::OUT_FOR_DELIVERY],
+            OrderStatus::PREPARING => [OrderStatus::READY, OrderStatus::OUT_FOR_DELIVERY],
+            OrderStatus::READY => [OrderStatus::OUT_FOR_DELIVERY],
+            default => [],
+        };
+
+        foreach ($steps as $next) {
+            if (!OrderStatus::canTransition($current, $next)) {
+                return;
+            }
+
+            $timestampField = match ($next) {
+                OrderStatus::PREPARING => 'preparing_at',
+                OrderStatus::READY => 'ready_at',
+                OrderStatus::OUT_FOR_DELIVERY => 'picked_up_at',
+                default => null,
+            };
+
+            $this->orderRepo->updateStatus($orderId, $tenantId, $next, $timestampField);
+            $this->orderRepo->addStatusHistory($orderId, $current, $next, 'driver', $driverId);
+            $current = $next;
+        }
     }
 
     /**

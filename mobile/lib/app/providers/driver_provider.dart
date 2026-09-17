@@ -39,6 +39,7 @@ class DriverProvider extends ChangeNotifier {
       _token = savedToken;
       ApiClient().setAuthToken(savedToken);
       await fetchProfile();
+      if (_isAuthenticated) await _registerFcmToken();
     }
   }
 
@@ -69,6 +70,7 @@ class DriverProvider extends ChangeNotifier {
         _isAuthenticated = true;
         ApiClient().setAuthToken(_token!);
         await _storage.write(key: 'driver_token', value: _token);
+        await _registerFcmToken();
         _isLoading = false;
         notifyListeners();
         return true;
@@ -83,6 +85,19 @@ class DriverProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> _registerFcmToken() async {
+    try {
+      final fcmToken = await _storage.read(key: 'fcm_token');
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await ApiClient().post('/driver/me/fcm-token', data: {
+          'fcm_token': fcmToken,
+        });
+      }
+    } catch (_) {
+      // FCM registration is best-effort; don't block login.
     }
   }
 

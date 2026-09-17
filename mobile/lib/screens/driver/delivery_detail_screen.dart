@@ -59,9 +59,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                         'Delivery OTP',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -71,9 +70,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 12,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -202,14 +200,24 @@ class DeliveryDetailScreen extends StatelessWidget {
                 child: FilledButton(
                   onPressed: driver.isLoading
                       ? null
-                      : () {
+                      : () async {
                           if (delivery.requiresOtpVerification) {
-                            _showOtpVerificationDialog(context, driver, delivery.id);
+                            _showOtpVerificationDialog(
+                                context, driver, delivery.id);
                           } else {
-                            driver.updateDeliveryStatus(
+                            final success = await driver.updateDeliveryStatus(
                               delivery.id,
                               delivery.nextStatus!,
                             );
+                            if (!success && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(driver.error ??
+                                      'Failed to update delivery.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
                           }
                         },
                   style: FilledButton.styleFrom(
@@ -278,8 +286,7 @@ class DeliveryDetailScreen extends StatelessWidget {
                 final otp = otpController.text.trim();
                 if (otp.length != 4) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Please enter a 4-digit OTP')),
+                    const SnackBar(content: Text('Please enter a 4-digit OTP')),
                   );
                   return;
                 }
@@ -301,7 +308,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(driver.error ?? 'OTP verification failed'),
+                        content:
+                            Text(driver.error ?? 'OTP verification failed'),
                         backgroundColor: Colors.red,
                       ),
                     );

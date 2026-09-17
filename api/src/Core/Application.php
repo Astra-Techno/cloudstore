@@ -94,6 +94,7 @@ use App\Modules\Order\Controller\OrderStreamController;
 use App\Modules\Order\Controller\InvoiceController;
 use App\Modules\Catalog\Controller\SearchController;
 use App\Core\Http\Middleware\CorsMiddleware;
+use App\Core\Http\Middleware\ErrorMonitoringMiddleware;
 use App\Core\Http\Middleware\RateLimitMiddleware;
 
 final class Application
@@ -628,6 +629,8 @@ final class Application
             (int) $this->container->get(Config::class)->get('RATE_LIMIT_MAX', '120'),
             (int) $this->container->get(Config::class)->get('RATE_LIMIT_WINDOW', '60'),
         ));
+
+        $this->container->singleton('middleware.error_monitoring', fn () => new ErrorMonitoringMiddleware());
     }
 
     private function registerRoutes(): void
@@ -654,39 +657,14 @@ final class Application
             return;
         }
 
-        try {
-            $router = $this->container->get(Router::class);
-            $response = $router->dispatch($request);
-        } catch (\Throwable $e) {
-            $logger = $this->container->get(Logger::class);
-            $logger->error('Unhandled exception', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
+        /** @var ErrorMonitoringMiddleware $errorMiddleware */
+        $errorMiddleware = $this->container->get('middleware.error_monitoring');
+        $router = $this->container->get(Router::class);
 
-            // Structured error log for monitoring
-            $this->logErrorToFile($request, $e);
-
-            $debug = $this->container->get(Config::class)->get('APP_DEBUG', 'false') === 'true';
-
-            $errorMessage = $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine();
-
-            $response = Response::error(
-                message: $errorMessage,
-                code: 'INTERNAL_ERROR',
-                status: 500,
-            );
-        }
+        $response = $errorMiddleware->handle($request, fn (Request $req) => $router->dispatch($req));
 
         // Send CORS headers on actual responses
         CorsMiddleware::sendHeaders($request);
-
-        // Log slow requests (> 3 seconds)
-        $durationMs = (microtime(true) - $startedAt) * 1000;
-        if ($durationMs > 3000) {
-            $this->logSlowRequest($request, $durationMs);
-        }
 
         $this->logApiRequest($request, $response, $startedAt);
 

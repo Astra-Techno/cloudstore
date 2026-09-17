@@ -226,6 +226,7 @@ return function (Router $router): void {
             $router->put('/customer/me', [CustomerAuthController::class, 'updateProfile'], ['middleware.auth.customer']);
             $router->post('/driver/login', [DriverAuthController::class, 'login']);
             $router->get('/driver/me', [DriverAuthController::class, 'me'], ['middleware.auth.driver']);
+            $router->post('/driver/me/fcm-token', [DriverAuthController::class, 'saveFcmToken'], ['middleware.auth.driver']);
 
             // Search
             $router->get('/search/suggestions', [SearchController::class, 'suggestions']);

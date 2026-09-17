@@ -68,7 +68,11 @@ final class BuildController
         $appMode = $data['app_mode']; // customer or driver
         $buildType = $data['build_type'] ?? ($platform === 'android' ? 'apk' : 'ad-hoc');
         $appName = $data['app_name'] ?? $tenant->name;
-        $appId = $data['app_id'] ?? 'com.cloudmarket.cloudstore';
+        $appId = $this->normalizeAppId(
+            (string) ($data['app_id'] ?? 'com.cloudmarket.cloudstore'),
+            (string) $appMode,
+            (string) $platform,
+        );
         $suppliedToken = trim((string) ($data['app_token'] ?? ''));
         $appToken = $this->appTokenService->getReusableBuildToken($tenant->id);
 
@@ -183,6 +187,17 @@ final class BuildController
             'dispatched' => $dispatched,
             'note' => $githubToken === '' ? 'GITHUB_TOKEN not configured — build queued but not dispatched.' : null,
         ], status: 201);
+    }
+
+    private function normalizeAppId(string $appId, string $appMode, string $platform): string
+    {
+        $appId = trim($appId) !== '' ? trim($appId) : 'com.cloudmarket.cloudstore';
+
+        if (!in_array($platform, ['android', 'ios'], true) || $appMode !== 'driver') {
+            return $appId;
+        }
+
+        return str_ends_with($appId, '.driver') ? $appId : $appId . '.driver';
     }
 
     public function getBuild(Request $request, array $params): Response

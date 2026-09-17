@@ -212,19 +212,17 @@ final class CustomerAuthController
         }
 
         $data = $request->json();
+        $token = $data['fcm_token'] ?? $data['token'] ?? null;
 
-        $validator = new Validator();
-        if (!$validator->validate($data, [
-            'token' => ['required', 'string', 'min:10', 'max:255'],
-        ])) {
-            return Response::validationError($validator->getErrors());
+        if ($token === null || strlen((string) $token) < 10) {
+            return Response::validationError(['fcm_token' => ['A valid FCM token is required.']]);
         }
 
         $this->customerRepo->update((int) $customer['id'], [
-            'fcm_token' => $data['token'],
+            'fcm_token' => (string) $token,
         ]);
 
-        return Response::success(['message' => 'FCM token saved']);
+        return Response::success(['saved' => true]);
     }
 
     /**

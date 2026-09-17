@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { platformApi } from '@/api/platform'
 
 interface Tenant {
@@ -237,6 +237,15 @@ function tenantToAppId(slug: string): string {
   const clean = slug.replace(/[^a-z0-9]/g, '')
   return `com.cloudmarket.${clean}`
 }
+
+function packageIdForMode(appId: string, appMode: string): string {
+  const base = appId.trim().replace(/\.driver$/, '') || 'com.cloudmarket.cloudstore'
+  return appMode === 'driver' ? `${base}.driver` : base
+}
+
+watch(() => buildForm.value.app_mode, (mode) => {
+  buildForm.value.app_id = packageIdForMode(buildForm.value.app_id, mode)
+})
 
 const tokenPrefix = ref('')
 const regeneratingToken = ref(false)
@@ -704,6 +713,7 @@ onMounted(load)
           <div>
             <label class="block text-xs font-bold text-gray-500 mb-1">Application ID</label>
             <input v-model="buildForm.app_id" class="w-full border rounded-lg px-3 py-2" placeholder="com.cloudmarket.cloudstore" />
+            <p class="mt-1 text-xs text-gray-500">Customer and driver apps use separate package IDs so both can be installed on the same phone.</p>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 mb-1">Primary Color</label>

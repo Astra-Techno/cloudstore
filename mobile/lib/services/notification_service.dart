@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Top-level handler for background FCM messages (must be top-level function).
 @pragma('vm:entry-point')
@@ -68,7 +70,15 @@ class NotificationService {
 
       final messaging = FirebaseMessaging.instance;
 
-      // Request permission (iOS primarily; Android 13+ handled by permission_handler)
+      // Android 13+ requires runtime notification permission
+      if (Platform.isAndroid) {
+        final status = await Permission.notification.status;
+        if (status.isDenied) {
+          await Permission.notification.request();
+        }
+      }
+
+      // Request permission (iOS primarily)
       await messaging.requestPermission(
         alert: true,
         badge: true,

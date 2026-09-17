@@ -76,7 +76,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     margin: const EdgeInsets.only(bottom: 12),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: () => context.push('/driver/delivery/${delivery.id}'),
+                      onTap: () =>
+                          context.push('/driver/delivery/${delivery.id}'),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -86,8 +87,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  delivery.orderNumber ?? '#${delivery.orderId}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  delivery.orderNumber ??
+                                      '#${delivery.orderId}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
                                 ),
                                 StatusBadge(status: delivery.status),
                               ],
@@ -96,23 +100,29 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             if (delivery.customerName != null)
                               Row(
                                 children: [
-                                  Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                                  Icon(Icons.person,
+                                      size: 16, color: Colors.grey[600]),
                                   const SizedBox(width: 4),
-                                  Text(delivery.customerName!, style: TextStyle(color: Colors.grey[700])),
+                                  Text(delivery.customerName!,
+                                      style:
+                                          TextStyle(color: Colors.grey[700])),
                                 ],
                               ),
                             if (delivery.deliveryAddress != null) ...[
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                                  Icon(Icons.location_on,
+                                      size: 16, color: Colors.grey[600]),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
                                       delivery.deliveryAddress!,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                      style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 13),
                                     ),
                                   ),
                                 ],
@@ -135,10 +145,29 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                 child: FilledButton(
                                   onPressed: driver.isLoading
                                       ? null
-                                      : () => driver.updateDeliveryStatus(
+                                      : () async {
+                                          if (delivery
+                                              .requiresOtpVerification) {
+                                            context.push(
+                                                '/driver/delivery/${delivery.id}');
+                                            return;
+                                          }
+                                          final success =
+                                              await driver.updateDeliveryStatus(
                                             delivery.id,
                                             delivery.nextStatus!,
-                                          ),
+                                          );
+                                          if (!success && context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(driver.error ??
+                                                    'Failed to update delivery.'),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        },
                                   child: Text(delivery.nextStatusLabel!),
                                 ),
                               ),
@@ -196,7 +225,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         '$todayDeliveries deliveries today',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
                       Text(

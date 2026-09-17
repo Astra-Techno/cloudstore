@@ -114,10 +114,13 @@ jobs:
             gradle-pub-${{ runner.os }}-
 
       - name: Update application ID
-        if: steps.config.outputs.app_id != 'com.cloudmarket.cloudstore'
         working-directory: mobile/android/app
         run: |
           APP_ID="${{ steps.config.outputs.app_id }}"
+          APP_MODE="${{ steps.config.outputs.app_mode }}"
+          if [ "$APP_MODE" = "driver" ] && [[ "$APP_ID" != *.driver ]]; then
+            APP_ID="${APP_ID}.driver"
+          fi
           sed -i "s/applicationId = \"com.cloudmarket.cloudstore\"/applicationId = \"$APP_ID\"/" build.gradle.kts
           # The app ID is tenant-specific, but MainActivity is compiled in the
           # template package. Keep the manifest reference fully qualified so

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/location_provider.dart';
 import '../../app/providers/notification_provider.dart';
+import '../../config/app_config.dart';
 
 /// Free OpenStreetMap pin picker. It supplies the same precise coordinates as
 /// a commercial map picker without requiring a Google Maps billing key.
@@ -69,7 +70,7 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.cloudmarket.cloudstore',
+              userAgentPackageName: 'com.cloudmarket.${AppConfig.appMode}',
             ),
             MarkerLayer(markers: [
               Marker(

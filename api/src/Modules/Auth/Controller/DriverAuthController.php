@@ -88,4 +88,30 @@ final class DriverAuthController
             'availability' => $driver['availability'],
         ]);
     }
+
+    public function saveFcmToken(Request $request, array $params): Response
+    {
+        $claims = $request->authClaims ?? null;
+        if ($claims === null) {
+            return Response::unauthorized();
+        }
+
+        $driver = $this->driverRepo->findByUuid($claims['sub']);
+        if ($driver === null) {
+            return Response::unauthorized();
+        }
+
+        $data = $request->json();
+        $token = $data['fcm_token'] ?? $data['token'] ?? null;
+
+        if ($token === null || strlen((string) $token) < 10) {
+            return Response::validationError(['fcm_token' => ['A valid FCM token is required.']]);
+        }
+
+        $this->driverRepo->update((int) $driver['id'], [
+            'fcm_token' => (string) $token,
+        ]);
+
+        return Response::success(['saved' => true]);
+    }
 }
