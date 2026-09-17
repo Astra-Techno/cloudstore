@@ -35,7 +35,7 @@ final class DriverAssignmentRepository
                     d.last_location_lat, d.last_location_lng, d.last_location_at
              FROM driver_assignments da
              JOIN drivers d ON d.id = da.driver_id
-             WHERE da.order_id = ? AND da.status != 'cancelled'
+             WHERE da.order_id = ? AND da.status IN ('assigned', 'accepted', 'picked_up')
              ORDER BY da.created_at DESC LIMIT 1",
             [$orderId]
         );

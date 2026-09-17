@@ -355,6 +355,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       Positioned.fill(
                         child: Image.network(
                           _buildStaticMapUrl(),
+                          headers: const {'User-Agent': 'com.cloudmarket.cloudstore'},
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
                             color: primary.withAlpha(18),

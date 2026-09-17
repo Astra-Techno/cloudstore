@@ -57,7 +57,20 @@ echo "Building DRIVER APK for: $APP_NAME"
 echo "  API URL: $API_URL"
 echo "  App Mode: driver"
 
+# Override Android applicationId so customer and driver APKs can coexist
+GRADLE_FILE="$(dirname "$0")/../android/app/build.gradle.kts"
+ORIGINAL_APP_ID="com.cloudmarket.cloudstore"
+if [ -n "$APP_ID" ]; then
+  sed -i "s/applicationId = \"$ORIGINAL_APP_ID\"/applicationId = \"$APP_ID\"/" "$GRADLE_FILE"
+  echo "  Application ID: $APP_ID"
+fi
+
 flutter build apk --release "${DART_DEFINES[@]}"
+
+# Restore original applicationId so the working copy stays clean
+if [ -n "$APP_ID" ]; then
+  sed -i "s/applicationId = \"$APP_ID\"/applicationId = \"$ORIGINAL_APP_ID\"/" "$GRADLE_FILE"
+fi
 
 echo ""
 echo "Driver APK built: build/app/outputs/flutter-apk/app-release.apk"

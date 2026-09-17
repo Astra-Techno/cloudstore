@@ -111,8 +111,8 @@ async function assignDriver() {
     } else {
       error.value = data.error?.message || 'Failed to assign driver'
     }
-  } catch (e) {
-    error.value = 'Failed to assign driver'
+  } catch (e: any) {
+    error.value = e?.response?.data?.error?.message || 'Failed to assign driver'
   } finally {
     updating.value = false
   }

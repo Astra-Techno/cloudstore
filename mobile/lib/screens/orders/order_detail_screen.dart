@@ -735,7 +735,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   child: FlutterMap(
                     options: MapOptions(initialCenter: LatLng(latitude, longitude), initialZoom: 14),
                     children: [
-                      TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                      TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.cloudmarket.cloudstore'),
                       MarkerLayer(markers: [
                         Marker(
                           point: LatLng(latitude, longitude),

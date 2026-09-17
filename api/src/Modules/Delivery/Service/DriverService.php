@@ -128,17 +128,21 @@ final class DriverService
                 $this->assignmentRepo->setDeliveryOtp($assignmentId, $otp);
             }
 
-            // Map driver assignment status to order status
-            $orderStatusMap = [
+            // Map driver assignment status to order status.
+            // When driver marks "picked_up", the target order status depends
+            // on the current order status: READY_FOR_PICKUP → PICKED_UP,
+            // otherwise advance through to OUT_FOR_DELIVERY.
+            $newOrderStatus = match ($newStatus) {
                 'accepted' => OrderStatus::ACCEPTED,
-                'picked_up' => OrderStatus::OUT_FOR_DELIVERY,
+                'picked_up' => $order['status'] === OrderStatus::READY_FOR_PICKUP
+                    ? OrderStatus::PICKED_UP
+                    : OrderStatus::OUT_FOR_DELIVERY,
                 'delivered' => OrderStatus::DELIVERED,
-                'cancelled' => null,
-            ];
+                default => null,
+            };
 
-            $newOrderStatus = $orderStatusMap[$newStatus] ?? null;
-
-            if ($newStatus === 'picked_up' && !OrderStatus::canTransition($order['status'], $newOrderStatus)) {
+            if ($newStatus === 'picked_up' && $newOrderStatus === OrderStatus::OUT_FOR_DELIVERY
+                && !OrderStatus::canTransition($order['status'], $newOrderStatus)) {
                 $this->advanceDeliveryOrderToOutForDelivery($orderId, $tenantId, $order, (int) $assignment['driver_id']);
             } elseif ($newOrderStatus !== null && OrderStatus::canTransition($order['status'], $newOrderStatus)) {
                 $timestampField = match ($newOrderStatus) {
