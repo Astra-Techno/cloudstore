@@ -151,7 +151,7 @@ jobs:
           storeFile=keystore/cloudmarket-release.jks
           PROPS
 
-      - name: Inject google-services.json (Firebase)
+      - name: Configure Firebase for tenant
         working-directory: mobile/android/app
         run: |
           APP_ID="${{ steps.config.outputs.app_id }}"
@@ -160,16 +160,18 @@ jobs:
             APP_ID="${APP_ID}.driver"
           fi
 
+          # Overwrite with secret if available; otherwise use committed file
           if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
             echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > google-services.json
+            echo "google-services.json injected from secret"
+          fi
 
-            # If the tenant's applicationId isn't registered in the Firebase
-            # project, dynamically add a client entry using jq. All tenants
-            # share the same Firebase project/API key — only package_name differs.
+          # Ensure the tenant's package name is in google-services.json
+          if [ -f google-services.json ]; then
             if jq -e ".client[] | select(.client_info.android_client_info.package_name == \"$APP_ID\")" google-services.json > /dev/null 2>&1; then
-              echo "Firebase enabled — package '$APP_ID' found in google-services.json"
+              echo "Firebase OK — package '$APP_ID' found"
             else
-              echo "Package '$APP_ID' not in google-services.json — adding dynamically"
+              echo "Adding '$APP_ID' to google-services.json"
               API_KEY=$(jq -r '.client[0].api_key[0].current_key' google-services.json)
               SDK_PREFIX=$(jq -r '.client[0].client_info.mobilesdk_app_id' google-services.json | rev | cut -d: -f2- | rev)
               SUFFIX=$(echo -n "$APP_ID" | md5sum | cut -c1-12)
@@ -185,10 +187,10 @@ jobs:
                     "api_key": [{"current_key": $key}],
                     "services": {"appinvite_service": {"other_platform_oauth_client": []}}
                   }]' google-services.json > google-services.tmp && mv google-services.tmp google-services.json
-              echo "Firebase enabled — added client entry for '$APP_ID'"
+              echo "Firebase OK — added '$APP_ID' dynamically"
             fi
           else
-            echo "No GOOGLE_SERVICES_JSON secret — Firebase disabled (local notifications only)"
+            echo "No google-services.json — Firebase disabled (local notifications only)"
           fi
 
       - name: Get Flutter dependencies
