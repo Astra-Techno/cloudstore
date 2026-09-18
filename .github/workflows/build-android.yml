@@ -163,15 +163,29 @@ jobs:
           if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
             echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > google-services.json
 
-            # Verify the applicationId is registered in the Firebase project.
-            # If not, remove the file so the conditional plugin skips Firebase
-            # instead of failing the build.
-            if grep -q "\"package_name\": \"$APP_ID\"" google-services.json; then
+            # If the tenant's applicationId isn't registered in the Firebase
+            # project, dynamically add a client entry using jq. All tenants
+            # share the same Firebase project/API key — only package_name differs.
+            if jq -e ".client[] | select(.client_info.android_client_info.package_name == \"$APP_ID\")" google-services.json > /dev/null 2>&1; then
               echo "Firebase enabled — package '$APP_ID' found in google-services.json"
             else
-              echo "WARNING: package '$APP_ID' not registered in Firebase project"
-              echo "Removing google-services.json — Firebase disabled for this build"
-              rm google-services.json
+              echo "Package '$APP_ID' not in google-services.json — adding dynamically"
+              API_KEY=$(jq -r '.client[0].api_key[0].current_key' google-services.json)
+              SDK_PREFIX=$(jq -r '.client[0].client_info.mobilesdk_app_id' google-services.json | rev | cut -d: -f2- | rev)
+              SUFFIX=$(echo -n "$APP_ID" | md5sum | cut -c1-12)
+              jq --arg pkg "$APP_ID" \
+                 --arg key "$API_KEY" \
+                 --arg sdk "${SDK_PREFIX}:${SUFFIX}" \
+                 '.client += [{
+                    "client_info": {
+                      "mobilesdk_app_id": $sdk,
+                      "android_client_info": {"package_name": $pkg}
+                    },
+                    "oauth_client": [],
+                    "api_key": [{"current_key": $key}],
+                    "services": {"appinvite_service": {"other_platform_oauth_client": []}}
+                  }]' google-services.json > google-services.tmp && mv google-services.tmp google-services.json
+              echo "Firebase enabled — added client entry for '$APP_ID'"
             fi
           else
             echo "No GOOGLE_SERVICES_JSON secret — Firebase disabled (local notifications only)"
