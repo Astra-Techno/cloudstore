@@ -49,7 +49,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .brand-name { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--ink); }
 .brand-caption { margin: 2px 0 0; color: #8a8e9a; font-size: 10px; letter-spacing: 0.3px; }
 .sidebar-section-label { padding: 0 10px 8px; color: #8a8e9a; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
-.sidebar-nav { display: grid; gap: 2px; }
+.sidebar-nav { display: grid; gap: 2px; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.sidebar-nav:hover { scrollbar-color: rgba(0,0,0,.15) transparent; }
 .sidebar-link { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid transparent; border-radius: 10px; color: #5a5e6e; font-size: 13px; font-weight: 600; text-decoration: none; transition: .2s ease; }
 .sidebar-link:hover { color: var(--ink); background: var(--paper); }
 .sidebar-link--active { color: #fff; background: var(--primary); box-shadow: 0 6px 16px rgba(220,38,38,.2); }
