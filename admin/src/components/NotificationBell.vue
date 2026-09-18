@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { notificationsApi, type Notification } from '@/api/notifications'
 import { useAuthStore } from '@/stores/auth'
 
+const router = useRouter()
 const auth = useAuthStore()
 const isPlatformAdmin = computed(() => auth.user?.role === 'platform_admin')
 
@@ -12,6 +14,7 @@ const showDropdown = ref(false)
 const showToast = ref(false)
 const toastMessage = ref('')
 const loading = ref(false)
+const latestNotification = ref<Notification | null>(null)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -33,6 +36,7 @@ async function fetchNotifications() {
       if (hasInitialSnapshot && newCount > lastKnownCount) {
         const newest = data.data.notifications.find(n => !n.read_at)
         if (newest) {
+          latestNotification.value = newest
           triggerToast(newest.title + ': ' + newest.body)
           playNotificationSound()
         }
@@ -103,6 +107,33 @@ async function markRead(id: number) {
   }
 }
 
+function handleNotificationClick(n: Notification) {
+  if (!n.read_at) markRead(n.id)
+  showDropdown.value = false
+  const route = getNotificationRoute(n)
+  if (route) router.push(route)
+}
+
+function getNotificationRoute(n: Notification): string | null {
+  const data = parseNotificationData(n.data)
+  if (n.type === 'new_order' && data?.order_uuid) {
+    return `/orders/${data.order_uuid}`
+  }
+  if (n.type === 'new_order') {
+    return '/orders'
+  }
+  return null
+}
+
+function parseNotificationData(raw: string | null): Record<string, any> | null {
+  if (!raw) return null
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw
+  } catch {
+    return null
+  }
+}
+
 async function markAllRead() {
   loading.value = true
   try {
@@ -156,7 +187,8 @@ onUnmounted(() => {
     <Transition name="toast">
       <div
         v-if="showToast"
-        class="fixed top-4 right-4 z-[100] max-w-sm bg-white border border-red-200 shadow-lg rounded-xl p-4 flex items-start gap-3"
+        class="fixed top-4 right-4 z-[100] max-w-sm bg-white border border-red-200 shadow-lg rounded-xl p-4 flex items-start gap-3 cursor-pointer"
+        @click="latestNotification && handleNotificationClick(latestNotification); showToast = false"
       >
         <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center shrink-0">
           <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,7 +199,7 @@ onUnmounted(() => {
           <p class="text-sm font-medium text-gray-900 truncate">New Order!</p>
           <p class="text-sm text-gray-600 truncate">{{ toastMessage }}</p>
         </div>
-        <button @click="showToast = false" class="text-gray-400 hover:text-gray-600">
+        <button @click.stop="showToast = false" class="text-gray-400 hover:text-gray-600">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -217,7 +249,7 @@ onUnmounted(() => {
         <div
           v-for="n in notifications"
           :key="n.id"
-          @click="!n.read_at && markRead(n.id)"
+          @click="handleNotificationClick(n)"
           class="px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
           :class="{ 'bg-red-50/50': !n.read_at }"
         >

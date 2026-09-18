@@ -297,6 +297,7 @@ final class CheckoutService
                         (int) $admin['id'],
                         (string) $result['order']['order_number'],
                         (int) $result['order']['total'],
+                        (string) ($result['order']['uuid'] ?? ''),
                     );
                 }
             }

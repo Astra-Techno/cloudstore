@@ -71,7 +71,7 @@ final class NotificationService
     /**
      * Notify admin/tenant about new order.
      */
-    public function notifyNewOrder(int $tenantId, int $adminId, string $orderNumber, int $total): void
+    public function notifyNewOrder(int $tenantId, int $adminId, string $orderNumber, int $total, string $orderUuid = ''): void
     {
         $formattedTotal = number_format($total / 100, 2);
 
@@ -82,7 +82,7 @@ final class NotificationService
             'new_order',
             'New Order Received',
             "New order {$orderNumber} for ₹{$formattedTotal}",
-            ['order_number' => $orderNumber, 'total' => $total],
+            ['order_number' => $orderNumber, 'total' => $total, 'order_uuid' => $orderUuid],
         );
     }
 
