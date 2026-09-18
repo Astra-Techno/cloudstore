@@ -75,7 +75,8 @@ final class OperationalConfigController
             if (!array_key_exists($key, self::ALLOWED)) {
                 return Response::validationError(['settings' => ['Unsupported configuration key.']]);
             }
-            if (!is_string($value) || strlen(trim($value)) > 2000) {
+            $maxLen = ($key === 'fcm_service_account') ? 10000 : 2000;
+            if (!is_string($value) || strlen(trim($value)) > $maxLen) {
                 return Response::validationError(['settings' => ["Invalid value for {$key}."]]);
             }
             // Empty password fields mean retain the previously configured value.
