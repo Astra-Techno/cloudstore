@@ -194,6 +194,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ob-card__meta-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 2px; border-top: 1px solid #eef0f2; }
 .ob-meta-pill, .ob-meta-note { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .ob-meta-note { color: #475569; background: #f1f5f9; }
+/* Order card urgency tinting based on elapsed time */
+.ob-card--fresh { border-left: 3px solid #10b981; }
+.ob-card--attention { border-left: 3px solid #f59e0b; background: #fffbeb; }
+.ob-card--urgent { border-left: 3px solid #ea580c; background: #fff7ed; }
+.ob-card--critical { border-left: 3px solid #dc2626; background: #fef2f2; animation: ob-pulse 2s ease-in-out infinite; }
+@keyframes ob-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,.15); } 50% { box-shadow: 0 0 0 6px rgba(220,38,38,.08); } }
 .ob-meta-pill--fee { color: #0e7490; background: #cffafe; }
 .ob-card__customer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0 0; }
 .ob-phone-link { display: inline-flex; align-items: center; gap: 4px; color: #2563eb; font-size: 12px; font-weight: 600; text-decoration: none; }

@@ -110,11 +110,23 @@ function getElapsedMinutes(createdAt: string): string {
 }
 
 function timerColor(createdAt: string): string {
-  const diff = Date.now() - new Date(createdAt).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins > 30) return '#ef4444'
-  if (mins > 15) return '#f59e0b'
-  return '#10b981'
+  const mins = elapsedMinutes(createdAt)
+  if (mins > 15) return '#dc2626'   // red — critical
+  if (mins > 10) return '#ea580c'   // orange — urgent
+  if (mins > 5)  return '#f59e0b'   // yellow — attention
+  return '#10b981'                   // green — fresh
+}
+
+function elapsedMinutes(createdAt: string): number {
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000)
+}
+
+function urgencyClass(createdAt: string): string {
+  const mins = elapsedMinutes(createdAt)
+  if (mins > 15) return 'ob-card--critical'
+  if (mins > 10) return 'ob-card--urgent'
+  if (mins > 5)  return 'ob-card--attention'
+  return 'ob-card--fresh'
 }
 
 function statusLabel(status: string): string {
@@ -280,6 +292,7 @@ onUnmounted(() => {
             v-for="order in newOrders"
             :key="order.uuid"
             class="ob-card ob-card--new"
+            :class="urgencyClass(order.created_at)"
             @click="router.push(`/orders/${order.uuid}`)"
           >
             <div class="ob-card__head">
