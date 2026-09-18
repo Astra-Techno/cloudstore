@@ -11,12 +11,12 @@ final class NotificationService
 {
     public function __construct(
         private readonly NotificationRepository $notificationRepo,
+        private readonly PushNotificationService $pushService,
     ) {
     }
 
     /**
-     * Send an in-app notification.
-     * In production, this would also dispatch to SMS/push/email channels.
+     * Send an in-app notification and dispatch a push notification.
      */
     public function send(int $tenantId, string $recipientType, int $recipientId, string $type, string $title, string $body, array $data = [], string $channel = 'in_app'): int
     {
@@ -33,6 +33,18 @@ final class NotificationService
         ]);
 
         $this->notificationRepo->markSent($id);
+
+        // Fire-and-forget push notification
+        try {
+            $pushData = array_merge($data, ['type' => $type, 'notification_id' => (string) $id]);
+            match ($recipientType) {
+                'customer' => $this->pushService->sendToCustomer($recipientId, $title, $body, $pushData),
+                'driver' => $this->pushService->sendToDriver($recipientId, $title, $body, $pushData),
+                default => null,
+            };
+        } catch (\Throwable) {
+            // Push failure must never block the in-app notification
+        }
 
         return $id;
     }

@@ -511,7 +511,6 @@ final class Application
             $this->container->get(OrderRepository::class),
             $this->container->get(DriverService::class),
             $this->container->get(NotificationService::class),
-            $this->container->get(PushNotificationService::class),
         ));
 
         $this->container->singleton(AdminOrderController::class, fn () => new AdminOrderController(
@@ -536,14 +535,15 @@ final class Application
             $this->container->get(Connection::class),
         ));
 
-        $this->container->singleton(NotificationService::class, fn () => new NotificationService(
-            $this->container->get(NotificationRepository::class),
-        ));
-
         $this->container->singleton(PushNotificationService::class, fn () => new PushNotificationService(
             $this->container->get(Connection::class),
             $this->container->get(Logger::class),
             $this->container->get(OperationalConfig::class),
+        ));
+
+        $this->container->singleton(NotificationService::class, fn () => new NotificationService(
+            $this->container->get(NotificationRepository::class),
+            $this->container->get(PushNotificationService::class),
         ));
 
         $this->container->singleton(NotificationController::class, fn () => new NotificationController(
