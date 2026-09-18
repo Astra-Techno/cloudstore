@@ -57,9 +57,31 @@ final class AdminOrderController
         // Active orders with items (last 200)
         $activeOrders = $this->orderRepo->findByTenantWithItems($tenantId);
 
+        // Store location from tenant config (for distance display)
+        $tenant = TenantContext::get();
+        $deliveryConfig = ($tenant->configuration ?? [])['delivery'] ?? [];
+        $storeLocation = null;
+        if (is_numeric($deliveryConfig['latitude'] ?? null) && is_numeric($deliveryConfig['longitude'] ?? null)) {
+            $storeLocation = [
+                'latitude' => (float) $deliveryConfig['latitude'],
+                'longitude' => (float) $deliveryConfig['longitude'],
+            ];
+        }
+
+        // Customer order counts for "returning customer" badge
+        $customerIds = array_unique(array_column($activeOrders, 'customer_id'));
+        $customerOrderCounts = !empty($customerIds)
+            ? $this->orderRepo->countOrdersByCustomers($tenantId, $customerIds)
+            : [];
+
+        foreach ($activeOrders as &$order) {
+            $order['customer_order_count'] = $customerOrderCounts[$order['customer_id']] ?? 1;
+        }
+
         return Response::success([
             'counts' => $counts,
             'orders' => $activeOrders,
+            'store_location' => $storeLocation,
         ]);
     }
 
@@ -75,11 +97,27 @@ final class AdminOrderController
         $items = $this->orderRepo->getItems((int) $order['id']);
         $history = $this->orderRepo->getStatusHistory((int) $order['id']);
 
+        // Store location for map display
+        $tenant = TenantContext::get();
+        $deliveryConfig = ($tenant->configuration ?? [])['delivery'] ?? [];
+        $storeLocation = null;
+        if (is_numeric($deliveryConfig['latitude'] ?? null) && is_numeric($deliveryConfig['longitude'] ?? null)) {
+            $storeLocation = [
+                'latitude' => (float) $deliveryConfig['latitude'],
+                'longitude' => (float) $deliveryConfig['longitude'],
+            ];
+        }
+
+        // Customer order count
+        $orderCount = $this->orderRepo->countOrdersByCustomers($tenantId, [(int) $order['customer_id']]);
+
         return Response::success([
             'order' => $order,
             'items' => $items,
             'status_history' => $history,
             'allowed_transitions' => OrderStatus::getAllowedTransitions($order['status']),
+            'store_location' => $storeLocation,
+            'customer_order_count' => $orderCount[(int) $order['customer_id']] ?? 1,
         ]);
     }
 

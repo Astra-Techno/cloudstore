@@ -194,6 +194,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ob-card__meta-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 2px; border-top: 1px solid #eef0f2; }
 .ob-meta-pill, .ob-meta-note { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .ob-meta-note { color: #475569; background: #f1f5f9; }
+.ob-meta-pill--fee { color: #0e7490; background: #cffafe; }
+.ob-card__customer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0 0; }
+.ob-phone-link { display: inline-flex; align-items: center; gap: 4px; color: #2563eb; font-size: 12px; font-weight: 600; text-decoration: none; }
+.ob-phone-link:hover { text-decoration: underline; }
+.ob-returning-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; color: #7c3aed; background: #ede9fe; font-size: 10px; font-weight: 800; }
+.ob-card__items-summary { padding: 8px 0 4px; border-top: 1px solid #f1f3f5; }
+.ob-item-line { color: #374151; font-size: 12px; font-weight: 600; line-height: 1.7; }
+.ob-item-line--more { color: #9ca3af; font-style: italic; }
+.ob-items-count { margin-top: 2px; color: #9ca3af; font-size: 11px; font-weight: 700; }
+.ob-card__distance { display: flex; align-items: center; gap: 5px; padding: 5px 0 2px; color: #0369a1; font-size: 12px; font-weight: 700; }
+.ob-card__note { display: flex; align-items: flex-start; gap: 5px; margin-top: 4px; padding: 7px 10px; border-radius: 8px; color: #92400e; background: #fefce8; font-size: 11px; font-weight: 600; }
+.ob-card__note svg { flex-shrink: 0; margin-top: 1px; }
+.ob-card__note span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ob-feedback { position: sticky; z-index: 15; top: 58px; margin: 0 0 12px; padding: 11px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 20px rgba(15,23,42,.09); }
 .ob-feedback--success { border: 1px solid #bbf7d0; color: #166534; background: #f0fdf4; }
 .ob-feedback--error { border: 1px solid #fecaca; color: #b91c1c; background: #fef2f2; }

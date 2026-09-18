@@ -11,6 +11,9 @@ const order = ref<Order | null>(null)
 const items = ref<OrderItem[]>([])
 const history = ref<StatusHistory[]>([])
 const allowedTransitions = ref<string[]>([])
+const storeLocation = ref<{ latitude: number; longitude: number } | null>(null)
+const customerOrderCount = ref(1)
+const routeInfo = ref<{ distance: string; duration: string } | null>(null)
 const loading = ref(true)
 const updating = ref(false)
 const error = ref('')
@@ -43,7 +46,7 @@ function parseSnapshot(json: string): Record<string, unknown> {
 
 const address = computed(() => {
   if (!order.value?.address_snapshot) return null
-  return parseSnapshot(order.value.address_snapshot)
+  return parseSnapshot(order.value.address_snapshot) as Record<string, any>
 })
 
 async function loadOrder() {
@@ -55,12 +58,34 @@ async function loadOrder() {
       items.value = data.data.items
       history.value = data.data.status_history
       allowedTransitions.value = data.data.allowed_transitions
+      storeLocation.value = data.data.store_location || null
+      customerOrderCount.value = data.data.customer_order_count || 1
+      fetchRouteInfo()
     }
   } catch (e) {
     console.error('Failed to load order', e)
   } finally {
     loading.value = false
   }
+}
+
+async function fetchRouteInfo() {
+  if (!storeLocation.value || !address.value?.latitude || !address.value?.longitude) return
+  try {
+    const s = storeLocation.value
+    const a = address.value
+    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${s.longitude},${s.latitude};${a.longitude},${a.latitude}?overview=false`)
+    const data = await res.json()
+    if (data.routes?.[0]) {
+      const r = data.routes[0]
+      const km = (r.distance / 1000)
+      const mins = Math.ceil(r.duration / 60)
+      routeInfo.value = {
+        distance: km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)} km`,
+        duration: mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`,
+      }
+    }
+  } catch { /* OSRM optional */ }
 }
 
 async function updateStatus(newStatus: string) {
@@ -211,6 +236,17 @@ function printReceipt() {
   w.document.close()
 }
 
+function buildMapUrl(): string {
+  if (!storeLocation.value || !address.value?.latitude || !address.value?.longitude) return ''
+  const s = storeLocation.value
+  const a = address.value
+  const minLat = Math.min(s.latitude, Number(a.latitude)) - 0.004
+  const maxLat = Math.max(s.latitude, Number(a.latitude)) + 0.004
+  const minLng = Math.min(s.longitude, Number(a.longitude)) - 0.006
+  const maxLng = Math.max(s.longitude, Number(a.longitude)) + 0.006
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${minLng},${minLat},${maxLng},${maxLat}&layer=mapnik&marker=${a.latitude},${a.longitude}`
+}
+
 onMounted(loadOrder)
 </script>
 
@@ -251,8 +287,13 @@ onMounted(loadOrder)
           </div>
           <div>
             <div class="text-xs text-gray-500">Customer</div>
-            <div class="text-sm font-medium">{{ order.customer_name || 'N/A' }}</div>
-            <div v-if="order.customer_phone" class="text-xs text-gray-400">{{ order.customer_phone }}</div>
+            <div class="text-sm font-medium">{{ order.customer_name || 'N/A' }}
+              <span v-if="customerOrderCount > 1" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">{{ customerOrderCount }} orders</span>
+            </div>
+            <div v-if="order.customer_phone" class="flex items-center gap-2 mt-0.5">
+              <a :href="`tel:${order.customer_phone}`" class="text-xs text-blue-600 hover:underline font-medium">{{ order.customer_phone }}</a>
+              <a :href="`https://wa.me/${order.customer_phone.replace(/[^0-9]/g, '')}`" target="_blank" class="text-xs text-green-600 hover:underline font-medium" @click.stop>WhatsApp</a>
+            </div>
           </div>
           <div v-if="order.notes">
             <div class="text-xs text-gray-500">Notes</div>
@@ -339,13 +380,42 @@ onMounted(loadOrder)
         </div>
       </div>
 
-      <!-- Delivery Address -->
+      <!-- Delivery Address + Map -->
       <div v-if="address" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-3">Delivery Address</h2>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-gray-900">Delivery Address</h2>
+          <div v-if="routeInfo" class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              {{ routeInfo.distance }}
+            </span>
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              ~{{ routeInfo.duration }}
+            </span>
+          </div>
+        </div>
+
         <p class="text-sm text-gray-700">{{ address.address_line_1 }}</p>
         <p v-if="address.address_line_2" class="text-sm text-gray-500">{{ address.address_line_2 }}</p>
         <p class="text-sm text-gray-500">{{ address.city }} {{ address.postal_code }}</p>
-        <p v-if="address.label" class="text-xs text-gray-400 mt-1">Label: {{ address.label }}</p>
+        <p v-if="address.landmark" class="text-xs text-gray-400 mt-1">Landmark: {{ address.landmark }}</p>
+
+        <!-- Map with store + customer pins -->
+        <div v-if="address.latitude && address.longitude" class="mt-4 rounded-lg overflow-hidden border border-gray-200" style="height: 280px">
+          <iframe
+            v-if="storeLocation"
+            :src="buildMapUrl()"
+            width="100%" height="100%" frameborder="0" style="border:0"
+            allowfullscreen loading="lazy"
+          ></iframe>
+          <iframe
+            v-else
+            :src="`https://www.openstreetmap.org/export/embed.html?bbox=${address.longitude - 0.005},${address.latitude - 0.003},${address.longitude + 0.005},${address.latitude + 0.003}&layer=mapnik&marker=${address.latitude},${address.longitude}`"
+            width="100%" height="100%" frameborder="0" style="border:0"
+            allowfullscreen loading="lazy"
+          ></iframe>
+        </div>
       </div>
 
       <!-- Status History -->

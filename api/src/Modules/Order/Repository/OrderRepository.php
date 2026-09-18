@@ -209,6 +209,29 @@ final class OrderRepository
         return $orders;
     }
 
+    /**
+     * Count completed orders per customer (for "returning customer" badge).
+     * @return array<int, int>  customer_id => order_count
+     */
+    public function countOrdersByCustomers(int $tenantId, array $customerIds): array
+    {
+        if (empty($customerIds)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($customerIds), '?'));
+        $rows = $this->db->fetchAll(
+            "SELECT customer_id, COUNT(*) as cnt FROM orders
+             WHERE tenant_id = ? AND customer_id IN ({$placeholders})
+             GROUP BY customer_id",
+            array_merge([$tenantId], $customerIds)
+        );
+        $result = [];
+        foreach ($rows as $row) {
+            $result[(int) $row['customer_id']] = (int) $row['cnt'];
+        }
+        return $result;
+    }
+
     public function countByTenant(int $tenantId, ?string $status = null): int
     {
         $sql = "SELECT COUNT(*) as cnt FROM orders WHERE tenant_id = ?";

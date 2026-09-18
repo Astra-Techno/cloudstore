@@ -11,7 +11,8 @@ export const ordersApi = {
   board() {
     return apiClient.get<ApiResponse<{
       counts: Record<string, number>
-      orders: (Order & { items: OrderItem[] })[]
+      orders: (Order & { items: OrderItem[]; customer_order_count?: number })[]
+      store_location?: { latitude: number; longitude: number } | null
     }>>('/admin/orders/board')
   },
 
@@ -21,6 +22,8 @@ export const ordersApi = {
       items: OrderItem[]
       status_history: StatusHistory[]
       allowed_transitions: string[]
+      store_location?: { latitude: number; longitude: number } | null
+      customer_order_count?: number
     }>>(`/admin/orders/${uuid}`)
   },
 
