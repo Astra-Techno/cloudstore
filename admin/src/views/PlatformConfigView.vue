@@ -13,7 +13,7 @@ const error = ref('')
 const success = ref('')
 
 const fields = [
-  ['fcm_server_key', 'Firebase server key', 'Used only by the backend to send push notifications.'],
+  ['fcm_service_account', 'Firebase service account', 'Paste the full service-account JSON from Firebase Console → Project Settings → Service accounts.', true],
   ['otp_webhook_url', 'OTP webhook URL', 'HTTPS endpoint of your SMS or WhatsApp provider relay.'],
   ['otp_webhook_token', 'OTP webhook token', 'Bearer token sent to your OTP relay.'],
   ['razorpay_key_id', 'Razorpay key ID', 'Safe to return to a payment client when online payment is enabled.'],
@@ -75,9 +75,10 @@ onMounted(load)
     </section>
     <form v-if="!loading" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" @submit.prevent="save">
       <div class="grid gap-5 md:grid-cols-2">
-        <div v-for="([key, label, help]) in fields" :key="key">
+        <div v-for="([key, label, help, multiline]) in fields" :key="key" :class="multiline ? 'md:col-span-2' : ''">
           <label class="block text-sm font-semibold text-slate-700">{{ label }}</label>
-          <input v-model="values[key]" type="password" autocomplete="new-password" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2" :placeholder="config[key]?.configured ? 'Configured — enter only to replace' : 'Not configured'" />
+          <textarea v-if="multiline" v-model="values[key]" rows="4" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs" :placeholder="config[key]?.configured ? 'Configured — paste only to replace' : 'Not configured'" />
+          <input v-else v-model="values[key]" type="password" autocomplete="new-password" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2" :placeholder="config[key]?.configured ? 'Configured — enter only to replace' : 'Not configured'" />
           <p class="mt-1 text-xs text-slate-500">{{ help }}</p>
         </div>
       </div>
