@@ -12,6 +12,3 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
-
-# Firebase config (injected by CI from secrets)
-app/google-services.json

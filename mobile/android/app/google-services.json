@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "53180115197",
+    "project_id": "cloudstore-f03b4",
+    "storage_bucket": "cloudstore-f03b4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:53180115197:android:0b2995b51685169be8b694",
+        "android_client_info": {
+          "package_name": "com.cloudmarket.cloudstore"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmCcNFAZb8TYXdND6d2gBjMX6lhFlySIo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:53180115197:android:ca21d417594514a8e8b694",
+        "android_client_info": {
+          "package_name": "com.cloudmarket.cloudstore.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmCcNFAZb8TYXdND6d2gBjMX6lhFlySIo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
