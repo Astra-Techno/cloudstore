@@ -11,7 +11,7 @@ export const ordersApi = {
   board() {
     return apiClient.get<ApiResponse<{
       counts: Record<string, number>
-      orders: (Order & { items: OrderItem[]; customer_order_count?: number })[]
+      orders: (Order & { items: OrderItem[]; customer_order_count?: number; is_repeat_order?: boolean })[]
       store_location?: { latitude: number; longitude: number } | null
     }>>('/admin/orders/board')
   },
@@ -45,6 +45,10 @@ export const ordersApi = {
 
   availableDrivers() {
     return apiClient.get<ApiResponse<Driver[]>>('/admin/drivers/available')
+  },
+
+  bulkAccept() {
+    return apiClient.post<ApiResponse<{ accepted: number; errors: string[] }>>('/admin/orders/bulk-accept')
   },
 
   posCheckout(data: { items: { product_uuid: string; quantity: number }[]; customer_name?: string; customer_phone?: string; payment_method: 'cash' | 'upi' | 'card'; order_type: 'pickup'; notes?: string }) {

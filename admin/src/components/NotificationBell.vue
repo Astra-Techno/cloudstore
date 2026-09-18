@@ -38,7 +38,10 @@ async function fetchNotifications() {
         if (newest) {
           latestNotification.value = newest
           triggerToast(newest.title + ': ' + newest.body)
-          playNotificationSound()
+          // Feature 11: detect high-value from notification data
+          const nData = parseNotificationData(newest.data)
+          const isHighValue = nData?.total ? nData.total >= 50000 : false
+          playNotificationSound(isHighValue)
         }
       }
 
@@ -60,21 +63,40 @@ function triggerToast(message: string) {
   }, 5000)
 }
 
-function playNotificationSound() {
+function playNotificationSound(highValue = false) {
   try {
     const ctx = audioContext ?? new AudioContext()
     audioContext = ctx
     if (ctx.state !== 'running') return
-    const oscillator = ctx.createOscillator()
-    const gain = ctx.createGain()
-    oscillator.connect(gain)
-    gain.connect(ctx.destination)
-    oscillator.frequency.value = 800
-    oscillator.type = 'sine'
-    gain.gain.value = 0.3
-    oscillator.start()
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
-    oscillator.stop(ctx.currentTime + 0.3)
+
+    if (highValue) {
+      // Triple ascending chime for high-value orders
+      const freqs = [600, 900, 1200]
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const g = ctx.createGain()
+        osc.connect(g)
+        g.connect(ctx.destination)
+        osc.frequency.value = freq
+        osc.type = 'sine'
+        g.gain.value = 0.35
+        osc.start(ctx.currentTime + i * 0.15)
+        g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.25)
+        osc.stop(ctx.currentTime + i * 0.15 + 0.25)
+      })
+    } else {
+      // Standard single beep
+      const oscillator = ctx.createOscillator()
+      const gain = ctx.createGain()
+      oscillator.connect(gain)
+      gain.connect(ctx.destination)
+      oscillator.frequency.value = 800
+      oscillator.type = 'sine'
+      gain.gain.value = 0.3
+      oscillator.start()
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+      oscillator.stop(ctx.currentTime + 0.3)
+    }
   } catch {
     // AudioContext not available
   }

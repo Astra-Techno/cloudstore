@@ -74,8 +74,21 @@ final class AdminOrderController
             ? $this->orderRepo->countOrdersByCustomers($tenantId, $customerIds)
             : [];
 
+        // Previous order items hash for repeat order detection
+        $prevHashes = !empty($customerIds)
+            ? $this->orderRepo->getPreviousOrderItemsHash($tenantId, $customerIds)
+            : [];
+
         foreach ($activeOrders as &$order) {
             $order['customer_order_count'] = $customerOrderCounts[$order['customer_id']] ?? 1;
+
+            // Build current order items hash for repeat comparison
+            $currentHash = implode(',', array_map(
+                fn($i) => $i['product_id'] . ':' . ($i['variant_id'] ?? '0') . ':' . $i['quantity'],
+                $order['items'] ?? []
+            ));
+            $prevHash = $prevHashes[(int) $order['customer_id']] ?? '';
+            $order['is_repeat_order'] = ($prevHash !== '' && $prevHash === $currentHash);
         }
 
         return Response::success([
@@ -155,6 +168,38 @@ final class AdminOrderController
         }
 
         return Response::success($result);
+    }
+
+    public function bulkAccept(Request $request, array $params): Response
+    {
+        $tenantId = TenantContext::id();
+        $admin = $this->adminRepo->findByEmail($request->authClaims['email'] ?? '', $tenantId);
+        $adminId = $admin ? (int) $admin['id'] : 0;
+
+        $newOrders = $this->orderRepo->findByTenantAndStatuses($tenantId, ['confirmed']);
+        $accepted = 0;
+        $errors = [];
+
+        foreach ($newOrders as $order) {
+            $result = $this->orderManagement->updateStatus(
+                $tenantId,
+                (int) $order['id'],
+                'accepted',
+                'admin',
+                $adminId,
+                'Bulk accepted',
+            );
+            if (isset($result['error'])) {
+                $errors[] = $order['order_number'] . ': ' . $result['error'];
+            } else {
+                $accepted++;
+            }
+        }
+
+        return Response::success([
+            'accepted' => $accepted,
+            'errors' => $errors,
+        ]);
     }
 
     public function assignDriver(Request $request, array $params): Response

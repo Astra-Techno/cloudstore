@@ -43,6 +43,8 @@ export interface Order {
   payment_status: string
   notes: string | null
   address_snapshot: string
+  scheduled_at: string | null
+  service_charge: number
   created_at: string
   updated_at: string
 }

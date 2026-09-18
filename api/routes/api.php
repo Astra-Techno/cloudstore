@@ -126,6 +126,7 @@ return function (Router $router): void {
             // Orders
             $router->get('/orders', [AdminOrderController::class, 'list']);
             $router->get('/orders/board', [AdminOrderController::class, 'board']);
+            $router->post('/orders/bulk-accept', [AdminOrderController::class, 'bulkAccept']);
             $router->get('/orders/{uuid}', [AdminOrderController::class, 'show']);
             $router->patch('/orders/{uuid}/status', [AdminOrderController::class, 'updateStatus']);
             $router->post('/orders/{uuid}/assign-driver', [AdminOrderController::class, 'assignDriver']);

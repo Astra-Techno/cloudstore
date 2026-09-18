@@ -151,6 +151,48 @@ final class OrderRepository
         return $this->db->fetchAll($sql, $params);
     }
 
+    public function findByTenantAndStatuses(int $tenantId, array $statuses): array
+    {
+        if (empty($statuses)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($statuses), '?'));
+        return $this->db->fetchAll(
+            "SELECT * FROM orders WHERE tenant_id = ? AND status IN ({$placeholders}) ORDER BY created_at ASC",
+            array_merge([$tenantId], $statuses)
+        );
+    }
+
+    /**
+     * Get the previous order's item product IDs for each customer (repeat order detection).
+     * @return array<int, string>  customer_id => comma-separated product_ids from prev order
+     */
+    public function getPreviousOrderItemsHash(int $tenantId, array $customerIds): array
+    {
+        if (empty($customerIds)) {
+            return [];
+        }
+        $result = [];
+        foreach ($customerIds as $cid) {
+            $prevOrder = $this->db->fetchOne(
+                "SELECT id FROM orders WHERE tenant_id = ? AND customer_id = ?
+                 ORDER BY created_at DESC LIMIT 1 OFFSET 1",
+                [$tenantId, $cid]
+            );
+            if (!$prevOrder) continue;
+            $items = $this->db->fetchAll(
+                "SELECT product_id, variant_id, quantity FROM order_items
+                 WHERE order_id = ? ORDER BY product_id, variant_id",
+                [(int) $prevOrder['id']]
+            );
+            $result[$cid] = implode(',', array_map(
+                fn($i) => $i['product_id'] . ':' . ($i['variant_id'] ?? '0') . ':' . $i['quantity'],
+                $items
+            ));
+        }
+        return $result;
+    }
+
     public function generateOrderNumber(int $tenantId): string
     {
         $date = date('Ymd');
