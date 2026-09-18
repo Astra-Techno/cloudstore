@@ -154,13 +154,25 @@ jobs:
       - name: Inject google-services.json (Firebase)
         working-directory: mobile/android/app
         run: |
-          # GOOGLE_SERVICES_JSON is a base64-encoded repo secret containing
-          # the google-services.json from a single Firebase project that has
-          # ALL tenant package names registered as Android apps.
-          # The google-services plugin matches by applicationId at build time.
+          APP_ID="${{ steps.config.outputs.app_id }}"
+          APP_MODE="${{ steps.config.outputs.app_mode }}"
+          if [ "$APP_MODE" = "driver" ] && [[ "$APP_ID" != *.driver ]]; then
+            APP_ID="${APP_ID}.driver"
+          fi
+
           if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
             echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > google-services.json
-            echo "Firebase enabled — google-services.json injected"
+
+            # Verify the applicationId is registered in the Firebase project.
+            # If not, remove the file so the conditional plugin skips Firebase
+            # instead of failing the build.
+            if grep -q "\"package_name\": \"$APP_ID\"" google-services.json; then
+              echo "Firebase enabled — package '$APP_ID' found in google-services.json"
+            else
+              echo "WARNING: package '$APP_ID' not registered in Firebase project"
+              echo "Removing google-services.json — Firebase disabled for this build"
+              rm google-services.json
+            fi
           else
             echo "No GOOGLE_SERVICES_JSON secret — Firebase disabled (local notifications only)"
           fi
