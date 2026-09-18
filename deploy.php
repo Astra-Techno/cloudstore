@@ -244,7 +244,8 @@ function abort(string $msg): void {
 echo page_open();
 log_step('>', "Downloading <strong>{$repo}@{$branch}</strong> from GitHub...");
 
-$zipUrl = "https://github.com/{$repo}/archive/refs/heads/{$branch}.tar.gz";
+// Use API endpoint (not CDN) so we always get the latest commit, not a cached tarball
+$zipUrl = "https://api.github.com/repos/{$repo}/tarball/{$branch}";
 
 $zipData = false;
 $downloadAttempts = [];
@@ -259,6 +260,7 @@ if (function_exists('curl_init')) {
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_USERAGENT      => 'CloudMarket-Deployer/1.0',
         CURLOPT_HTTPHEADER     => array_filter([
+            'Accept: application/vnd.github+json',
             $token ? "Authorization: Bearer {$token}" : null,
         ]),
     ]);
@@ -381,7 +383,8 @@ if (empty($extractedDirs)) {
     abort('Archive extraction failed - no directories found.');
 }
 $repoRoot = $extractedDirs[0];
-log_step('OK', 'Extracted to temp directory', 'ok');
+$repoFolderName = basename($repoRoot);
+log_step('OK', 'Extracted: ' . $repoFolderName, 'ok');
 
 // =============================================================================
 // STEP 3 - Clean + replace API (PHP backend) files
