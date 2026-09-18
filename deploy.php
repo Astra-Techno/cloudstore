@@ -417,18 +417,30 @@ if (is_dir($repoVendorComposer) && is_dir($destVendorComposer)) {
 
 // Look for public_html/ first, then admin/dist/ as fallback
 $srcFrontend = null;
-if (is_dir($repoRoot . '/public_html')) {
-    $srcFrontend = $repoRoot . '/public_html';
-    log_step('.', 'Found public_html/ in repo', 'muted');
-} elseif (is_dir($repoRoot . '/admin/dist')) {
-    $srcFrontend = $repoRoot . '/admin/dist';
-    log_step('.', 'Found admin/dist/ in repo', 'muted');
+$frontendCandidates = [
+    $repoRoot . '/public_html',
+    $repoRoot . '/admin/dist',
+];
+foreach ($frontendCandidates as $candidate) {
+    log_step('.', 'Checking: ' . basename(dirname($candidate)) . '/' . basename($candidate) . ' → ' . (is_dir($candidate) ? 'EXISTS' : 'not found'), 'muted');
+    if (!$srcFrontend && is_dir($candidate)) {
+        $srcFrontend = $candidate;
+    }
+}
+
+// Debug: list what's actually in the repo root
+$repoDirs = array_map('basename', glob($repoRoot . '/*', GLOB_ONLYDIR));
+log_step('.', 'Repo top-level dirs: ' . implode(', ', $repoDirs), 'muted');
+if (is_dir($repoRoot . '/admin')) {
+    $adminDirs = array_map('basename', glob($repoRoot . '/admin/*', GLOB_ONLYDIR));
+    log_step('.', 'admin/ subdirs: ' . implode(', ', $adminDirs), 'muted');
 }
 
 if (!$srcFrontend) {
-    log_step('~', 'No frontend build found (public_html/ or admin/dist/) - skipping frontend deploy.', 'warn');
-    log_step('~', 'Build locally: cd admin && npm run build, then copy dist/ to public_html/ and commit.', 'warn');
+    log_step('!', 'No frontend build found (public_html/ or admin/dist/) - skipping frontend deploy.', 'err');
+    log_step('~', 'Build locally: cd admin && npm run build, then commit admin/dist/.', 'warn');
 } else {
+    log_step('OK', 'Using frontend source: ' . str_replace($repoRoot . '/', '', $srcFrontend), 'ok');
     log_step('-', 'Cleaning old frontend files...');
     // Delete everything in root EXCEPT deploy.php, install.php, api/, and .htaccess
     $deletedFe = clean_dir(BASE_DIR, ['deploy.php', 'install.php', 'api', '.htaccess', '.env']);
@@ -437,7 +449,29 @@ if (!$srcFrontend) {
     log_step('+', 'Copying fresh frontend files...');
     $feFiles = rcopy($srcFrontend, BASE_DIR, ['deploy.php', 'install.php', 'api', '.htaccess']);
     log_step('OK', 'Frontend updated - ' . count($feFiles) . ' file(s)', 'ok');
+
+    // Show key asset files prominently so we can verify the right build was deployed
+    $assetFiles = array_filter($feFiles, fn($f) => preg_match('/\.(js|css)$/', $f));
+    if ($assetFiles) {
+        $assetList = implode(', ', array_map(fn($f) => basename($f), $assetFiles));
+        log_step('→', 'Assets deployed: ' . $assetList, 'info');
+    }
+
     log_step('.', render_file_list($feFiles, BASE_DIR, ''), 'muted');
+
+    // Verify index.html has the expected script/link tags
+    $indexHtml = BASE_DIR . '/index.html';
+    if (file_exists($indexHtml)) {
+        $html = file_get_contents($indexHtml);
+        if (preg_match('/src="([^"]*\.js)"/', $html, $jsMatch)) {
+            log_step('✓', 'index.html → JS: ' . $jsMatch[1], 'ok');
+        }
+        if (preg_match('/href="([^"]*\.css)"/', $html, $cssMatch)) {
+            log_step('✓', 'index.html → CSS: ' . $cssMatch[1], 'ok');
+        }
+    } else {
+        log_step('!', 'index.html NOT found after frontend deploy!', 'err');
+    }
 }
 
 // Copy root-level scripts from repo (deploy.php, install.php) to keep them updated
