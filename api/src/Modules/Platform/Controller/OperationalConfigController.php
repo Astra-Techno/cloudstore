@@ -15,7 +15,7 @@ final class OperationalConfigController
 {
     /** @var array<string, bool> key => secret */
     private const ALLOWED = [
-        'fcm_server_key' => true,
+        'fcm_service_account' => true,
         'otp_webhook_url' => false,
         'otp_webhook_token' => true,
         'razorpay_key_id' => false,
