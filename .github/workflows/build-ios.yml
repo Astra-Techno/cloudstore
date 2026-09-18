@@ -138,6 +138,18 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROVISION_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
 
+      - name: Inject GoogleService-Info.plist (Firebase)
+        working-directory: mobile/ios/Runner
+        run: |
+          # GOOGLE_SERVICE_INFO_PLIST is a base64-encoded repo secret containing
+          # the GoogleService-Info.plist from the same Firebase project.
+          if [ -n "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" ]; then
+            echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 --decode > GoogleService-Info.plist
+            echo "Firebase enabled — GoogleService-Info.plist injected"
+          else
+            echo "No GOOGLE_SERVICE_INFO_PLIST secret — Firebase disabled"
+          fi
+
       - name: Get Flutter dependencies
         working-directory: mobile
         run: flutter pub get

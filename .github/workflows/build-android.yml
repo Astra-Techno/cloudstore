@@ -151,6 +151,20 @@ jobs:
           storeFile=keystore/cloudmarket-release.jks
           PROPS
 
+      - name: Inject google-services.json (Firebase)
+        working-directory: mobile/android/app
+        run: |
+          # GOOGLE_SERVICES_JSON is a base64-encoded repo secret containing
+          # the google-services.json from a single Firebase project that has
+          # ALL tenant package names registered as Android apps.
+          # The google-services plugin matches by applicationId at build time.
+          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > google-services.json
+            echo "Firebase enabled — google-services.json injected"
+          else
+            echo "No GOOGLE_SERVICES_JSON secret — Firebase disabled (local notifications only)"
+          fi
+
       - name: Get Flutter dependencies
         working-directory: mobile
         run: flutter pub get
