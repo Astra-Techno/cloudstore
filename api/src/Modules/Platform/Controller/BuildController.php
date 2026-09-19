@@ -544,13 +544,22 @@ final class BuildController
             return Response::error('Tenant context required.', 'TENANT_REQUIRED', 403);
         }
 
+        // Return only the latest completed build per (platform, app_mode)
         $builds = $this->db->fetchAll(
-            "SELECT uuid, platform, app_mode, build_type, status, app_name, app_id,
-                    share_token, file_size, completed_at, created_at
-             FROM app_builds
-             WHERE tenant_id = ? AND status = 'completed' AND share_token IS NOT NULL
-             ORDER BY completed_at DESC LIMIT 20",
-            [$tenantId]
+            "SELECT b.uuid, b.platform, b.app_mode, b.build_type, b.status, b.app_name, b.app_id,
+                    b.share_token, b.file_size, b.completed_at, b.created_at
+             FROM app_builds b
+             INNER JOIN (
+                 SELECT platform, app_mode, MAX(completed_at) AS max_completed
+                 FROM app_builds
+                 WHERE tenant_id = ? AND status = 'completed' AND share_token IS NOT NULL
+                 GROUP BY platform, app_mode
+             ) latest ON b.platform = latest.platform
+                     AND b.app_mode = latest.app_mode
+                     AND b.completed_at = latest.max_completed
+             WHERE b.tenant_id = ? AND b.status = 'completed' AND b.share_token IS NOT NULL
+             ORDER BY b.app_mode, b.platform",
+            [$tenantId, $tenantId]
         );
 
         $result = array_map(fn(array $b) => [
