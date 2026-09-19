@@ -49,7 +49,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .brand-name { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--ink); }
 .brand-caption { margin: 2px 0 0; color: #8a8e9a; font-size: 10px; letter-spacing: 0.3px; }
 .sidebar-section-label { padding: 0 10px 8px; color: #8a8e9a; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
-.sidebar-nav { display: grid; gap: 2px; overflow: visible; min-height: 0; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.sidebar-nav { display: grid; gap: 2px; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .sidebar-nav:hover { scrollbar-color: rgba(0,0,0,.15) transparent; }
 .sidebar-link { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid transparent; border-radius: 10px; color: #5a5e6e; font-size: 13px; font-weight: 600; text-decoration: none; transition: .2s ease; }
 .sidebar-link:hover { color: var(--ink); background: var(--paper); }
@@ -159,7 +159,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .brand-logo { width: 42px; height: 42px; }
   .sidebar-nav { width: 100%; gap: 7px; }
   .sidebar-link { position: relative; justify-content: center; min-height: 48px; padding: 0; border-radius: 15px; }
-  .sidebar-link__label { position: absolute; left: 66px; display: none; min-width: max-content; padding: 8px 10px; border-radius: 8px; color: #fff; background: var(--ink); box-shadow: 0 8px 20px rgba(0,0,0,.2); font-size: 12px; z-index: 50; pointer-events: none; }
+  .sidebar-link__label { position: fixed; left: 88px; display: none; min-width: max-content; padding: 8px 10px; border-radius: 8px; color: #fff; background: var(--ink); box-shadow: 0 8px 20px rgba(0,0,0,.2); font-size: 12px; z-index: 9999; pointer-events: none; }
   .sidebar-link:hover .sidebar-link__label { display: block; }
   .nav-icon { width: 19px; height: 19px; flex-basis: 19px; }
   .sidebar-account { width: 100%; justify-content: center; margin-top: auto; padding: 10px 0 0; }
