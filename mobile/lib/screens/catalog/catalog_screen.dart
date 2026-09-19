@@ -360,7 +360,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
               SliverFillRemaining(
                   child: ErrorStateWidget(message: _error!, onRetry: _load))
             else if (_visible.isEmpty)
-              SliverFillRemaining(child: _EmptyCatalog(onRetry: _load))
+              SliverFillRemaining(child: _EmptyCatalog(onRetry: () {
+                _search.clear();
+                setState(() { _query = ''; _category = null; });
+                return _load();
+              }))
             else
               SliverPadding(
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 108),

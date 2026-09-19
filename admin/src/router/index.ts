@@ -148,6 +148,12 @@ const router = createRouter({
       meta: { requiresAuth: true, platformOnly: true },
     },
     {
+      path: '/mobile-apps',
+      name: 'mobile-apps',
+      component: () => import('@/views/MobileAppsView.vue'),
+      meta: { requiresAuth: true, tenantOnly: true },
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),

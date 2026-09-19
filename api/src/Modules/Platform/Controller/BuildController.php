@@ -534,6 +534,40 @@ final class BuildController
         ]);
     }
 
+    /**
+     * Tenant admin: list completed builds for their own tenant (download-only view).
+     */
+    public function myBuilds(Request $request, array $params): Response
+    {
+        $tenantId = (int) ($request->authClaims['tenant_id'] ?? 0);
+        if ($tenantId === 0) {
+            return Response::error('Tenant context required.', 'TENANT_REQUIRED', 403);
+        }
+
+        $builds = $this->db->fetchAll(
+            "SELECT uuid, platform, app_mode, build_type, status, app_name, app_id,
+                    share_token, file_size, completed_at, created_at
+             FROM app_builds
+             WHERE tenant_id = ? AND status = 'completed' AND share_token IS NOT NULL
+             ORDER BY completed_at DESC LIMIT 20",
+            [$tenantId]
+        );
+
+        $result = array_map(fn(array $b) => [
+            'uuid' => $b['uuid'],
+            'platform' => $b['platform'],
+            'app_mode' => $b['app_mode'],
+            'build_type' => $b['build_type'],
+            'app_name' => $b['app_name'],
+            'file_size' => $b['file_size'] ? (int) $b['file_size'] : null,
+            'download_url' => rtrim($this->config->get('APP_URL', ''), '/') . '/api/v1/builds/download/' . $b['share_token'],
+            'completed_at' => $b['completed_at'],
+            'created_at' => $b['created_at'],
+        ], $builds);
+
+        return Response::success($result);
+    }
+
     private function formatBuild(array $build): array
     {
         return [

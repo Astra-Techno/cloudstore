@@ -86,6 +86,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .nav-icon--zones::before { content: ''; position: absolute; left: 3px; top: 1px; width: 10px; height: 10px; border: 2px solid currentColor; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); }
 .nav-icon--zones::after { content: ''; position: absolute; left: 6px; top: 4px; width: 4px; height: 4px; border: 2px solid currentColor; border-radius: 50%; }
 /* Settings - gear */
+.nav-icon--apps::before { content: ''; position: absolute; left: 3px; top: 1px; width: 11px; height: 15px; border: 2px solid currentColor; border-radius: 3px; }
+.nav-icon--apps::after { content: ''; position: absolute; left: 7px; bottom: 2px; width: 3px; height: 2px; background: currentColor; border-radius: 1px; }
+
 .nav-icon--settings::before { content: ''; position: absolute; inset: 2px; border: 2px solid currentColor; border-radius: 50%; }
 .nav-icon--settings::after { content: ''; position: absolute; left: 7px; top: -1px; width: 3px; height: 4px; background: currentColor; box-shadow: 0 14px currentColor, -6px 3px currentColor, 6px 3px currentColor, -6px 11px currentColor, 6px 11px currentColor; }
 .sidebar-note { display: flex; gap: 10px; margin-top: auto; padding: 12px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
@@ -914,6 +917,193 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes settings-panel-in {
 	from { opacity: 0; transform: translateY(4px); }
 	to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Enhanced Animations ---- */
+
+/* Staggered entrance for grid children (metric cards, touch tiles, table rows) */
+.metric-grid > *,
+.touch-launcher__grid > *,
+.top-products-list > *,
+.shortcut-list > *,
+.pulse-list > * {
+	opacity: 0;
+	animation: stagger-up .45s cubic-bezier(.22, 1, .36, 1) forwards;
+}
+.metric-grid > *:nth-child(1), .touch-launcher__grid > *:nth-child(1), .top-products-list > *:nth-child(1), .shortcut-list > *:nth-child(1), .pulse-list > *:nth-child(1) { animation-delay: .06s; }
+.metric-grid > *:nth-child(2), .touch-launcher__grid > *:nth-child(2), .top-products-list > *:nth-child(2), .shortcut-list > *:nth-child(2), .pulse-list > *:nth-child(2) { animation-delay: .12s; }
+.metric-grid > *:nth-child(3), .touch-launcher__grid > *:nth-child(3), .top-products-list > *:nth-child(3), .shortcut-list > *:nth-child(3), .pulse-list > *:nth-child(3) { animation-delay: .18s; }
+.metric-grid > *:nth-child(4), .touch-launcher__grid > *:nth-child(4), .top-products-list > *:nth-child(4), .shortcut-list > *:nth-child(4), .pulse-list > *:nth-child(4) { animation-delay: .24s; }
+.metric-grid > *:nth-child(5), .touch-launcher__grid > *:nth-child(5), .top-products-list > *:nth-child(5) { animation-delay: .30s; }
+.metric-grid > *:nth-child(6), .top-products-list > *:nth-child(6) { animation-delay: .36s; }
+
+@keyframes stagger-up {
+	from { opacity: 0; transform: translateY(16px) scale(.97); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Chart bars grow upward */
+.chart-bar {
+	transform-origin: bottom;
+	animation: bar-grow .6s cubic-bezier(.22, 1, .36, 1) backwards;
+}
+.chart-bar-group:nth-child(1) .chart-bar { animation-delay: .1s; }
+.chart-bar-group:nth-child(2) .chart-bar { animation-delay: .18s; }
+.chart-bar-group:nth-child(3) .chart-bar { animation-delay: .26s; }
+.chart-bar-group:nth-child(4) .chart-bar { animation-delay: .34s; }
+.chart-bar-group:nth-child(5) .chart-bar { animation-delay: .42s; }
+.chart-bar-group:nth-child(6) .chart-bar { animation-delay: .50s; }
+.chart-bar-group:nth-child(7) .chart-bar { animation-delay: .58s; }
+
+@keyframes bar-grow {
+	from { transform: scaleY(0); opacity: 0; }
+	to { transform: scaleY(1); opacity: 1; }
+}
+
+/* Metric card counter pop */
+.metric-card strong {
+	animation: counter-pop .5s cubic-bezier(.34, 1.56, .64, 1) .3s backwards;
+}
+@keyframes counter-pop {
+	from { opacity: 0; transform: scale(.7); }
+	to { opacity: 1; transform: scale(1); }
+}
+
+/* Pulse ring spin-in */
+.pulse-ring {
+	animation: ring-spin-in .7s cubic-bezier(.22, 1, .36, 1) .2s backwards;
+}
+@keyframes ring-spin-in {
+	from { opacity: 0; transform: scale(.6) rotate(-30deg); }
+	to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+/* Pulse bar fill with smooth width transition */
+.pulse-bar i {
+	animation: bar-fill .6s cubic-bezier(.22, 1, .36, 1) .4s backwards;
+}
+@keyframes bar-fill {
+	from { width: 0 !important; }
+}
+
+/* Metric wave bars entrance */
+.metric-wave i {
+	animation: wave-grow .4s ease backwards;
+}
+.metric-wave i:nth-child(1) { animation-delay: .4s; }
+.metric-wave i:nth-child(2) { animation-delay: .48s; }
+.metric-wave i:nth-child(3) { animation-delay: .56s; }
+.metric-wave i:nth-child(4) { animation-delay: .64s; }
+.metric-wave i:nth-child(5) { animation-delay: .72s; }
+.metric-wave i:nth-child(6) { animation-delay: .80s; }
+.metric-wave i:nth-child(7) { animation-delay: .88s; }
+
+@keyframes wave-grow {
+	from { height: 0; opacity: 0; }
+}
+
+/* Dashboard intro hero slide-in */
+.dashboard-intro {
+	animation: hero-slide .6s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes hero-slide {
+	from { opacity: 0; transform: translateY(-12px) scale(.985); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Panel sections fade up */
+.dashboard-columns > .panel {
+	opacity: 0;
+	animation: stagger-up .5s cubic-bezier(.22, 1, .36, 1) forwards;
+}
+.dashboard-columns > .panel:nth-child(1) { animation-delay: .35s; }
+.dashboard-columns > .panel:nth-child(2) { animation-delay: .45s; }
+
+/* Touch tile spring hover */
+.touch-tile {
+	transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), box-shadow .25s ease;
+}
+.touch-tile:active {
+	transform: scale(.97) !important;
+}
+
+/* Sidebar link active indicator bounce */
+.sidebar-link--active {
+	animation: nav-active .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes nav-active {
+	from { transform: scale(.92); }
+	to { transform: scale(1); }
+}
+
+/* Table rows stagger entrance */
+.list-table tbody tr {
+	opacity: 0;
+	animation: row-slide .35s ease forwards;
+}
+.list-table tbody tr:nth-child(1) { animation-delay: .04s; }
+.list-table tbody tr:nth-child(2) { animation-delay: .08s; }
+.list-table tbody tr:nth-child(3) { animation-delay: .12s; }
+.list-table tbody tr:nth-child(4) { animation-delay: .16s; }
+.list-table tbody tr:nth-child(5) { animation-delay: .20s; }
+.list-table tbody tr:nth-child(6) { animation-delay: .24s; }
+.list-table tbody tr:nth-child(7) { animation-delay: .28s; }
+.list-table tbody tr:nth-child(8) { animation-delay: .32s; }
+.list-table tbody tr:nth-child(9) { animation-delay: .36s; }
+.list-table tbody tr:nth-child(10) { animation-delay: .40s; }
+
+@keyframes row-slide {
+	from { opacity: 0; transform: translateX(-8px); }
+	to { opacity: 1; transform: translateX(0); }
+}
+
+/* Stat rail cards scale entrance */
+.list-stat-rail > div {
+	animation: stat-scale .4s cubic-bezier(.22, 1, .36, 1) backwards;
+}
+.list-stat-rail > div:nth-child(1) { animation-delay: .05s; }
+.list-stat-rail > div:nth-child(2) { animation-delay: .12s; }
+.list-stat-rail > div:nth-child(3) { animation-delay: .19s; }
+.list-stat-rail > div:nth-child(4) { animation-delay: .26s; }
+
+@keyframes stat-scale {
+	from { opacity: 0; transform: scale(.9); }
+	to { opacity: 1; transform: scale(1); }
+}
+
+/* Loading shimmer glow */
+.loading-block {
+	position: relative;
+	overflow: hidden;
+}
+.loading-block::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+	animation: shimmer-glow 1.5s infinite;
+}
+@keyframes shimmer-glow {
+	0% { transform: translateX(-100%); }
+	100% { transform: translateX(100%); }
+}
+
+/* Smooth page route transitions */
+.admin-content {
+	animation: page-in .35s ease;
+}
+@keyframes page-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		animation-delay: 0ms !important;
+		transition-duration: 0.01ms !important;
+	}
 }
 @media (min-width: 1024px) {
 	.settings-tabs { padding: 6px; gap: 6px; }

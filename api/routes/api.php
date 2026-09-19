@@ -165,6 +165,9 @@ return function (Router $router): void {
             // Enhanced dashboard
             $router->get('/dashboard/enhanced', [AdminSettingsController::class, 'dashboardEnhanced']);
 
+            // Mobile app builds (tenant's own completed builds for download)
+            $router->get('/app-builds', [BuildController::class, 'myBuilds']);
+
             // Analytics & Audit
             $router->get('/analytics', [AnalyticsController::class, 'getAnalytics']);
             $router->get('/audit-log', [AnalyticsController::class, 'getAuditLog']);

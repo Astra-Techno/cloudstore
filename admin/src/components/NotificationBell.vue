@@ -138,11 +138,16 @@ function handleNotificationClick(n: Notification) {
 
 function getNotificationRoute(n: Notification): string | null {
   const data = parseNotificationData(n.data)
-  if (n.type === 'new_order' && data?.order_uuid) {
+  // Order-related notifications
+  if ((n.type === 'new_order' || n.type?.startsWith('order_')) && data?.order_uuid) {
     return `/orders/${data.order_uuid}`
   }
-  if (n.type === 'new_order') {
+  if (n.type === 'new_order' || n.type?.startsWith('order_')) {
     return '/orders'
+  }
+  // Support ticket notifications
+  if (n.type === 'support_ticket' || n.type === 'support_reply') {
+    return '/support'
   }
   return null
 }
@@ -218,7 +223,7 @@ onUnmounted(() => {
           </svg>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900 truncate">New Order!</p>
+          <p class="text-sm font-medium text-gray-900 truncate">{{ latestNotification?.title || 'Notification' }}</p>
           <p class="text-sm text-gray-600 truncate">{{ toastMessage }}</p>
         </div>
         <button @click.stop="showToast = false" class="text-gray-400 hover:text-gray-600">

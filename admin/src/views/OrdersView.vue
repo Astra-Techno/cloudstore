@@ -117,9 +117,20 @@ function getAddonsList(addonsJson: string | null): { name: string; price: number
 }
 
 // --- Feature 1: Live ticking timer (uses reactive `now`) ---
-function getElapsedMinutes(createdAt: string): string {
-  const diff = now.value - new Date(createdAt).getTime()
-  const totalSecs = Math.floor(diff / 1000)
+const terminalStatuses = ['delivered', 'picked_up', 'cancelled', 'rejected', 'refunded', 'completed']
+
+function getEndTime(order: any): number {
+  if (terminalStatuses.includes(order.status)) {
+    // Use the completion timestamp so timer stops ticking
+    const end = order.delivered_at || order.picked_up_at || order.cancelled_at || order.updated_at
+    return end ? new Date(end).getTime() : now.value
+  }
+  return now.value
+}
+
+function getElapsedMinutes(order: any): string {
+  const diff = getEndTime(order) - new Date(order.created_at).getTime()
+  const totalSecs = Math.max(0, Math.floor(diff / 1000))
   const mins = Math.floor(totalSecs / 60)
   const secs = totalSecs % 60
   const hrs = Math.floor(mins / 60)
@@ -127,20 +138,22 @@ function getElapsedMinutes(createdAt: string): string {
   return `${mins}:${String(secs).padStart(2, '0')}`
 }
 
-function elapsedMinutes(createdAt: string): number {
-  return Math.floor((now.value - new Date(createdAt).getTime()) / 60000)
+function elapsedMinutes(order: any): number {
+  return Math.max(0, Math.floor((getEndTime(order) - new Date(order.created_at).getTime()) / 60000))
 }
 
-function timerColor(createdAt: string): string {
-  const mins = elapsedMinutes(createdAt)
+function timerColor(order: any): string {
+  if (terminalStatuses.includes(order.status)) return '#6b7280'
+  const mins = elapsedMinutes(order)
   if (mins > 15) return '#dc2626'
   if (mins > 10) return '#ea580c'
   if (mins > 5)  return '#f59e0b'
   return '#10b981'
 }
 
-function urgencyClass(createdAt: string): string {
-  const mins = elapsedMinutes(createdAt)
+function urgencyClass(order: any): string {
+  if (terminalStatuses.includes(order.status)) return 'ob-card--complete'
+  const mins = elapsedMinutes(order)
   if (mins > 15) return 'ob-card--critical'
   if (mins > 10) return 'ob-card--urgent'
   if (mins > 5)  return 'ob-card--attention'
@@ -468,17 +481,17 @@ onUnmounted(() => {
             v-for="(order, idx) in newOrders"
             :key="order.uuid"
             class="ob-card ob-card--new"
-            :class="[urgencyClass(order.created_at), isHighValue(order) ? 'ob-card--high-value' : '', selectedCardIndex === idx ? 'ob-card--selected' : '']"
+            :class="[urgencyClass(order), isHighValue(order) ? 'ob-card--high-value' : '', selectedCardIndex === idx ? 'ob-card--selected' : '']"
             @click="router.push(`/orders/${order.uuid}`)"
           >
             <div class="ob-card__head">
               <div class="ob-card__customer">
-                <div class="ob-timer" :style="{ '--timer-color': timerColor(order.created_at) }">
+                <div class="ob-timer" :style="{ '--timer-color': timerColor(order) }">
                   <svg class="ob-timer__ring" viewBox="0 0 36 36">
                     <circle cx="18" cy="18" r="16" fill="none" stroke-width="2.5" stroke="currentColor" opacity="0.15"/>
                     <circle cx="18" cy="18" r="16" fill="none" stroke-width="2.5" stroke="currentColor" stroke-dasharray="100" stroke-dashoffset="20" stroke-linecap="round" transform="rotate(-90 18 18)"/>
                   </svg>
-                  <span class="ob-timer__val">{{ getElapsedMinutes(order.created_at) }}</span>
+                  <span class="ob-timer__val">{{ getElapsedMinutes(order) }}</span>
                 </div>
                 <div>
                   <strong>{{ order.customer_name || 'Guest' }}</strong>
@@ -585,12 +598,12 @@ onUnmounted(() => {
           >
             <div class="ob-card__head">
               <div class="ob-card__customer">
-                <div class="ob-timer" :style="{ '--timer-color': timerColor(order.created_at) }">
+                <div class="ob-timer" :style="{ '--timer-color': timerColor(order) }">
                   <svg class="ob-timer__ring" viewBox="0 0 36 36">
                     <circle cx="18" cy="18" r="16" fill="none" stroke-width="2.5" stroke="currentColor" opacity="0.15"/>
                     <circle cx="18" cy="18" r="16" fill="none" stroke-width="2.5" stroke="currentColor" stroke-dasharray="100" stroke-dashoffset="20" stroke-linecap="round" transform="rotate(-90 18 18)"/>
                   </svg>
-                  <span class="ob-timer__val">{{ getElapsedMinutes(order.created_at) }}</span>
+                  <span class="ob-timer__val">{{ getElapsedMinutes(order) }}</span>
                 </div>
                 <div>
                   <strong>{{ order.customer_name || 'Guest' }}</strong>
@@ -608,8 +621,8 @@ onUnmounted(() => {
               <div v-for="item in order.items" :key="item.id" class="ob-item">
                 <div class="ob-item__check">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" :stroke="timerColor(order.created_at)" stroke-width="2" :fill="timerColor(order.created_at) + '15'"/>
-                    <path d="M8 12l2.5 2.5L16 9.5" :stroke="timerColor(order.created_at)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="12" r="10" :stroke="timerColor(order)" stroke-width="2" :fill="timerColor(order) + '15'"/>
+                    <path d="M8 12l2.5 2.5L16 9.5" :stroke="timerColor(order)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
                 <span class="ob-item__name">{{ (parseSnapshot(item.product_snapshot) as any).name }}
@@ -656,12 +669,12 @@ onUnmounted(() => {
           >
             <div class="ob-card__head">
               <div class="ob-card__customer">
-                <div class="ob-timer" :style="{ '--timer-color': timerColor(order.created_at) }">
+                <div class="ob-timer" :style="{ '--timer-color': timerColor(order) }">
                   <svg class="ob-timer__ring" viewBox="0 0 36 36">
                     <circle cx="18" cy="18" r="16" fill="none" stroke-width="2.5" stroke="currentColor" opacity="0.15"/>
                     <circle cx="18" cy="18" r="16" fill="none" stroke-width="2.5" stroke="currentColor" stroke-dasharray="100" stroke-dashoffset="20" stroke-linecap="round" transform="rotate(-90 18 18)"/>
                   </svg>
-                  <span class="ob-timer__val">{{ getElapsedMinutes(order.created_at) }}</span>
+                  <span class="ob-timer__val">{{ getElapsedMinutes(order) }}</span>
                 </div>
                 <div>
                   <strong>{{ order.customer_name || 'Guest' }}</strong>
@@ -679,8 +692,8 @@ onUnmounted(() => {
               <div v-for="item in order.items" :key="item.id" class="ob-item">
                 <div class="ob-item__check">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" :stroke="timerColor(order.created_at)" stroke-width="2" :fill="timerColor(order.created_at) + '15'"/>
-                    <path d="M8 12l2.5 2.5L16 9.5" :stroke="timerColor(order.created_at)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="12" r="10" :stroke="timerColor(order)" stroke-width="2" :fill="timerColor(order) + '15'"/>
+                    <path d="M8 12l2.5 2.5L16 9.5" :stroke="timerColor(order)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
                 <span class="ob-item__name">{{ (parseSnapshot(item.product_snapshot) as any).name }}

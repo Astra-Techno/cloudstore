@@ -19,6 +19,7 @@ class BackgroundLocationService {
 
   Timer? _timer;
   bool _running = false;
+  bool _bgPermissionRequested = false;
 
   bool get isRunning => _running;
 
@@ -70,10 +71,13 @@ class BackgroundLocationService {
     }
     if (!status.isGranted) return false;
 
-    // Request background location (Android 10+)
-    var bgStatus = await Permission.locationAlways.status;
-    if (bgStatus.isDenied) {
-      bgStatus = await Permission.locationAlways.request();
+    // Request background location (Android 10+) only once per session
+    if (!_bgPermissionRequested) {
+      _bgPermissionRequested = true;
+      var bgStatus = await Permission.locationAlways.status;
+      if (bgStatus.isDenied) {
+        await Permission.locationAlways.request();
+      }
     }
     // Background is optional — foreground service still works with whenInUse
     return true;

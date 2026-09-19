@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Controller;
 
+use App\Core\Database\Connection;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Validation\Validator;
@@ -14,6 +15,7 @@ final class AdminDriverController
 {
     public function __construct(
         private readonly DriverRepository $driverRepo,
+        private readonly Connection $db,
     ) {
     }
 
@@ -30,8 +32,27 @@ final class AdminDriverController
         $offset = ($page - 1) * $perPage;
         $paged = array_slice($drivers, $offset, $perPage);
 
+        // Fetch delivery stats for all drivers in this tenant
+        $statsRows = $this->db->fetchAll(
+            "SELECT driver_id,
+                    COUNT(*) as total_deliveries,
+                    COALESCE(SUM(o.total), 0) as total_earnings
+             FROM driver_assignments da
+             JOIN orders o ON o.id = da.order_id
+             WHERE da.tenant_id = ? AND da.status = 'delivered'
+             GROUP BY da.driver_id",
+            [$tenantId]
+        );
+        $statsMap = [];
+        foreach ($statsRows as $row) {
+            $statsMap[(int) $row['driver_id']] = [
+                'total_deliveries' => (int) $row['total_deliveries'],
+                'total_earnings' => (int) $row['total_earnings'],
+            ];
+        }
+
         // Strip internal IDs from output
-        $items = array_map(fn(array $d) => $this->formatDriver($d), $paged);
+        $items = array_map(fn(array $d) => $this->formatDriver($d, $statsMap), $paged);
 
         return Response::success($items, [
             'current_page' => $page,
@@ -133,10 +154,13 @@ final class AdminDriverController
         return Response::success(['deleted' => true]);
     }
 
-    private function formatDriver(array $driver): array
+    private function formatDriver(array $driver, array $statsMap = []): array
     {
+        $driverId = (int) $driver['id'];
+        $stats = $statsMap[$driverId] ?? ['total_deliveries' => 0, 'total_earnings' => 0];
+
         return [
-            'id' => (int) $driver['id'],
+            'id' => $driverId,
             'uuid' => $driver['uuid'],
             'name' => $driver['name'],
             'phone' => $driver['phone'],
@@ -147,6 +171,8 @@ final class AdminDriverController
             'availability' => $driver['availability'] ?? null,
             'last_login_at' => $driver['last_login_at'] ?? null,
             'created_at' => $driver['created_at'],
+            'total_deliveries' => $stats['total_deliveries'],
+            'total_earnings' => $stats['total_earnings'],
         ];
     }
 }

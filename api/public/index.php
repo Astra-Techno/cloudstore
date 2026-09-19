@@ -101,6 +101,16 @@ if (preg_match('#/api/v1/builds/download/([a-f0-9]+)$#', $requestUri, $m)) {
     }
 }
 
+// SPA fallback: non-API paths serve the Vue admin shell
+if (!str_starts_with($requestUri, '/api/') && !str_starts_with($requestUri, '/uploads/') && !str_starts_with($requestUri, '/assets/')) {
+    $spaIndex = __DIR__ . '/index.html';
+    if (file_exists($spaIndex)) {
+        header('Content-Type: text/html; charset=UTF-8');
+        readfile($spaIndex);
+        exit;
+    }
+}
+
 use App\Core\Application;
 
 try {

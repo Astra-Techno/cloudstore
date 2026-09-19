@@ -76,6 +76,7 @@ final class AppTheme {
           fontSize: 19,
           fontWeight: FontWeight.w800,
           letterSpacing: -.3,
+          color: ink,
         ),
       ),
       cardTheme: const CardThemeData(
@@ -88,16 +89,18 @@ final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: canvas,
+        fillColor: const Color(0xFFF9F9F9),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        labelStyle: const TextStyle(color: Color(0xFF555555)),
+        hintStyle: const TextStyle(color: Color(0xFF999999)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: Color(0xFFD0D0D0)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFF1F1F1)),
+          borderSide: const BorderSide(color: Color(0xFFD0D0D0)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),

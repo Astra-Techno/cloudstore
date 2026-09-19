@@ -765,6 +765,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ]),
               Text('Live location refreshes automatically every 15 seconds.', style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+            ] else if (_driver != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: primary)),
+                    const SizedBox(height: 10),
+                    Text('Waiting for driver location…', style: TextStyle(color: primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 4),
+                    Text('Location will appear once the driver shares it.', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  ],
+                ),
+              ),
             ],
           ],
         ),

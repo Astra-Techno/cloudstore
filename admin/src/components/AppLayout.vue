@@ -66,6 +66,7 @@ const tenantNavItems = [
   { label: 'Refunds', path: '/refunds', icon: 'orders' },
   { label: 'Stock Alerts', path: '/stock-alerts', icon: 'products' },
   { label: 'Driver Earnings', path: '/driver-earnings', icon: 'drivers' },
+  { label: 'Mobile Apps', path: '/mobile-apps', icon: 'apps' },
   { label: 'Settings', path: '/settings', icon: 'settings' },
 ]
 

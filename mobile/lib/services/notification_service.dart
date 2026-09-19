@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../app/router.dart';
 
 /// Top-level handler for background FCM messages (must be top-level function).
 @pragma('vm:entry-point')
@@ -136,17 +137,44 @@ class NotificationService {
   }
 
   void _handleMessageOpenedApp(RemoteMessage message) {
-    // Navigation is handled by the app's GoRouter based on payload.
-    // Store the route for the splash/home screen to pick up.
-    final route = message.data['route'] ?? '';
-    if (route.isNotEmpty) {
+    final route = _resolveRoute(message.data);
+    if (route != null) {
       debugPrint('FCM tap navigation: $route');
+      appRouter.push(route);
     }
   }
 
   void _onNotificationTap(NotificationResponse response) {
-    // Payload-based navigation handled by GoRouter redirect logic
-    debugPrint('Notification tapped: ${response.payload}');
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) return;
+    debugPrint('Notification tapped: $payload');
+    final route = _routeFromPayload(payload);
+    if (route != null) appRouter.push(route);
+  }
+
+  String? _resolveRoute(Map<String, dynamic> data) {
+    // Explicit route from server
+    final route = data['route'];
+    if (route is String && route.isNotEmpty) return route;
+    // Order notification
+    final orderUuid = data['order_uuid'];
+    if (orderUuid is String && orderUuid.isNotEmpty) return '/order/$orderUuid';
+    // Type-based fallback
+    final type = data['type'];
+    if (type is String && (type == 'support_ticket' || type == 'support_reply')) {
+      return '/support';
+    }
+    return null;
+  }
+
+  String? _routeFromPayload(String payload) {
+    // Format: "order:<uuid>" or "support" or a direct route path
+    if (payload.startsWith('/')) return payload;
+    if (payload.startsWith('order:')) return '/order/${payload.substring(6)}';
+    if (payload == 'support') return '/support';
+    // Treat as order UUID for backward compatibility
+    if (payload.isNotEmpty) return '/order/$payload';
+    return null;
   }
 
   Future<void> showLocalNotification({
