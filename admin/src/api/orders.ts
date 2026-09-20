@@ -24,6 +24,7 @@ export const ordersApi = {
       allowed_transitions: string[]
       store_location?: { latitude: number; longitude: number } | null
       customer_order_count?: number
+      dining?: { table_name: string; access_code: string; opened_at: string; closed_at: string | null } | null
     }>>(`/admin/orders/${uuid}`)
   },
 

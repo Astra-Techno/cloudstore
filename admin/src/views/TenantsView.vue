@@ -87,6 +87,7 @@ const copiedToken = ref('')
 const fetchingBuild = ref('')
 
 const allCapabilities = [
+  { key: 'qr_table_ordering', label: 'QR Table Ordering (add-on)' },
   { key: 'orders', label: 'Orders' },
   { key: 'delivery', label: 'Delivery' },
   { key: 'pickup', label: 'Pickup' },

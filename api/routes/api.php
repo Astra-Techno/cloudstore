@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Core\Http\Router;
+use App\Modules\Dining\Controller\DiningController;
 use App\Http\Controllers\HealthController;
 use App\Modules\Tenant\Controller\BootstrapController;
 use App\Modules\Tenant\Controller\TenantIntegrationController;
@@ -47,6 +48,9 @@ return function (Router $router): void {
 
     // API v1
     $router->group('/api/v1', [], function (Router $router) {
+        $router->get('/dining/menu/{token}', [DiningController::class, 'menu']);
+        $router->post('/dining/menu/{token}/orders', [DiningController::class, 'placeOrder']);
+        $router->get('/dining/receipts/{token}', [DiningController::class, 'receipt']);
         // Bootstrap
         $router->post('/app/bootstrap', [BootstrapController::class, 'bootstrap']);
 
@@ -80,6 +84,9 @@ return function (Router $router): void {
 
         // Admin panel (authenticated)
         $router->group('/admin', ['middleware.auth.admin'], function (Router $router) {
+            $router->get('/tables', [DiningController::class, 'tables']);
+            $router->post('/tables', [DiningController::class, 'createTable']);
+            $router->post('/tables/{id}/action', [DiningController::class, 'tableAction']);
             // Dashboard
             $router->get('/dashboard', [AdminOrderController::class, 'dashboard']);
 

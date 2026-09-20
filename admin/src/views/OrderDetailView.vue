@@ -14,6 +14,7 @@ const allowedTransitions = ref<string[]>([])
 const storeLocation = ref<{ latitude: number; longitude: number } | null>(null)
 const customerOrderCount = ref(1)
 const routeInfo = ref<{ distance: string; duration: string } | null>(null)
+const dining = ref<{ table_name: string; access_code: string; opened_at: string; closed_at: string | null } | null>(null)
 const loading = ref(true)
 const updating = ref(false)
 const error = ref('')
@@ -60,6 +61,7 @@ async function loadOrder() {
       allowedTransitions.value = data.data.allowed_transitions
       storeLocation.value = data.data.store_location || null
       customerOrderCount.value = data.data.customer_order_count || 1
+      dining.value = data.data.dining || null
       fetchRouteInfo()
     }
   } catch (e) {
@@ -192,6 +194,8 @@ const canRefund = computed(() => {
 })
 
 const visibleTransitions = computed(() => allowedTransitions.value.filter((transition) => {
+  if (order.value?.order_type === 'dine_in') return !['ready_for_pickup', 'picked_up', 'out_for_delivery', 'delivered'].includes(transition)
+  if (transition === 'served') return false
   if (order.value?.order_type === 'pickup') return !['ready', 'out_for_delivery', 'delivered'].includes(transition)
   return !['ready_for_pickup', 'picked_up'].includes(transition)
 }))
@@ -272,10 +276,15 @@ onMounted(loadOrder)
           </div>
         </div>
 
+        <div v-if="dining" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-4">
+          <div class="text-3xl font-black text-amber-700">Table {{ dining.table_name }}</div>
+          <div class="text-sm text-amber-600">Dine-in order · Session {{ dining.closed_at ? 'closed' : 'open' }}</div>
+        </div>
+
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
           <div>
             <div class="text-xs text-gray-500">Type</div>
-            <div class="text-sm font-medium capitalize">{{ order.order_type }}</div>
+            <div class="text-sm font-medium capitalize">{{ order.order_type === 'dine_in' ? 'Dine-in' : order.order_type }}</div>
           </div>
           <div>
             <div class="text-xs text-gray-500">Payment</div>

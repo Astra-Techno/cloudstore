@@ -42,6 +42,10 @@ final class OrderManagementService
             ];
         }
 
+        if (($order['order_type'] === 'dine_in' && in_array($newStatus, ['ready_for_pickup', 'picked_up', 'out_for_delivery', 'delivered'], true))
+            || ($order['order_type'] !== 'dine_in' && $newStatus === 'served')) {
+            return ['error' => 'This status does not apply to this order type.', 'code' => 'FULFILMENT_STATUS_MISMATCH'];
+        }
         // Keep the two fulfilment journeys separate. A pickup customer must see
         // "ready for pickup", while delivery orders progress through a driver.
         if ($order['order_type'] === 'pickup' && in_array($newStatus, [OrderStatus::READY, OrderStatus::OUT_FOR_DELIVERY, OrderStatus::DELIVERED], true)) {
@@ -57,6 +61,7 @@ final class OrderManagementService
             OrderStatus::READY, OrderStatus::READY_FOR_PICKUP => 'ready_at',
             OrderStatus::OUT_FOR_DELIVERY => null,
             OrderStatus::DELIVERED => 'delivered_at',
+            OrderStatus::SERVED => 'completed_at',
             OrderStatus::PICKED_UP => 'picked_up_at',
             OrderStatus::CANCELLED => 'cancelled_at',
             default => null,

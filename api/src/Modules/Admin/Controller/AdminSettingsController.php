@@ -262,6 +262,8 @@ final class AdminSettingsController
             'service_charge_percent' => $metadata['service_charge_percent'] ?? 0,
             'delivery_enabled' => $metadata['delivery_enabled'] ?? true,
             'pickup_enabled' => $metadata['pickup_enabled'] ?? true,
+            'dine_in_enabled' => $metadata['dine_in_enabled'] ?? false,
+            'dine_in_payment' => $metadata['dine_in_payment'] ?? 'pay_at_counter',
             'payment_methods' => $metadata['payment_methods'] ?? ['cod'],
             'delivery_location' => $metadata['delivery'] ?? ['latitude' => null, 'longitude' => null],
         ]);
@@ -279,7 +281,7 @@ final class AdminSettingsController
         }
 
         // Update metadata fields
-        $settableKeys = ['business_hours', 'preparation_time_default', 'min_order_amount', 'tax_rate', 'delivery_charge_fixed', 'service_charge_percent', 'delivery_enabled', 'pickup_enabled', 'payment_methods'];
+        $settableKeys = ['business_hours', 'preparation_time_default', 'min_order_amount', 'tax_rate', 'delivery_charge_fixed', 'service_charge_percent', 'delivery_enabled', 'pickup_enabled', 'dine_in_enabled', 'dine_in_payment', 'payment_methods'];
         foreach ($settableKeys as $key) {
             if (array_key_exists($key, $data)) {
                 $metadata[$key] = $data[$key];

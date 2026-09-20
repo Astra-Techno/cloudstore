@@ -50,6 +50,7 @@ const platformNavItems = [
 
 const tenantNavItems = [
   { label: 'Counter', path: '/counter', icon: 'orders' },
+  { label: 'QR Tables', path: '/tables', icon: 'categories' },
   { label: 'Overview', path: '/', icon: 'overview' },
   { label: 'Orders', path: '/orders', icon: 'orders' },
   { label: 'Categories', path: '/categories', icon: 'categories' },

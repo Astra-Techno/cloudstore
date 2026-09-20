@@ -4,6 +4,8 @@ import { useAuthStore } from '@/stores/auth'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    { path: '/table/:token', name: 'table-menu', component: () => import('@/views/TableMenuView.vue') },
+    { path: '/tables', name: 'tables', component: () => import('@/views/TablesView.vue'), meta: { requiresAuth: true } },
     {
       path: '/login',
       name: 'login',

@@ -17,6 +17,7 @@ const settingsTabs = [
   { id: 'branding', label: 'Branding' },
   { id: 'orders', label: 'Order rules' },
   { id: 'fulfilment', label: 'Fulfilment' },
+  { id: 'dinein', label: 'Dine-in' },
   { id: 'payments', label: 'Payments' },
   { id: 'hours', label: 'Business hours' },
   { id: 'security', label: 'Security' },
@@ -145,8 +146,8 @@ async function saveSettings() {
   success.value = ''
 
   // Validate business hours and merchant ordering choices.
-  if (!settings.value.delivery_enabled && !settings.value.pickup_enabled) {
-    error.value = 'Enable delivery, pickup, or both so customers can place orders.'
+  if (!settings.value.delivery_enabled && !settings.value.pickup_enabled && !settings.value.dine_in_enabled) {
+    error.value = 'Enable delivery, pickup, or dine-in so customers can place orders.'
     saving.value = false
     return
   }
@@ -169,6 +170,8 @@ async function saveSettings() {
       service_charge_percent: settings.value.service_charge_percent,
       delivery_enabled: settings.value.delivery_enabled,
       pickup_enabled: settings.value.pickup_enabled,
+      dine_in_enabled: settings.value.dine_in_enabled ?? false,
+      dine_in_payment: settings.value.dine_in_payment ?? 'pay_at_counter',
       payment_methods: settings.value.payment_methods,
       delivery_location: settings.value.delivery_location,
       branding: settings.value.branding,
@@ -347,6 +350,34 @@ onMounted(loadSettings)
             <div><label class="block text-sm font-medium text-gray-700 mb-1">Store longitude</label><input v-model.number="settings.delivery_location.longitude" type="number" step="any" min="-180" max="180" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="e.g. 76.2673" /></div>
             <p class="md:col-span-2 text-xs text-gray-500">Required for delivery distance, service-area checks, and marketplace discovery. Save after entering the shop's GPS pin.</p>
           </div>
+        </div>
+
+        <!-- Dine-in -->
+        <div v-show="activeTab === 'dinein'" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-2">QR Table Ordering</h2>
+          <p class="text-sm text-gray-500 mb-5">Let guests scan a QR code at their table to browse the menu and order from their phone, without installing an app.</p>
+          <label class="flex items-center gap-3 cursor-pointer mb-5">
+            <input type="checkbox" v-model="settings.dine_in_enabled" class="w-5 h-5 text-red-600 rounded" />
+            <span class="text-sm font-semibold text-gray-700">Enable dine-in ordering</span>
+          </label>
+          <template v-if="settings.dine_in_enabled">
+            <div class="border-t border-gray-100 pt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Dine-in payment method</label>
+              <div class="flex flex-col gap-2">
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <input type="radio" v-model="settings.dine_in_payment" value="pay_at_counter" class="w-4 h-4 text-red-600" />
+                  <span class="text-sm text-gray-700">Pay at counter (staff collects payment when the bill is closed)</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer opacity-50" title="Online payment for dine-in coming soon">
+                  <input type="radio" disabled value="online" class="w-4 h-4 text-red-600" />
+                  <span class="text-sm text-gray-500">Online payment (coming soon)</span>
+                </label>
+              </div>
+            </div>
+            <div class="mt-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <strong>How it works:</strong> Create tables in the <router-link to="/tables" class="underline font-semibold text-amber-900">Tables</router-link> page, print QR codes, and seat guests. Each table visit groups all orders into one bill. The platform admin must also enable the <strong>QR Table Ordering</strong> capability for your store.
+            </div>
+          </template>
         </div>
 
         <!-- Payment Methods -->

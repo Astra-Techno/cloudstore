@@ -19,6 +19,7 @@ final class OrderStatus
     public const REJECTED = 'rejected';
     public const REFUNDED = 'refunded';
     public const PICKED_UP = 'picked_up';
+    public const SERVED = 'served';
 
     /**
      * Allowed transitions: from => [to, to, ...]
@@ -29,7 +30,8 @@ final class OrderStatus
         self::CONFIRMED => [self::ACCEPTED, self::REJECTED, self::CANCELLED],
         self::ACCEPTED => [self::PREPARING, self::CANCELLED],
         self::PREPARING => [self::READY, self::READY_FOR_PICKUP, self::CANCELLED],
-        self::READY => [self::OUT_FOR_DELIVERY, self::CANCELLED],
+        self::READY => [self::OUT_FOR_DELIVERY, self::SERVED, self::CANCELLED],
+        self::SERVED => [],
         self::READY_FOR_PICKUP => [self::PICKED_UP, self::CANCELLED],
         self::OUT_FOR_DELIVERY => [self::DELIVERED, self::CANCELLED],
         self::DELIVERED => [self::REFUNDED],
@@ -53,6 +55,6 @@ final class OrderStatus
 
     public static function isFinal(string $status): bool
     {
-        return in_array($status, [self::DELIVERED, self::PICKED_UP, self::CANCELLED, self::REJECTED, self::REFUNDED], true);
+        return in_array($status, [self::SERVED, self::DELIVERED, self::PICKED_UP, self::CANCELLED, self::REJECTED, self::REFUNDED], true);
     }
 }

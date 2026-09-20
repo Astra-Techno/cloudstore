@@ -24,6 +24,35 @@ const now = ref(Date.now())
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 let tickTimer: ReturnType<typeof setInterval> | null = null
+let lastKnownOrderCount = 0
+let audioCtx: AudioContext | null = null
+
+function playNewOrderSound() {
+  try {
+    if (!audioCtx) audioCtx = new AudioContext()
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+    osc.frequency.value = 880
+    osc.type = 'sine'
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5)
+    osc.start(audioCtx.currentTime)
+    osc.stop(audioCtx.currentTime + 0.5)
+    // Second beep
+    const osc2 = audioCtx.createOscillator()
+    const gain2 = audioCtx.createGain()
+    osc2.connect(gain2)
+    gain2.connect(audioCtx.destination)
+    osc2.frequency.value = 1100
+    osc2.type = 'sine'
+    gain2.gain.setValueAtTime(0.3, audioCtx.currentTime + 0.15)
+    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.65)
+    osc2.start(audioCtx.currentTime + 0.15)
+    osc2.stop(audioCtx.currentTime + 0.65)
+  } catch { /* Audio not available */ }
+}
 
 // High-value threshold (in paise = 500 rupees)
 const HIGH_VALUE_THRESHOLD = 50000
@@ -33,8 +62,9 @@ const statusTabs = [
   { key: 'new', label: 'New', statuses: ['confirmed', 'pending_payment'] },
   { key: 'assigned', label: 'Assigned', statuses: ['accepted'] },
   { key: 'cooking', label: 'Cooking', statuses: ['preparing'] },
+  { key: 'ready', label: 'Ready', statuses: ['ready'] },
   { key: 'out_for_delivery', label: 'Out for delivery', statuses: ['out_for_delivery'] },
-  { key: 'complete', label: 'Complete', statuses: ['delivered', 'cancelled', 'rejected', 'refunded'] },
+  { key: 'complete', label: 'Complete', statuses: ['delivered', 'served', 'picked_up', 'cancelled', 'rejected', 'refunded'] },
 ]
 
 function tabCount(tab: typeof statusTabs[number]): number {
@@ -42,12 +72,12 @@ function tabCount(tab: typeof statusTabs[number]): number {
 }
 
 function tabColor(key: string): string {
-  const colors: Record<string, string> = { new: '#17221f', assigned: '#6b7280', cooking: '#059669', out_for_delivery: '#0891b2', complete: '#6b7280' }
+  const colors: Record<string, string> = { new: '#17221f', assigned: '#6b7280', cooking: '#059669', ready: '#0891b2', out_for_delivery: '#0891b2', complete: '#6b7280' }
   return colors[key] || '#6b7280'
 }
 
 function tabBadgeColor(key: string): string {
-  const colors: Record<string, string> = { new: '#17221f', assigned: '#6b7280', cooking: '#059669', out_for_delivery: '#059669', complete: '#6b7280' }
+  const colors: Record<string, string> = { new: '#17221f', assigned: '#6b7280', cooking: '#059669', ready: '#0891b2', out_for_delivery: '#059669', complete: '#6b7280' }
   return colors[key] || '#6b7280'
 }
 
@@ -117,7 +147,7 @@ function getAddonsList(addonsJson: string | null): { name: string; price: number
 }
 
 // --- Feature 1: Live ticking timer (uses reactive `now`) ---
-const terminalStatuses = ['delivered', 'picked_up', 'cancelled', 'rejected', 'refunded', 'completed']
+const terminalStatuses = ['delivered', 'picked_up', 'served', 'cancelled', 'rejected', 'refunded', 'completed']
 
 function getEndTime(order: any): number {
   if (terminalStatuses.includes(order.status)) {
@@ -165,11 +195,13 @@ function statusLabel(status: string): string {
 }
 
 function fulfilmentLabel(order: BoardOrder): string {
+  if (order.order_type === 'dine_in') return order.dining_table_name ? `Table ${order.dining_table_name}` : 'Dine-in'
   return order.order_type === 'pickup' ? 'Pickup' : 'Delivery'
 }
 
 function paymentLabel(order: BoardOrder): string {
   const m = order.payment_method || ''
+  if (m === 'pay_at_counter') return order.payment_status === 'paid' ? 'Paid at counter' : 'Pay at counter'
   if (m === 'cod' || m === 'cash_on_delivery' || m.startsWith('pos_')) return m.startsWith('pos_') ? 'POS ' + m.replace('pos_', '').toUpperCase() : 'COD'
   if (m === 'online') return order.payment_status === 'paid' ? 'Paid online' : 'Online payment pending'
   return order.payment_status === 'paid' ? 'Paid' : m.replace(/_/g, ' ') || 'Unknown'
@@ -178,7 +210,8 @@ function paymentLabel(order: BoardOrder): string {
 function statusLabelColor(status: string): string {
   const colors: Record<string, string> = {
     confirmed: '#059669', pending_payment: '#d97706', accepted: '#4f46e5',
-    preparing: '#059669', out_for_delivery: '#ef4444', delivered: '#10b981',
+    preparing: '#059669', ready: '#0891b2', served: '#10b981',
+    out_for_delivery: '#ef4444', delivered: '#10b981',
     cancelled: '#ef4444', rejected: '#ef4444',
   }
   return colors[status] || '#6b7280'
@@ -255,17 +288,20 @@ function printKitchenTicket(order: BoardOrder) {
     return `${i.quantity}x ${snap.name || 'Item'}${variant}${i.notes ? ` [${i.notes}]` : ''}${addons ? '\n' + addons : ''}`
   }).join('\n')
 
-  const addr = order.order_type === 'delivery' ? parseAddress(order) : 'Pickup'
+  const addr = order.order_type === 'dine_in' ? (order.dining_table_name ? `Table ${order.dining_table_name}` : 'Dine-in') : order.order_type === 'delivery' ? parseAddress(order) : 'Pickup'
+  const typeLabel = order.order_type === 'dine_in' ? 'DINE-IN' : order.order_type === 'pickup' ? 'PICKUP' : 'DELIVERY'
   const html = `<!DOCTYPE html><html><head><title>Kitchen Ticket</title>
 <style>body{font-family:monospace;font-size:14px;width:280px;margin:0 auto;padding:10px}
 h2{text-align:center;margin:0 0 5px;font-size:16px}
+.table-name{text-align:center;font-size:22px;font-weight:bold;margin:6px 0;padding:6px;border:2px solid #000}
 .line{border-bottom:1px dashed #000;margin:8px 0}
 .items{white-space:pre-wrap;line-height:1.6}
 .footer{text-align:center;font-size:11px;margin-top:8px;color:#666}
 </style></head><body>
-<h2>Order #${order.order_number?.replace('ORD-', '')}</h2>
+<h2>Order #${order.order_number?.replace('ORD-', '').replace('DIN-', '')}</h2>
+${order.order_type === 'dine_in' && order.dining_table_name ? `<div class="table-name">TABLE ${order.dining_table_name}</div>` : ''}
 <div>${order.customer_name || 'Guest'} ${order.customer_phone ? '| ' + order.customer_phone : ''}</div>
-<div>${order.order_type === 'pickup' ? 'PICKUP' : 'DELIVERY'} | ${addr}</div>
+<div>${typeLabel} | ${addr}</div>
 ${order.notes ? '<div style="color:#b45309;margin-top:4px">Note: ' + order.notes + '</div>' : ''}
 <div class="line"></div>
 <div class="items">${items}</div>
@@ -287,6 +323,11 @@ async function loadBoard() {
   try {
     const { data } = await ordersApi.board()
     if (data.success && data.data) {
+      const newConfirmed = (data.data.orders as BoardOrder[]).filter(o => o.status === 'confirmed' || o.status === 'pending_payment').length
+      if (lastKnownOrderCount > 0 && newConfirmed > lastKnownOrderCount) {
+        playNewOrderSound()
+      }
+      lastKnownOrderCount = newConfirmed
       allOrders.value = data.data.orders
       counts.value = data.data.counts
       storeLocation.value = data.data.store_location || null
@@ -560,7 +601,7 @@ onUnmounted(() => {
             </div>
 
             <div class="ob-card__meta-row">
-              <span class="ob-meta-pill" :class="order.order_type === 'pickup' ? 'ob-meta-pill--pickup' : 'ob-meta-pill--delivery'">{{ fulfilmentLabel(order) }}</span>
+              <span class="ob-meta-pill" :class="order.order_type === 'dine_in' ? 'ob-meta-pill--dinein' : order.order_type === 'pickup' ? 'ob-meta-pill--pickup' : 'ob-meta-pill--delivery'">{{ fulfilmentLabel(order) }}</span>
               <span class="ob-meta-pill" :class="order.payment_status === 'paid' ? 'ob-meta-pill--paid' : 'ob-meta-pill--pending'">{{ paymentLabel(order) }}</span>
               <span v-if="order.delivery_fee > 0" class="ob-meta-pill ob-meta-pill--fee">Fee {{ formatPrice(order.delivery_fee) }}</span>
             </div>

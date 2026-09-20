@@ -45,6 +45,9 @@ export interface Order {
   address_snapshot: string
   scheduled_at: string | null
   service_charge: number
+  dining_table_name?: string | null
+  dining_session_id?: number | null
+  dining_access_code?: string | null
   created_at: string
   updated_at: string
 }
@@ -225,6 +228,8 @@ export interface StoreSettings {
   service_charge_percent: number
   delivery_enabled: boolean
   pickup_enabled: boolean
+  dine_in_enabled: boolean
+  dine_in_payment: string
   payment_methods: string[]
   delivery_location: { latitude: number | null; longitude: number | null }
 }

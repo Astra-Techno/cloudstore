@@ -221,8 +221,13 @@ final class OrderRepository
     public function findByTenantWithItems(int $tenantId, int $limit = 200): array
     {
         $orders = $this->db->fetchAll(
-            "SELECT o.*, c.name as customer_name, c.phone as customer_phone
-             FROM orders o JOIN customers c ON c.id = o.customer_id
+            "SELECT o.*, c.name as customer_name, c.phone as customer_phone,
+                    dt.name AS dining_table_name, ds.id AS dining_session_id, ds.access_code AS dining_access_code
+             FROM orders o
+             JOIN customers c ON c.id = o.customer_id
+             LEFT JOIN dining_orders dord ON dord.order_id = o.id
+             LEFT JOIN dining_sessions ds ON ds.id = dord.session_id
+             LEFT JOIN dining_tables dt ON dt.id = ds.table_id
              WHERE o.tenant_id = ?
              ORDER BY o.created_at DESC LIMIT ?",
             [$tenantId, $limit]
@@ -249,6 +254,18 @@ final class OrderRepository
         }
 
         return $orders;
+    }
+
+    public function getDiningInfo(int $orderId): ?array
+    {
+        return $this->db->fetchOne(
+            "SELECT dt.name AS table_name, ds.access_code, ds.opened_at, ds.closed_at
+             FROM dining_orders dord
+             JOIN dining_sessions ds ON ds.id = dord.session_id
+             JOIN dining_tables dt ON dt.id = ds.table_id
+             WHERE dord.order_id = ?",
+            [$orderId]
+        );
     }
 
     /**

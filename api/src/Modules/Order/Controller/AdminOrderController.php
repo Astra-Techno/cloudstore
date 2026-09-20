@@ -110,6 +110,9 @@ final class AdminOrderController
         $items = $this->orderRepo->getItems((int) $order['id']);
         $history = $this->orderRepo->getStatusHistory((int) $order['id']);
 
+        // Dine-in table info
+        $diningInfo = $this->orderRepo->getDiningInfo((int) $order['id']);
+
         // Store location for map display
         $tenant = TenantContext::get();
         $deliveryConfig = ($tenant->configuration ?? [])['delivery'] ?? [];
@@ -131,6 +134,7 @@ final class AdminOrderController
             'allowed_transitions' => OrderStatus::getAllowedTransitions($order['status']),
             'store_location' => $storeLocation,
             'customer_order_count' => $orderCount[(int) $order['customer_id']] ?? 1,
+            'dining' => $diningInfo,
         ]);
     }
 

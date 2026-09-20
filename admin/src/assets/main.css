@@ -194,6 +194,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .status-danger { color: #b91c1c; background: #fee2e2; }
 .status-info, .ob-meta-pill--delivery { color: #1d4ed8; background: #dbeafe; }
 .ob-meta-pill--pickup { color: #6d28d9; background: #ede9fe; }
+.ob-meta-pill--dinein { color: #b45309; background: #fef3c7; font-weight: 800; }
 .ob-card__meta-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 2px; border-top: 1px solid #eef0f2; }
 .ob-meta-pill, .ob-meta-note { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .ob-meta-note { color: #475569; background: #f1f5f9; }
