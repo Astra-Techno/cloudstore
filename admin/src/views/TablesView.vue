@@ -12,6 +12,8 @@ const printTableId = ref<number | null>(null)
 const printableTables = computed(() => printTableId.value === null ? tables.value : tables.value.filter(t => t.id === printTableId.value))
 function openTable(t: any) { selectedId.value = t.id; showQr.value = false; actionError.value = ''; renaming.value = null; tablePanel.value?.showModal() }
 const name = ref('')
+const showCreate = ref(false)
+const showHelp = ref(false)
 const error = ref('')
 const actionError = ref('')
 const loading = ref(true)
@@ -179,7 +181,7 @@ function downloadSticker(t: any) {
 }
 async function create() {
   busy.value = true
-  try { await api.post('/admin/tables', { name: name.value }); name.value = ''; await load() }
+  try { await api.post('/admin/tables', { name: name.value }); name.value = ''; showCreate.value = false; await load() }
   catch (e: any) { error.value = e.response?.data?.error?.message || 'Unable to create table.' }
   finally { busy.value = false }
 }
@@ -206,9 +208,10 @@ onUnmounted(() => clearInterval(timer))
 
 <template>
   <section class="tables-page">
-    <header><div><p class="eyebrow">DINE-IN ADD-ON</p><h1>QR table ordering</h1><p>Open a visit when guests arrive. Share its code. Serve orders, collect payment, then close the bill.</p></div><button :disabled="loading || !tables.length || refreshing" @click="print">Print QR cards</button></header>
+    <header class="floor-toolbar"><div><h1>Tables</h1><p>{{ tables.filter(t => t.session).length }} occupied · {{ tables.filter(t => t.enabled && !t.session).length }} available</p></div><div class="floor-actions"><button class="quiet" :aria-expanded="showHelp" @click="showHelp = !showHelp">Help</button><button class="quiet" :disabled="loading || !tables.length || refreshing" @click="print">QR & Print</button><button :aria-expanded="showCreate" @click="showCreate = !showCreate">＋ Add table</button></div></header>
+    <p v-if="showHelp" class="floor-help">Open a visit when guests arrive, share the table code, then serve their orders. Collect payment before closing the bill. Select a table to manage its QR or visit.</p>
     <p v-if="error" role="alert" class="error">{{ error }} <button @click="load">Retry</button></p>
-    <form @submit.prevent="create" class="controls"><input v-model="name" required maxlength="80" placeholder="Table name, e.g. Terrace 4" aria-label="Table name"><button :disabled="busy">Add table</button></form>
+    <form v-if="showCreate" @submit.prevent="create" class="controls"><input v-model="name" required maxlength="80" placeholder="Table name, e.g. Terrace 4" aria-label="Table name"><button :disabled="busy">Create table</button><button type="button" class="quiet" @click="showCreate = false">Cancel</button></form>
     <p v-if="loading" role="status">Loading tables…</p>
     <p v-else-if="!tables.length && !error">Create your first table to generate its QR code. The platform admin must enable the QR Table Ordering add-on for this tenant.</p>
     <div v-if="tables.length" class="table-filters"><input v-model="tableSearch" aria-label="Search tables" placeholder="Find a table…"><select v-model="tableFilter" aria-label="Table status"><option value="all">All tables ({{ tables.length }})</option><option value="occupied">Occupied</option><option value="available">Available</option><option value="disabled">Disabled</option></select></div>
