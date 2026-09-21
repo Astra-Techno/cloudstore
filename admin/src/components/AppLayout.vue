@@ -87,7 +87,8 @@ onMounted(() => { document.addEventListener('keydown', keyboard); document.addEv
 onUnmounted(() => { document.removeEventListener('keydown', keyboard); document.removeEventListener('pointerdown', outsideLauncher); keepLauncher() })
 
 
-const navItems = computed(() => sections.value.map(s => ({ label: s.label, path: s.pages[0].path, icon: s.icon })))
+const navItems = computed(() => sections.value.map(s => ({ label: s.label, path: s.pages[0].path, icon: s.icon, single: s.pages.length === 1 })))
+function navClick(item: { label: string; path: string; single: boolean }) { if (item.single) { router.push(item.path); launcher.value = null } else openLauncher(item.label) }
 </script>
 
 <template>
@@ -122,8 +123,8 @@ const navItems = computed(() => sections.value.map(s => ({ label: s.label, path:
           :class="currentSection?.label === item.label ? 'sidebar-link--active' : ''"
           @pointerenter="hoverLauncher($event, item.label)"
           @pointerleave="leaveLauncher"
-          @click="openLauncher(item.label)"
-          @keydown.arrow-right.prevent="openLauncher(item.label); nextTick(() => launcherPanel?.querySelector('a')?.focus())"
+          @click="navClick(item)"
+          @keydown.arrow-right.prevent="item.single ? router.push(item.path) : (openLauncher(item.label), nextTick(() => launcherPanel?.querySelector('a')?.focus()))"
         >
           <AppTileIcon :name="item.label"/>
           <span class="sidebar-link__label">{{ item.label }}</span>
