@@ -11,6 +11,7 @@ use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Catalog\Repository\AddonRepository;
 use App\Modules\Catalog\Domain\PricingCalculator;
 use App\Modules\Order\Repository\OrderRepository;
+use App\Modules\Tenant\Repository\BrandingRepository;
 use Ramsey\Uuid\Uuid;
 
 /** QR tokens select a tenant; neither tenant IDs nor prices are trusted from guests. */
@@ -22,6 +23,7 @@ final class DiningController
         private readonly CustomerRepository $customers,
         private readonly AddonRepository $addons,
         private readonly OrderRepository $orders,
+        private readonly BrandingRepository $branding,
     ) {}
 
     private function tenant(Request $r): int
@@ -133,8 +135,56 @@ final class DiningController
                 ];
             }
             $config = json_decode($table['configuration'] ?? '{}', true) ?: [];
-            return ['store' => $table['store_name'], 'table' => $table['name'], 'branding' => $config['branding'] ?? [], 'products' => $menu,
+            $branding = $this->branding->findByTenant((int) $table['tenant_id']);
+            $brandData = ['primary_color' => $branding['primary_color'] ?? '#E23744', 'logo_url' => $branding['logo_url'] ?? null, 'tagline' => $config['branding_tagline'] ?? null];
+            return ['store' => $table['store_name'], 'table' => $table['name'], 'branding' => $brandData, 'products' => $menu,
                 'session_open' => (bool) $this->db->fetchOne('SELECT id FROM dining_sessions WHERE table_id = ? AND closed_at IS NULL', [$table['id']])];
+        });
+    }
+
+    public function identify(Request $r, array $p): Response
+    {
+        return $this->respond(function () use ($r, $p) {
+            $table = $this->publicTable($p['token']);
+            $tenant = (int) $table['tenant_id'];
+            $phone = preg_replace('/\D/', '', trim((string) ($r->json()['phone'] ?? '')));
+            if (strlen($phone) < 10) throw new \DomainException('Enter a valid mobile number.');
+            $phone = substr($phone, -10);
+            $customer = $this->db->fetchOne('SELECT id, name, phone FROM customers WHERE phone = ? AND tenant_id = ? AND deleted_at IS NULL', [$phone, $tenant]);
+            $suggestions = [];
+            if ($customer) {
+                $recent = $this->db->fetchAll(
+                    "SELECT oi.product_snapshot, oi.variant_snapshot, oi.quantity, oi.unit_price
+                     FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                     WHERE o.customer_id = ? AND o.tenant_id = ? AND o.status NOT IN ('cancelled','rejected','refunded')
+                     ORDER BY o.id DESC LIMIT 30",
+                    [$customer['id'], $tenant]
+                );
+                $seen = [];
+                foreach ($recent as $item) {
+                    $snap = json_decode($item['product_snapshot'], true);
+                    $name = $snap['name'] ?? '';
+                    if (!$name || isset($seen[$name])) continue;
+                    $seen[$name] = true;
+                    $suggestions[] = ['name' => $name, 'price' => (int) $item['unit_price']];
+                    if (count($suggestions) >= 8) break;
+                }
+            }
+            // Link phone to the dining session's customer record
+            $session = $this->db->fetchOne('SELECT * FROM dining_sessions WHERE table_id = ? AND closed_at IS NULL', [$table['id']]);
+            if ($session) {
+                if ($customer) {
+                    // Update session to use the real customer
+                    $this->db->execute('UPDATE dining_sessions SET customer_id = ? WHERE id = ?', [$customer['id'], $session['id']]);
+                    // Update existing orders in this session too
+                    $this->db->execute('UPDATE orders o JOIN dining_orders d ON d.order_id = o.id SET o.customer_id = ? WHERE d.session_id = ?', [$customer['id'], $session['id']]);
+                } else {
+                    // Create a real customer with this phone
+                    $newId = $this->customers->create(['uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tenant, 'phone' => $phone]);
+                    $this->db->execute('UPDATE dining_sessions SET customer_id = ? WHERE id = ?', [$newId, $session['id']]);
+                }
+            }
+            return ['returning' => $customer !== null, 'name' => $customer['name'] ?? null, 'suggestions' => $suggestions];
         });
     }
 
@@ -195,7 +245,8 @@ final class DiningController
                 $config = json_decode($table['configuration'] ?? '{}', true) ?: [];
                 $tax = (int) round($subtotal * max(0, min(100, (float) ($config['tax_rate'] ?? 0))) / 100);
                 $orderId = $this->orders->create(['uuid' => Uuid::uuid4()->toString(), 'order_number' => 'DIN-' . strtoupper(bin2hex(random_bytes(8))),
-                    'tenant_id' => $tenant, 'customer_id' => $session['customer_id'], 'status' => 'confirmed', 'order_type' => 'dine_in',
+                    'tenant_id' => $tenant, 'customer_id' => $session['customer_id'],
+                    'status' => 'confirmed', 'order_type' => 'dine_in',
                     'subtotal' => $subtotal, 'tax_amount' => $tax, 'total' => $subtotal + $tax, 'payment_method' => 'pay_at_counter', 'payment_status' => 'pending',
                     'notes' => mb_substr(trim((string) ($data['notes'] ?? '')), 0, 500), 'address_snapshot' => json_encode(['table_name' => $table['name']])]);
                 foreach ($lines as $line) $this->orders->addItem(['order_id' => $orderId] + $line);

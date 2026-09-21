@@ -49,7 +49,8 @@ return function (Router $router): void {
     // API v1
     $router->group('/api/v1', [], function (Router $router) {
         $router->get('/dining/menu/{token}', [DiningController::class, 'menu']);
-        $router->post('/dining/menu/{token}/orders', [DiningController::class, 'placeOrder']);
+        $router->post('/dining/menu/{token}/identify', [DiningController::class, 'identify']);
+    $router->post('/dining/menu/{token}/orders', [DiningController::class, 'placeOrder']);
         $router->get('/dining/receipts/{token}', [DiningController::class, 'receipt']);
         // Bootstrap
         $router->post('/app/bootstrap', [BootstrapController::class, 'bootstrap']);
