@@ -82,7 +82,7 @@ final class DiningController
                 if ($action === 'open') {
                     if (!$table['enabled']) throw new \DomainException('Enable this table first.');
                     if ($session) return $session;
-                    $customer = $this->customers->create(['uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tenant, 'name' => 'Table ' . $table['name']]);
+                    $customer = $this->customers->create(['uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tenant, 'name' => $table['name']]);
                     $this->db->execute('INSERT INTO dining_sessions (table_id, customer_id, access_code) VALUES (?, ?, ?)', [$table['id'], $customer, (string) random_int(100000, 999999)]);
                 } elseif ($action === 'close') {
                     if (!$session) throw new \DomainException('There is no open bill.');

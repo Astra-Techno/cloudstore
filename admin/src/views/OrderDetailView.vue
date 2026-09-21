@@ -185,6 +185,7 @@ const statusColors: Record<string, string> = {
 }
 
 const canAssignDriver = computed(() => {
+  if (order.value?.order_type === 'dine_in') return false
   const s = order.value?.status
   return s === 'ready' || s === 'preparing' || s === 'accepted'
 })
