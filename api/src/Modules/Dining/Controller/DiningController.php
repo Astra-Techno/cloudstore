@@ -12,6 +12,8 @@ use App\Modules\Catalog\Repository\AddonRepository;
 use App\Modules\Catalog\Domain\PricingCalculator;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Tenant\Repository\BrandingRepository;
+use App\Modules\Notification\Service\NotificationService;
+use App\Modules\Auth\Repository\AdminRepository;
 use Ramsey\Uuid\Uuid;
 
 /** QR tokens select a tenant; neither tenant IDs nor prices are trusted from guests. */
@@ -24,6 +26,8 @@ final class DiningController
         private readonly AddonRepository $addons,
         private readonly OrderRepository $orders,
         private readonly BrandingRepository $branding,
+        private readonly NotificationService $notifications,
+        private readonly AdminRepository $admins,
     ) {}
 
     private function tenant(Request $r): int
@@ -245,15 +249,24 @@ final class DiningController
                 }
                 $config = json_decode($table['configuration'] ?? '{}', true) ?: [];
                 $tax = (int) round($subtotal * max(0, min(100, (float) ($config['tax_rate'] ?? 0))) / 100);
-                $orderId = $this->orders->create(['uuid' => Uuid::uuid4()->toString(), 'order_number' => 'DIN-' . strtoupper(bin2hex(random_bytes(8))),
+                $orderUuid = Uuid::uuid4()->toString();
+                $orderNumber = 'DIN-' . strtoupper(bin2hex(random_bytes(8)));
+                $orderTotal = $subtotal + $tax;
+                $orderId = $this->orders->create(['uuid' => $orderUuid, 'order_number' => $orderNumber,
                     'tenant_id' => $tenant, 'customer_id' => $session['customer_id'],
                     'status' => 'confirmed', 'order_type' => 'dine_in',
-                    'subtotal' => $subtotal, 'tax_amount' => $tax, 'total' => $subtotal + $tax, 'payment_method' => 'pay_at_counter', 'payment_status' => 'pending',
+                    'subtotal' => $subtotal, 'tax_amount' => $tax, 'total' => $orderTotal, 'payment_method' => 'pay_at_counter', 'payment_status' => 'pending',
                     'notes' => mb_substr(trim((string) ($data['notes'] ?? '')), 0, 500), 'address_snapshot' => json_encode(['table_name' => $table['name']])]);
                 foreach ($lines as $line) $this->orders->addItem(['order_id' => $orderId] + $line);
                 $this->orders->addStatusHistory($orderId, null, 'confirmed', 'customer', (int) $session['customer_id'], 'QR table order');
                 $receipt = bin2hex(random_bytes(32));
                 $this->db->execute('INSERT INTO dining_orders (order_id, session_id, request_key, receipt_token) VALUES (?, ?, ?, ?)', [$orderId, $session['id'], $data['request_key'], $receipt]);
+                // Notify all active tenant admins about the new dine-in order
+                foreach ($this->admins->findByTenant($tenant) as $admin) {
+                    if (($admin['status'] ?? 'active') === 'active') {
+                        $this->notifications->notifyNewOrder($tenant, (int) $admin['id'], $orderNumber, $orderTotal, $orderUuid);
+                    }
+                }
                 return ['receipt_token' => $receipt];
             });
         });
