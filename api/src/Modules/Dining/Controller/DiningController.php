@@ -198,7 +198,7 @@ final class DiningController
                 $table = $this->publicTable($p['token'], true);
                 $tenant = (int) $table['tenant_id'];
                 $session = $this->db->fetchOne('SELECT * FROM dining_sessions WHERE table_id = ? AND closed_at IS NULL', [$table['id']]);
-                if (!$session || !hash_equals($session['access_code'], (string) ($data['access_code'] ?? ''))) throw new \DomainException('Ask the staff for the current six-digit table code.');
+                if (!$session) throw new \DomainException('Ask the staff to open your table before ordering.');
                 $previous = $this->db->fetchOne('SELECT receipt_token FROM dining_orders WHERE session_id = ? AND request_key = ?', [$session['id'], $data['request_key']]);
                 if ($previous) return $previous;
                 $subtotal = 0;

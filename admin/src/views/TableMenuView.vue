@@ -8,7 +8,7 @@ const token = String(route.params.token)
 // Guest ordering never sends admin credentials or redirects guests to admin login.
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api/v1', timeout: 20000 })
 const menu = ref<any>(null), error = ref(''), loading = ref(true), busy = ref(false)
-const search = ref(''), category = ref('All'), code = ref(''), notes = ref('')
+const search = ref(''), category = ref('All'), notes = ref('')
 const cart = ref<any[]>([]), selected = ref<any>(null), variant = ref(''), extras = ref<number[]>([])
 const receipts = ref<any[]>([])
 const receiptTokens = ref<string[]>([])
@@ -87,7 +87,7 @@ async function track() {
 async function place() {
   busy.value = true; error.value = ''
   try {
-    const { data } = await api.post(`/dining/menu/${token}/orders`, { request_key: requestKey, access_code: code.value, notes: notes.value, items: cart.value.map(({product_uuid,variant_uuid,addon_ids,quantity}) => ({product_uuid,variant_uuid,addon_ids,quantity})) })
+    const { data } = await api.post(`/dining/menu/${token}/orders`, { request_key: requestKey, notes: notes.value, items: cart.value.map(({product_uuid,variant_uuid,addon_ids,quantity}) => ({product_uuid,variant_uuid,addon_ids,quantity})) })
     if (!receiptTokens.value.includes(data.data.receipt_token)) receiptTokens.value.push(data.data.receipt_token)
     try { localStorage.setItem(`dining:${token}`, JSON.stringify(receiptTokens.value.slice(-20))) } catch { /* Private browsing may disallow storage. */ }
     cart.value = []; notes.value = ''; requestKey = crypto.randomUUID(); await track()
@@ -187,10 +187,9 @@ onUnmounted(() => clearInterval(timer))
             </div>
           </article>
           <p>Subtotal {{ money(total) }} · Applicable tax added at checkout</p>
-          <label>Table code from staff<input v-model="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="Six-digit code" :disabled="busy"></label>
           <label>Special instructions<textarea v-model="notes" maxlength="500" placeholder="Any requests for the kitchen?" :disabled="busy" /></label>
           <p>Payment is collected at the counter after your meal.</p>
-          <button class="primary" :disabled="busy || !/^\d{6}$/.test(code)" @click="place">{{ busy ? 'Sending order…' : `Place order · ${money(total)}` }}</button>
+          <button class="primary" :disabled="busy" @click="place">{{ busy ? 'Sending order…' : `Place order · ${money(total)}` }}</button>
         </section>
       </template>
     </template>
