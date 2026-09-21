@@ -13,6 +13,7 @@ use App\Modules\Auth\Repository\CustomerRepository;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Tenant\Repository\TenantRepository;
 use App\Modules\Tenant\Repository\BrandingRepository;
+use App\Modules\Catalog\Service\ImageService;
 use Ramsey\Uuid\Uuid;
 
 final class AdminSettingsController
@@ -24,6 +25,7 @@ final class AdminSettingsController
         private readonly OrderRepository $orderRepo,
         private readonly TenantRepository $tenantRepo,
         private readonly BrandingRepository $brandingRepo,
+        private readonly ImageService $imageService,
     ) {
     }
 
@@ -334,6 +336,24 @@ final class AdminSettingsController
         }
 
         return $this->getSettings($request, $params);
+    }
+
+    // --- Logo Upload ---
+
+    public function uploadLogo(Request $request, array $params): Response
+    {
+        $file = $request->file('logo');
+        if ($file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return Response::validationError(['logo' => ['Select an image file to upload.']]);
+        }
+
+        try {
+            $url = $this->imageService->uploadBrandingImage($file);
+        } catch (\RuntimeException $e) {
+            return Response::validationError(['logo' => [$e->getMessage()]]);
+        }
+
+        return Response::success(['url' => $url]);
     }
 
     // --- Store Live Toggle ---

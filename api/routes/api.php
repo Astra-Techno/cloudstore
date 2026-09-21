@@ -166,6 +166,7 @@ return function (Router $router): void {
             $router->put('/settings', [AdminSettingsController::class, 'updateSettings']);
             $router->post('/settings', [AdminSettingsController::class, 'updateSettings']);
             $router->post('/settings/toggle-live', [AdminSettingsController::class, 'toggleLive']);
+            $router->post('/settings/upload-logo', [AdminSettingsController::class, 'uploadLogo']);
             $router->get('/integrations', [TenantIntegrationController::class, 'get']);
             $router->post('/integrations', [TenantIntegrationController::class, 'update']);
 

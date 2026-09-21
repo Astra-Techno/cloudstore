@@ -563,6 +563,7 @@ final class Application
             $this->container->get(OrderRepository::class),
             $this->container->get(TenantRepository::class),
             $this->container->get(BrandingRepository::class),
+            $this->container->get(ImageService::class),
         ));
 
         $this->container->singleton(AdminDriverController::class, fn () => new AdminDriverController(

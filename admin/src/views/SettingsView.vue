@@ -31,6 +31,31 @@ const paymentOptions = [
 ]
 
 const defaultBranding = { primary_color: '#E23744', logo_url: '', tagline: '' }
+const uploadingLogo = ref(false)
+
+async function uploadLogo(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !settings.value?.branding) return
+  uploadingLogo.value = true
+  try {
+    const form = new FormData()
+    form.append('logo', file)
+    const { data } = await apiClient.post<ApiResponse<{ url: string }>>('/admin/settings/upload-logo', form)
+    if (data.success && data.data?.url) {
+      settings.value.branding.logo_url = data.data.url
+      success.value = 'Logo uploaded — remember to save settings'
+      setTimeout(() => success.value = '', 3000)
+    } else {
+      error.value = data.error?.message || 'Upload failed'
+    }
+  } catch {
+    error.value = 'Logo upload failed'
+  } finally {
+    uploadingLogo.value = false
+    input.value = ''
+  }
+}
 
 // Password change
 const passwordForm = ref({ current_password: '', new_password: '', confirm_password: '' })
@@ -281,9 +306,20 @@ onMounted(loadSettings)
               </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
-              <input v-model="settings.branding.logo_url" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="https://..." />
-              <p class="text-xs text-gray-400 mt-1">Use a square PNG, JPG, or WebP image URL.</p>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Store Logo</label>
+              <div class="flex items-center gap-3">
+                <div class="w-14 h-14 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <img v-if="settings.branding.logo_url" :src="settings.branding.logo_url" class="w-full h-full object-contain" alt="Logo" />
+                  <span v-else class="text-gray-300 text-2xl">🖼</span>
+                </div>
+                <div class="flex-1">
+                  <label class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg cursor-pointer hover:bg-red-700 disabled:opacity-50">
+                    <span>{{ uploadingLogo ? 'Uploading…' : 'Upload logo' }}</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" :disabled="uploadingLogo" @change="uploadLogo" />
+                  </label>
+                  <p class="text-xs text-gray-400 mt-1">Square PNG, JPG, or WebP — max 5 MB</p>
+                </div>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Store slogan</label>

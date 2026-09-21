@@ -92,6 +92,11 @@ final class ImageService
         return $this->storeFile($file, 'categories');
     }
 
+    public function uploadBrandingImage(array $file): string
+    {
+        return $this->storeFile($file, 'branding');
+    }
+
     private function storeFile(array $file, string $subfolder): string
     {
         if ($file['error'] !== UPLOAD_ERR_OK) {
