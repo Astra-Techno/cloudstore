@@ -256,6 +256,7 @@ final class AdminSettingsController
                 'status' => $tenant?->status ?? 'active',
             ],
             'branding' => $branding,
+            'capabilities' => (new \App\Modules\Tenant\Repository\CapabilityRepository($this->db))->getForTenant($tenantId),
             'business_hours' => $metadata['business_hours'] ?? $this->defaultBusinessHours(),
             'preparation_time_default' => $metadata['preparation_time_default'] ?? 30,
             'min_order_amount' => $metadata['min_order_amount'] ?? 0,

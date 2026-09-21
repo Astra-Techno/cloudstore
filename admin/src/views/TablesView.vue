@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import QRCode from 'qrcode'
 import api from '@/api/client'
 
 const tables = ref<any[]>([])
+const selectedId = ref<number | null>(null)
+const selectedTable = computed(() => tables.value.find(t => t.id === selectedId.value))
+const tablePanel = ref<HTMLDialogElement>()
+const showQr = ref(false)
+function openTable(t: any) { selectedId.value = t.id; showQr.value = false; tablePanel.value?.showModal() }
 const name = ref('')
 const error = ref('')
 const busy = ref(false)
@@ -186,8 +191,11 @@ onUnmounted(() => clearInterval(timer))
     <p v-if="error" role="alert" class="error">{{ error }} <button @click="load">Retry</button></p>
     <form @submit.prevent="create" class="controls"><input v-model="name" required maxlength="80" placeholder="Table name, e.g. Terrace 4" aria-label="Table name"><button :disabled="busy">Add table</button></form>
     <p v-if="!tables.length && !error">Create your first table to generate its QR code. The platform admin must enable the QR Table Ordering add-on for this tenant.</p>
+    <div class="compact-table-grid"><button v-for="t in tables" :key="t.id" class="table-tile" @click="openTable(t)"><span class="table-state" :class="{ occupied: t.session }">{{ !t.enabled ? 'Disabled' : t.session ? 'Occupied' : 'Available' }}</span><strong>{{ t.name }}</strong><span>{{ t.orders?.filter((o: any) => !['served','cancelled','rejected','refunded'].includes(o.status)).length || 0 }} active orders</span><b>{{ money(t.bill_total || 0) }}</b><small>{{ t.session ? 'View orders & bill →' : 'Open table →' }}</small></button></div>
+    <dialog ref="tablePanel" class="table-panel" @click="($event.target === tablePanel) && tablePanel?.close()">
+    <div class="panel-toolbar"><button @click="showQr = !showQr">{{ showQr ? 'Orders & bill' : 'QR & Print' }}</button><button aria-label="Close table" @click="tablePanel?.close()">×</button></div>
     <div class="table-grid">
-      <article v-for="t in tables" :key="t.id" class="table-card">
+      <article v-for="t in (selectedTable ? [selectedTable] : [])" :key="t.id" class="table-card" :class="{ 'show-qr': showQr }">
         <div v-if="renaming === t.id" style="display:flex;gap:8px;margin-bottom:8px"><input v-model="renameName" maxlength="80" @keyup.enter="submitRename(t)" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:8px"><button :disabled="busy" @click="submitRename(t)" style="padding:8px 14px">Save</button><button @click="renaming = null" class="cancel-btn" style="padding:8px 14px">Cancel</button></div>
         <h2 v-else @dblclick="startRename(t)" title="Double-click to rename">{{ t.name }}</h2><p>Scan to view the menu and order</p>
         <div class="sticker-preview">
@@ -217,10 +225,15 @@ onUnmounted(() => clearInterval(timer))
         </div>
       </article>
     </div>
+    </dialog>
+    <div class="print-cards"><article v-for="t in tables" :key="t.id"><h2>{{ storeName }}</h2><h3>{{ t.name }}</h3><img :src="qr[t.id]" :alt="`Menu QR for ${t.name}`"><p>Scan to order · No app needed</p></article></div>
   </section>
 </template>
 
 <style scoped>
+.compact-table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}.table-tile{display:flex;flex-direction:column;text-align:left;gap:10px;background:white!important;color:#172033!important;border:1px solid #e2e8f0;padding:22px!important;min-height:210px}.table-tile:hover{border-color:var(--primary)}.table-tile strong{font-size:23px}.table-tile b{font-size:20px}.table-tile>span:not(.table-state){font-size:13px;color:#64748b}.table-state{font-size:11px;background:#f1f5f9;padding:5px 10px;border-radius:20px}.table-state.occupied{background:#fff1f2;color:var(--primary)}.table-tile small{color:var(--primary)}.table-panel{position:fixed;inset:0 0 0 auto;margin:0;width:min(520px,100%);height:100dvh;max-height:100dvh;max-width:100%;padding:20px;border:0;overflow:auto}.table-panel::backdrop{background:#17203380}.panel-toolbar{display:flex;justify-content:space-between;margin-bottom:16px}.table-panel .table-grid{display:block}.table-panel .table-card{border:0;padding:0}.table-panel .table-card:not(.show-qr) .sticker-preview,.table-panel .table-card:not(.show-qr)>a{display:none}.secondary{flex-wrap:wrap}.print-cards{display:none}.table-panel .table-card:not(.show-qr) .management>a{display:none}
+@media(max-width:600px){.tables-page header{flex-wrap:wrap}.controls{flex-wrap:wrap}.controls input{min-width:0!important;width:100%}.compact-table-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.table-tile{padding:14px!important;min-height:190px}.table-tile strong{font-size:19px}.table-panel{width:100%}}
+@media print{.compact-table-grid,.table-panel{display:none!important}.print-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px}.print-cards article{break-inside:avoid;text-align:center;padding:20px;border:1px solid #ddd}.print-cards img{width:220px;margin:auto}}
 .tables-page{max-width:1400px;margin:auto}.tables-page header{display:flex;justify-content:space-between;gap:24px;align-items:center;margin-bottom:24px}h1{font-size:28px;font-weight:750}h2{font-size:22px;font-weight:700}.eyebrow{color:var(--primary,#e23744);font-weight:700;font-size:12px;letter-spacing:2px}p{margin:10px 0;color:#64748b}button{background:var(--primary,#e23744);color:white;padding:12px 18px;border-radius:12px;font-weight:600}button:disabled{opacity:.5}.controls{display:flex;gap:12px;margin:24px 0}.controls input{border:1px solid #ddd;border-radius:12px;padding:12px;min-width:260px}.table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}.table-card{background:white;border:1px solid #e2e8f0;border-radius:20px;padding:24px}.table-card img{display:block}.table-card a{color:var(--primary,#e23744);text-decoration:underline}.management{border-top:1px solid #eee;margin-top:20px;padding-top:16px}.management .code{color:#111827;font-weight:700;letter-spacing:2px}.management li{margin-bottom:12px}.management li span{display:block;font-size:13px}.secondary{display:flex;gap:8px;margin-top:12px}.secondary button{background:#f1f5f9;color:#334155}.delete-btn{background:#fee2e2!important;color:#b91c1c!important}.cancel-btn{background:#f1f5f9!important;color:#334155!important}.error{padding:14px;background:#fff1f2;color:#b91c1c}
 .sticker-preview{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;margin:12px 0;text-align:center}.sticker-band{padding:16px 12px 28px;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px}.sticker-store{color:#fff;font-weight:700;font-size:15px}.sticker-tagline{color:rgba(255,255,255,.85);font-size:12px}.sticker-table-pill{position:absolute;bottom:-13px;background:#fff;padding:4px 16px;border-radius:12px;font-weight:700;font-size:13px}.sticker-preview img{margin:20px auto 8px}.sticker-cta{display:block;font-weight:700;font-size:15px;color:#0f172a}.sticker-sub{display:block;font-size:11px;color:#64748b;margin-bottom:12px}
 @media print{.controls,.management,header button,.error{display:none}.table-card{break-inside:avoid}.table-card>a{display:none}.table-grid{grid-template-columns:1fr 1fr}.sticker-preview{border:none}}

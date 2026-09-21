@@ -209,6 +209,7 @@ export interface Customer {
 }
 
 export interface StoreSettings {
+  capabilities?: Record<string, boolean>
   store: {
     name: string
     slug: string

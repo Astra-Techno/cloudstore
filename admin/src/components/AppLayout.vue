@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
+import { tenantSections, platformSections, matchesPage } from '@/navigation'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { settingsApi } from '@/api/settings'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+const capabilities = ref<Record<string, boolean>>({})
+const search = ref('')
+const finder = ref<HTMLDialogElement>()
+const sections = computed(() => (isPlatformAdmin.value ? platformSections : tenantSections).map(s => ({ ...s, pages: s.pages.filter(p => !p.capability || capabilities.value[p.capability] === true) })).filter(s => s.pages.length))
+const currentSection = computed(() => sections.value.find(s => s.pages.some(p => matchesPage(route.path, p.path))))
+const searchResults = computed(() => sections.value.flatMap(s => s.pages.map(p => ({ ...p, section: s.label }))).filter(p => `${p.label} ${p.section}`.toLowerCase().includes(search.value.toLowerCase())))
+watch(() => route.fullPath, () => { mobileNavOpen.value = false; finder.value?.close() })
 const mobileNavOpen = ref(false)
 const storeName = ref('Your store')
 
@@ -30,6 +39,7 @@ onMounted(async () => {
   try {
     const { data } = await settingsApi.getSettings()
     storeName.value = data.data?.store?.name || 'Your store'
+    capabilities.value = data.data?.capabilities || {}
     const branding = data.data?.branding
     if (branding?.primary_color) {
       document.documentElement.style.setProperty('--primary', branding.primary_color)
@@ -41,37 +51,8 @@ onMounted(async () => {
   }
 })
 
-const platformNavItems = [
-  { label: 'Dashboard', path: '/', icon: 'overview' },
-  { label: 'Tenants', path: '/tenants', icon: 'customers' },
-  { label: 'Fee ledger', path: '/marketplace-fees', icon: 'orders' },
-  { label: 'Settings', path: '/platform-config', icon: 'settings' },
-]
 
-const tenantNavItems = [
-  { label: 'Counter', path: '/counter', icon: 'orders' },
-  { label: 'QR Tables', path: '/tables', icon: 'categories' },
-  { label: 'Overview', path: '/', icon: 'overview' },
-  { label: 'Orders', path: '/orders', icon: 'orders' },
-  { label: 'Categories', path: '/categories', icon: 'categories' },
-  { label: 'Products', path: '/products', icon: 'products' },
-  { label: 'Coupons', path: '/coupons', icon: 'coupons' },
-  { label: 'Promotions', path: '/promotions', icon: 'promotions' },
-  { label: 'Bundles', path: '/bundles', icon: 'bundles' },
-  { label: 'Customers', path: '/customers', icon: 'customers' },
-  { label: 'Drivers', path: '/drivers', icon: 'drivers' },
-  { label: 'Delivery Zones', path: '/delivery-zones', icon: 'zones' },
-  { label: 'Support', path: '/support', icon: 'customers' },
-  { label: 'Reports', path: '/reports', icon: 'overview' },
-  { label: 'Audit Log', path: '/audit-log', icon: 'orders' },
-  { label: 'Refunds', path: '/refunds', icon: 'orders' },
-  { label: 'Stock Alerts', path: '/stock-alerts', icon: 'products' },
-  { label: 'Driver Earnings', path: '/driver-earnings', icon: 'drivers' },
-  { label: 'Mobile Apps', path: '/mobile-apps', icon: 'apps' },
-  { label: 'Settings', path: '/settings', icon: 'settings' },
-]
-
-const navItems = computed(() => isPlatformAdmin.value ? platformNavItems : tenantNavItems)
+const navItems = computed(() => sections.value.map(s => ({ label: s.label, path: s.pages[0].path, icon: s.icon })))
 </script>
 
 <template>
@@ -101,13 +82,15 @@ const navItems = computed(() => isPlatformAdmin.value ? platformNavItems : tenan
           :key="item.path"
           :to="item.path"
           class="sidebar-link"
-          :class="(item.path === '/' ? $route.path === '/' : $route.path.startsWith(item.path)) ? 'sidebar-link--active' : ''"
+          :class="currentSection?.label === item.label ? 'sidebar-link--active' : ''"
           @click="closeMobileNav"
         >
           <span class="nav-icon" :class="`nav-icon--${item.icon}`" aria-hidden="true"></span>
           <span class="sidebar-link__label">{{ item.label }}</span>
         </router-link>
       </nav>
+
+      <div v-if="mobileNavOpen" class="mobile-tool-grid"><section v-for="s in sections" :key="s.label"><h3>{{ s.label }}</h3><router-link v-for="p in s.pages" :key="p.path" :to="p.path" @click="closeMobileNav">{{ p.label }}</router-link></section></div>
 
       <div class="sidebar-note">
         <span class="sidebar-note__spark">&#9670;</span>
@@ -116,6 +99,8 @@ const navItems = computed(() => isPlatformAdmin.value ? platformNavItems : tenan
           <span>Live operations workspace</span>
         </div>
       </div>
+
+      <button class="page-finder-button" @click="search = ''; finder?.showModal()">Find a page</button>
 
       <div class="sidebar-account">
         <div class="account-avatar">{{ auth.user?.name?.charAt(0) || 'A' }}</div>
@@ -140,6 +125,7 @@ const navItems = computed(() => isPlatformAdmin.value ? platformNavItems : tenan
           </div>
         </div>
         <div class="header-actions">
+          <button class="page-finder-button" @click="search = ''; finder?.showModal()" aria-label="Find a page">⌕</button>
           <span class="live-pill"><i></i> Live store</span>
           <NotificationBell />
           <button class="header-logout" @click="handleLogout" title="Sign out">
@@ -148,16 +134,25 @@ const navItems = computed(() => isPlatformAdmin.value ? platformNavItems : tenan
         </div>
       </header>
 
+      <nav v-if="currentSection" class="section-tabs" :aria-label="`${currentSection.label} pages`"><router-link v-for="page in currentSection.pages" :key="page.path" :to="page.path" :class="{ selected: matchesPage(route.path, page.path) }" :aria-current="matchesPage(route.path, page.path) ? 'page' : undefined">{{ page.label }}</router-link></nav>
       <div class="admin-content">
         <router-view />
       </div>
 
-      <nav class="mobile-dock lg:hidden" aria-label="Quick navigation">
-        <router-link to="/counter" class="mobile-dock__item"><span>＋</span><small>Sale</small></router-link>
-        <router-link to="/orders" class="mobile-dock__item"><span>▤</span><small>Orders</small></router-link>
-        <router-link to="/products" class="mobile-dock__item"><span>▣</span><small>Catalog</small></router-link>
-        <button class="mobile-dock__item" aria-label="Open all tools" @click="mobileNavOpen = true"><span>⋮</span><small>More</small></button>
+      <nav class="mobile-dock" aria-label="Quick navigation">
+        <router-link to="/" class="mobile-dock__item"><span>⌂</span><small>Home</small></router-link>
+        <router-link :to="isPlatformAdmin ? '/tenants' : '/orders'" class="mobile-dock__item"><span>☷</span><small>{{ isPlatformAdmin ? 'Tenants' : 'Orders' }}</small></router-link>
+        <router-link :to="isPlatformAdmin ? '/platform-config' : '/counter'" class="mobile-dock__item"><span>＋</span><small>{{ isPlatformAdmin ? 'Settings' : 'Counter' }}</small></router-link>
+        <button class="mobile-dock__item" aria-label="More" @click="mobileNavOpen = true"><span aria-hidden="true">•••</span><small>More</small></button>
       </nav>
     </main>
+    <dialog ref="finder" class="page-finder" @click="($event.target === finder) && finder?.close()"><header><h2>Find a page</h2><button aria-label="Close search" @click="finder?.close()">×</button></header><input v-model="search" autofocus placeholder="Search pages…" aria-label="Search pages"><nav><router-link v-for="p in searchResults" :key="p.path" :to="p.path">{{ p.label }}<small>{{ p.section }}</small></router-link><p v-if="!searchResults.length">No matching pages.</p></nav></dialog>
   </div>
 </template>
+
+<style scoped>
+.admin-sidebar{width:168px;align-items:stretch;padding:16px 12px}.admin-main{margin-left:168px}.sidebar-brand{padding:0 0 20px}.sidebar-brand>div,.sidebar-section-label,.sidebar-note{display:none}.sidebar-nav{gap:6px;overflow:visible}.sidebar-link{justify-content:flex-start;min-height:50px;padding:12px;gap:12px;border-radius:12px}.sidebar-link__label{position:static;display:block!important;padding:0;background:none;color:inherit;box-shadow:none;font-size:13px;min-width:0;pointer-events:auto}.sidebar-account{margin-top:auto}.page-finder-button{min-height:44px;padding:8px;font-size:13px}.section-tabs{position:sticky;top:64px;z-index:19;background:white;border-bottom:1px solid var(--line);display:flex;gap:8px;overflow-x:auto;padding:10px 24px}.section-tabs a{padding:12px 16px;white-space:nowrap;border-radius:10px;font-size:14px;font-weight:600}.section-tabs .selected{background:color-mix(in srgb,var(--primary) 10%,white);color:var(--primary)}.page-finder{width:min(580px,calc(100% - 24px));max-height:85dvh;padding:24px;border-radius:20px;margin:auto;border:1px solid #eee}.page-finder::backdrop{background:#17203380}.page-finder header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.page-finder h2{font-weight:700;font-size:22px}.page-finder button{min-width:44px;min-height:44px;font-size:24px}.page-finder input{width:100%;border:1px solid #ddd;border-radius:12px;padding:14px}.page-finder nav a{display:flex;justify-content:space-between;padding:14px 8px;border-bottom:1px solid #eee}.page-finder small{color:#64748b}.mobile-tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.mobile-tool-grid h3{font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:8px}.mobile-tool-grid a{display:block;padding:12px 6px;font-size:14px}.mobile-dock{display:none}a:focus-visible,button:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+@media(min-width:768px){.admin-sidebar{transform:none;box-shadow:none}.sidebar-close,.mobile-menu-button,.mobile-nav-scrim,.mobile-tool-grid{display:none!important}.admin-header{height:64px}}
+@media(max-width:767px){.admin-main{margin-left:0}.admin-sidebar{width:min(430px,100%);overflow-y:auto;z-index:40;align-items:stretch}.admin-sidebar .sidebar-nav{display:none}.sidebar-brand{justify-content:space-between}.sidebar-close{display:block!important}.admin-header{height:56px;padding:0 14px}.section-tabs{top:56px;padding:8px 12px}.admin-content{padding:18px 14px calc(104px + env(safe-area-inset-bottom))}.mobile-dock{display:flex;bottom:0;left:0;right:0;border-radius:0;padding-bottom:calc(8px + env(safe-area-inset-bottom))}.mobile-dock__item{width:23%}.mobile-dock__item.router-link-active{background:transparent;color:#626270}.mobile-dock__item.router-link-exact-active{background:var(--primary);color:white}.sidebar-account{margin-top:24px}.mobile-nav-scrim{z-index:35}}
+@media print{.admin-sidebar,.admin-header,.section-tabs,.mobile-dock{display:none!important}.admin-main{margin-left:0}.admin-content{padding:0}}
+</style>
