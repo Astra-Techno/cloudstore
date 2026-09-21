@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import QRCode from 'qrcode'
 import api from '@/api/client'
 
@@ -8,9 +8,19 @@ const selectedId = ref<number | null>(null)
 const selectedTable = computed(() => tables.value.find(t => t.id === selectedId.value))
 const tablePanel = ref<HTMLDialogElement>()
 const showQr = ref(false)
-function openTable(t: any) { selectedId.value = t.id; showQr.value = false; tablePanel.value?.showModal() }
+const printTableId = ref<number | null>(null)
+const printableTables = computed(() => printTableId.value === null ? tables.value : tables.value.filter(t => t.id === printTableId.value))
+function openTable(t: any) { selectedId.value = t.id; showQr.value = false; actionError.value = ''; renaming.value = null; tablePanel.value?.showModal() }
 const name = ref('')
 const error = ref('')
+const actionError = ref('')
+const loading = ref(true)
+const refreshing = ref(false)
+const tableSearch = ref('')
+const tableFilter = ref('all')
+const visibleTables = computed(() => tables.value.filter(t => t.name.toLowerCase().includes(tableSearch.value.toLowerCase()) && (tableFilter.value === 'all' || (tableFilter.value === 'occupied' ? !!t.session : tableFilter.value === 'disabled' ? !t.enabled : !!t.enabled && !t.session))))
+const activeOrders = (t: any) => (t.orders || []).filter((o: any) => !['served', 'cancelled', 'rejected', 'refunded'].includes(o.status))
+const qrTokens: Record<number, string> = {}
 const busy = ref(false)
 const qr = ref<Record<number, string>>({})
 const storeName = ref('')
@@ -21,12 +31,19 @@ let timer: ReturnType<typeof setInterval>
 const money = (v: number) => `₹${(v / 100).toFixed(2)}`
 const url = (t: any) => `${location.origin}${import.meta.env.BASE_URL}table/${t.token}`
 async function load() {
+  if (refreshing.value) return
+  refreshing.value = true
   try {
     const { data } = await api.get('/admin/tables')
     tables.value = data.data
-    for (const t of tables.value) qr.value[t.id] = await QRCode.toDataURL(url(t), { width: 400, margin: 3, errorCorrectionLevel: 'M' })
+    for (const t of tables.value) if (qrTokens[t.id] !== t.token) {
+      qr.value[t.id] = await QRCode.toDataURL(url(t), { width: 400, margin: 3, errorCorrectionLevel: 'M' })
+      qrTokens[t.id] = t.token
+    }
+    if (selectedId.value !== null && !selectedTable.value) { tablePanel.value?.close(); selectedId.value = null }
     error.value = ''
   } catch (e: any) { error.value = e.response?.data?.error?.message || 'Unable to load tables. Please retry.' }
+  finally { loading.value = false; refreshing.value = false }
 }
 async function loadBranding() {
   try {
@@ -172,28 +189,35 @@ const renameName = ref('')
 async function action(t: any, act: string, extra: Record<string, any> = {}) {
   if (act === 'close' && !confirm(`Confirm ${money(t.bill_total)} has been collected and close this table visit?`)) return
   if (act === 'regenerate' && !confirm('Replace this QR code? The old printed QR will stop working.')) return
-  if (act === 'delete' && !confirm(`Delete table "${t.name}"? This cannot be undone.`)) return
+  if (act === 'delete' && !confirm(`Remove table "${t.name}"? Tables with past visits will be disabled to preserve their history.`)) return
   busy.value = true
+  actionError.value = ''
   try { await api.post(`/admin/tables/${t.id}/action`, { action: act, payment_received: act === 'close', ...extra }); renaming.value = null; await load() }
-  catch (e: any) { error.value = e.response?.data?.error?.message || 'Unable to update table.' }
+  catch (e: any) { actionError.value = e.response?.data?.error?.message || 'Unable to update table.' }
   finally { busy.value = false }
 }
 function startRename(t: any) { renaming.value = t.id; renameName.value = t.name }
 function submitRename(t: any) { if (renameName.value.trim()) action(t, 'rename', { name: renameName.value.trim() }) }
-function print() { window.print() }
+async function print() { printTableId.value = null; tablePanel.value?.close(); await nextTick(); window.print() }
+async function printSelected() { printTableId.value = selectedId.value; tablePanel.value?.close(); await nextTick(); window.print() }
 onMounted(() => { load(); loadBranding(); timer = setInterval(() => { if (!busy.value && !document.hidden) load() }, 10000) })
 onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
   <section class="tables-page">
-    <header><div><p class="eyebrow">DINE-IN ADD-ON</p><h1>QR table ordering</h1><p>Open a visit when guests arrive. Share its code. Serve orders, collect payment, then close the bill.</p></div><button @click="print">Print QR cards</button></header>
+    <header><div><p class="eyebrow">DINE-IN ADD-ON</p><h1>QR table ordering</h1><p>Open a visit when guests arrive. Share its code. Serve orders, collect payment, then close the bill.</p></div><button :disabled="loading || !tables.length || refreshing" @click="print">Print QR cards</button></header>
     <p v-if="error" role="alert" class="error">{{ error }} <button @click="load">Retry</button></p>
     <form @submit.prevent="create" class="controls"><input v-model="name" required maxlength="80" placeholder="Table name, e.g. Terrace 4" aria-label="Table name"><button :disabled="busy">Add table</button></form>
-    <p v-if="!tables.length && !error">Create your first table to generate its QR code. The platform admin must enable the QR Table Ordering add-on for this tenant.</p>
-    <div class="compact-table-grid"><button v-for="t in tables" :key="t.id" class="table-tile" @click="openTable(t)"><span class="table-state" :class="{ occupied: t.session }">{{ !t.enabled ? 'Disabled' : t.session ? 'Occupied' : 'Available' }}</span><strong>{{ t.name }}</strong><span>{{ t.orders?.filter((o: any) => !['served','cancelled','rejected','refunded'].includes(o.status)).length || 0 }} active orders</span><b>{{ money(t.bill_total || 0) }}</b><small>{{ t.session ? 'View orders & bill →' : 'Open table →' }}</small></button></div>
+    <p v-if="loading" role="status">Loading tables…</p>
+    <p v-else-if="!tables.length && !error">Create your first table to generate its QR code. The platform admin must enable the QR Table Ordering add-on for this tenant.</p>
+    <div v-if="tables.length" class="table-filters"><input v-model="tableSearch" aria-label="Search tables" placeholder="Find a table…"><select v-model="tableFilter" aria-label="Table status"><option value="all">All tables ({{ tables.length }})</option><option value="occupied">Occupied</option><option value="available">Available</option><option value="disabled">Disabled</option></select></div>
+    <p v-if="tables.length && !visibleTables.length">No tables match these filters.</p>
+    <div class="compact-table-grid"><button v-for="t in visibleTables" :key="t.id" class="table-tile" @click="openTable(t)"><span class="table-state" :class="{ occupied: t.session }">{{ !t.enabled ? 'Disabled' : t.session ? 'Occupied' : 'Available' }}</span><strong>{{ t.name }}</strong><span>{{ t.orders?.filter((o: any) => !['served','cancelled','rejected','refunded'].includes(o.status)).length || 0 }} active orders</span><b>{{ money(t.bill_total || 0) }}</b><small>{{ t.session ? 'View orders & bill →' : 'Open table →' }}</small></button></div>
     <dialog ref="tablePanel" class="table-panel" @click="($event.target === tablePanel) && tablePanel?.close()">
     <div class="panel-toolbar"><button @click="showQr = !showQr">{{ showQr ? 'Orders & bill' : 'QR & Print' }}</button><button aria-label="Close table" @click="tablePanel?.close()">×</button></div>
+    <button v-if="showQr" :disabled="refreshing" @click="printSelected">Print this table QR</button>
+    <p v-if="actionError || error" class="error" role="alert">{{ actionError || error }}</p>
     <div class="table-grid">
       <article v-for="t in (selectedTable ? [selectedTable] : [])" :key="t.id" class="table-card" :class="{ 'show-qr': showQr }">
         <div v-if="renaming === t.id" style="display:flex;gap:8px;margin-bottom:8px"><input v-model="renameName" maxlength="80" @keyup.enter="submitRename(t)" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:8px"><button :disabled="busy" @click="submitRename(t)" style="padding:8px 14px">Save</button><button @click="renaming = null" class="cancel-btn" style="padding:8px 14px">Cancel</button></div>
@@ -216,7 +240,8 @@ onUnmounted(() => clearInterval(timer))
             <p class="code">Guest code: {{ t.session.access_code }}</p>
             <p>Current bill <strong>{{ money(t.bill_total) }}</strong></p>
             <ul><li v-for="o in t.orders" :key="o.uuid"><router-link :to="`/orders/${o.uuid}`">{{ o.order_number }}</router-link><span>{{ o.status.replaceAll('_', ' ') }} · {{ money(o.total) }}</span></li></ul>
-            <button :disabled="busy" @click="action(t, 'close')">Payment collected · Close bill</button>
+            <p v-if="activeOrders(t).length">Serve or cancel outstanding orders before collecting payment.</p>
+            <button :disabled="busy || activeOrders(t).length > 0" @click="action(t, 'close')">{{ t.orders.length ? 'Payment collected · Close bill' : 'Close empty visit' }}</button>
           </template>
           <template v-else>
             <button :disabled="busy || !t.enabled" @click="action(t, 'open')">Seat guests · Open visit</button>
@@ -226,11 +251,13 @@ onUnmounted(() => clearInterval(timer))
       </article>
     </div>
     </dialog>
-    <div class="print-cards"><article v-for="t in tables" :key="t.id"><h2>{{ storeName }}</h2><h3>{{ t.name }}</h3><img :src="qr[t.id]" :alt="`Menu QR for ${t.name}`"><p>Scan to order · No app needed</p></article></div>
+    <div class="print-cards"><article v-for="t in printableTables" :key="t.id"><h2>{{ storeName }}</h2><h3>{{ t.name }}</h3><img :src="qr[t.id]" :alt="`Menu QR for ${t.name}`"><p>Scan to order · No app needed</p></article></div>
   </section>
 </template>
 
 <style scoped>
+.table-filters{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}.table-filters input,.table-filters select{padding:12px;border:1px solid #ddd;border-radius:12px;background:white;min-width:0}.table-tile strong{overflow-wrap:anywhere}.table-panel .error{position:sticky;top:0;z-index:2}.table-panel input{min-width:0}
+@media print{.table-filters{display:none!important}}
 .compact-table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}.table-tile{display:flex;flex-direction:column;text-align:left;gap:10px;background:white!important;color:#172033!important;border:1px solid #e2e8f0;padding:22px!important;min-height:210px}.table-tile:hover{border-color:var(--primary)}.table-tile strong{font-size:23px}.table-tile b{font-size:20px}.table-tile>span:not(.table-state){font-size:13px;color:#64748b}.table-state{font-size:11px;background:#f1f5f9;padding:5px 10px;border-radius:20px}.table-state.occupied{background:#fff1f2;color:var(--primary)}.table-tile small{color:var(--primary)}.table-panel{position:fixed;inset:0 0 0 auto;margin:0;width:min(520px,100%);height:100dvh;max-height:100dvh;max-width:100%;padding:20px;border:0;overflow:auto}.table-panel::backdrop{background:#17203380}.panel-toolbar{display:flex;justify-content:space-between;margin-bottom:16px}.table-panel .table-grid{display:block}.table-panel .table-card{border:0;padding:0}.table-panel .table-card:not(.show-qr) .sticker-preview,.table-panel .table-card:not(.show-qr)>a{display:none}.secondary{flex-wrap:wrap}.print-cards{display:none}.table-panel .table-card:not(.show-qr) .management>a{display:none}
 @media(max-width:600px){.tables-page header{flex-wrap:wrap}.controls{flex-wrap:wrap}.controls input{min-width:0!important;width:100%}.compact-table-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.table-tile{padding:14px!important;min-height:190px}.table-tile strong{font-size:19px}.table-panel{width:100%}}
 @media print{.compact-table-grid,.table-panel{display:none!important}.print-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px}.print-cards article{break-inside:avoid;text-align:center;padding:20px;border:1px solid #ddd}.print-cards img{width:220px;margin:auto}}

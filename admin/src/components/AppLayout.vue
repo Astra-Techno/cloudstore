@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue'
+import { onMounted, onUnmounted, nextTick, ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 import { tenantSections, platformSections, matchesPage } from '@/navigation'
@@ -12,11 +12,31 @@ const route = useRoute()
 const capabilities = ref<Record<string, boolean>>({})
 const search = ref('')
 const finder = ref<HTMLDialogElement>()
+const settingsError = ref(false)
+const storeStatus = ref('')
+const sidebar = ref<HTMLElement>()
+let previousFocus: HTMLElement | null = null
+function keyboard(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault(); mobileNavOpen.value = false; search.value = ''; finder.value?.showModal()
+  }
+  if (e.key === 'Escape') mobileNavOpen.value = false
+  if (e.key === 'Tab' && mobileNavOpen.value && !finder.value?.open) {
+    const elements = Array.from(sidebar.value?.querySelectorAll<HTMLElement>('a,button,input') || []).filter(el => el.getClientRects().length)
+    const first = elements[0], last = elements[elements.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
+  }
+}
 const sections = computed(() => (isPlatformAdmin.value ? platformSections : tenantSections).map(s => ({ ...s, pages: s.pages.filter(p => !p.capability || capabilities.value[p.capability] === true) })).filter(s => s.pages.length))
 const currentSection = computed(() => sections.value.find(s => s.pages.some(p => matchesPage(route.path, p.path))))
 const searchResults = computed(() => sections.value.flatMap(s => s.pages.map(p => ({ ...p, section: s.label }))).filter(p => `${p.label} ${p.section}`.toLowerCase().includes(search.value.toLowerCase())))
 watch(() => route.fullPath, () => { mobileNavOpen.value = false; finder.value?.close() })
 const mobileNavOpen = ref(false)
+watch(mobileNavOpen, async open => {
+  if (open) { previousFocus = document.activeElement as HTMLElement; await nextTick(); sidebar.value?.querySelector<HTMLElement>('.sidebar-close')?.focus() }
+  else previousFocus?.focus()
+})
 const storeName = ref('Your store')
 
 const isPlatformAdmin = computed(() => auth.user?.role === 'platform_admin')
@@ -30,7 +50,7 @@ function closeMobileNav() {
   mobileNavOpen.value = false
 }
 
-onMounted(async () => {
+async function loadSettings() {
   if (isPlatformAdmin.value) {
     storeName.value = 'CloudMarket'
     document.title = 'CloudMarket Platform'
@@ -40,6 +60,8 @@ onMounted(async () => {
     const { data } = await settingsApi.getSettings()
     storeName.value = data.data?.store?.name || 'Your store'
     capabilities.value = data.data?.capabilities || {}
+    storeStatus.value = data.data?.store?.status || ''
+    settingsError.value = false
     const branding = data.data?.branding
     if (branding?.primary_color) {
       document.documentElement.style.setProperty('--primary', branding.primary_color)
@@ -47,9 +69,11 @@ onMounted(async () => {
     }
     document.title = `${storeName.value} · CloudMarket`
   } catch {
-    // Branding is non-critical; retain the CloudMarket fallback.
+    settingsError.value = true
   }
-})
+}
+onMounted(() => { document.addEventListener('keydown', keyboard); loadSettings() })
+onUnmounted(() => document.removeEventListener('keydown', keyboard))
 
 
 const navItems = computed(() => sections.value.map(s => ({ label: s.label, path: s.pages[0].path, icon: s.icon })))
@@ -63,7 +87,7 @@ const navItems = computed(() => sections.value.map(s => ({ label: s.label, path:
       @click="closeMobileNav"
     ></div>
 
-    <aside class="admin-sidebar" :class="{ 'admin-sidebar--open': mobileNavOpen }">
+    <aside ref="sidebar" class="admin-sidebar" :class="{ 'admin-sidebar--open': mobileNavOpen }" aria-label="Workspace navigation">
       <div class="sidebar-brand">
         <img src="/logo.png" alt="CloudMarket" class="brand-logo" />
         <div>
@@ -126,7 +150,7 @@ const navItems = computed(() => sections.value.map(s => ({ label: s.label, path:
         </div>
         <div class="header-actions">
           <button class="page-finder-button" @click="search = ''; finder?.showModal()" aria-label="Find a page">⌕</button>
-          <span class="live-pill"><i></i> Live store</span>
+          <span v-if="!isPlatformAdmin && storeStatus" class="live-pill"><i v-if="storeStatus === 'active'"></i>{{ storeStatus === 'active' ? 'Live store' : 'Store offline' }}</span>
           <NotificationBell />
           <button class="header-logout" @click="handleLogout" title="Sign out">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -136,6 +160,7 @@ const navItems = computed(() => sections.value.map(s => ({ label: s.label, path:
 
       <nav v-if="currentSection" class="section-tabs" :aria-label="`${currentSection.label} pages`"><router-link v-for="page in currentSection.pages" :key="page.path" :to="page.path" :class="{ selected: matchesPage(route.path, page.path) }" :aria-current="matchesPage(route.path, page.path) ? 'page' : undefined">{{ page.label }}</router-link></nav>
       <div class="admin-content">
+        <p v-if="settingsError" class="navigation-error" role="alert">Some menu options could not be loaded. <button @click="loadSettings">Retry</button></p>
         <router-view />
       </div>
 

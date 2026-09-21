@@ -1,0 +1,1 @@
+import{x as n}from"./index-DyIZhn4A.js";const s={getAnalytics(a,t){const i={};return a&&(i.from=a),t&&(i.to=t),n.get("/admin/analytics",{params:i})},getAuditLog(a=50,t=0){return n.get("/admin/audit-log",{params:{limit:a,offset:t}})}};export{s as a};

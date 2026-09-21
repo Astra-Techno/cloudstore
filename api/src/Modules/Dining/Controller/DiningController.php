@@ -93,8 +93,9 @@ final class DiningController
                     $this->db->execute('UPDATE dining_tables SET name = ? WHERE id = ?', [$newName, $table['id']]);
                 } elseif ($action === 'delete') {
                     if ($session) throw new \DomainException('Close the current bill before deleting this table.');
-                    $hasOrders = $this->db->fetchOne('SELECT 1 FROM dining_orders d JOIN dining_sessions s ON s.id = d.session_id WHERE s.table_id = ? LIMIT 1', [$table['id']]);
-                    if ($hasOrders) {
+                    // Even an empty closed visit references the table. Preserve all visit history.
+                    $hasVisits = $this->db->fetchOne('SELECT 1 FROM dining_sessions WHERE table_id = ? LIMIT 1', [$table['id']]);
+                    if ($hasVisits) {
                         $this->db->execute('UPDATE dining_tables SET enabled = 0 WHERE id = ?', [$table['id']]);
                     } else {
                         $this->db->execute('DELETE FROM dining_tables WHERE id = ?', [$table['id']]);

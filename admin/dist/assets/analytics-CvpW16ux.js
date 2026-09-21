@@ -1,1 +1,0 @@
-import{s as n}from"./index-CYjVUxN3.js";const r={getAnalytics(a,t){const i={};return a&&(i.from=a),t&&(i.to=t),n.get("/admin/analytics",{params:i})},getAuditLog(a=50,t=0){return n.get("/admin/audit-log",{params:{limit:a,offset:t}})}};export{r as a};
