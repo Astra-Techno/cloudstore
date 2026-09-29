@@ -126,19 +126,27 @@ class ApiClient {
     return _dio.get(path, queryParameters: queryParameters);
   }
 
-  Future<Response> post(String path, {dynamic data}) {
-    return _dio.post(path, data: data);
+  Future<Response> post(String path,
+      {dynamic data, Map<String, dynamic>? headers}) {
+    return _dio.post(path,
+        data: data,
+        options: headers == null ? null : Options(headers: headers));
   }
 
   Future<Response> put(String path, {dynamic data}) {
-    return _dio.post(path, data: data, options: Options(headers: {'X-HTTP-Method-Override': 'PUT'}));
+    return _dio.post(path,
+        data: data,
+        options: Options(headers: {'X-HTTP-Method-Override': 'PUT'}));
   }
 
   Future<Response> patch(String path, {dynamic data}) {
-    return _dio.post(path, data: data, options: Options(headers: {'X-HTTP-Method-Override': 'PATCH'}));
+    return _dio.post(path,
+        data: data,
+        options: Options(headers: {'X-HTTP-Method-Override': 'PATCH'}));
   }
 
   Future<Response> delete(String path) {
-    return _dio.post(path, options: Options(headers: {'X-HTTP-Method-Override': 'DELETE'}));
+    return _dio.post(path,
+        options: Options(headers: {'X-HTTP-Method-Override': 'DELETE'}));
   }
 }

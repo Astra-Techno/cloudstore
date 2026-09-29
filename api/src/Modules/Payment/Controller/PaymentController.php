@@ -48,33 +48,44 @@ final class PaymentController
         return Response::success($result, status: 201);
     }
 
+    public function confirm(Request $request, array $params): Response
+    {
+        $customer = $this->customerRepo->findByUuid($request->authClaims['sub']);
+        if ($customer === null) {
+            return Response::unauthorized();
+        }
+        $data = $request->json();
+        $validator = new Validator();
+        if (!$validator->validate($data, [
+            'gateway_order_id' => ['required', 'string'],
+            'gateway_payment_id' => ['required', 'string'],
+            'signature' => ['required', 'string'],
+        ])) {
+            return Response::validationError($validator->getErrors());
+        }
+
+        $result = $this->paymentService->confirmPayment(
+            $data['gateway_order_id'],
+            $data['gateway_payment_id'],
+            $data['signature'],
+            TenantContext::id(),
+            (int) $customer['id'],
+        );
+        if (isset($result['error'])) {
+            return Response::error($result['error'], $result['code'], 400);
+        }
+        return Response::success($result);
+    }
+
     /**
      * Payment gateway webhook — no auth, verified via signature.
      */
     public function webhook(Request $request, array $params): Response
     {
-        $data = $request->json();
-
-        $validator = new Validator();
-        if (!$validator->validate($data, [
-            'gateway_order_id' => ['required', 'string'],
-            'status' => ['required', 'string', 'in:paid,failed'],
-        ])) {
-            return Response::validationError($validator->getErrors());
-        }
-
-        if ($data['status'] === 'paid') {
-            $result = $this->paymentService->confirmPayment(
-                $data['gateway_order_id'],
-                $data['gateway_payment_id'] ?? '',
-                $data['signature'] ?? '',
-            );
-        } else {
-            $result = $this->paymentService->failPayment(
-                $data['gateway_order_id'],
-                $data['reason'] ?? 'Payment failed',
-            );
-        }
+        $result = $this->paymentService->handleWebhook(
+            $request->rawBody(),
+            $request->header('x-razorpay-signature'),
+        );
 
         if (isset($result['error'])) {
             return Response::error($result['error'], $result['code'], 400);

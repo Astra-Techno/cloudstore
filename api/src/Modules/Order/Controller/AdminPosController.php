@@ -70,20 +70,24 @@ final class AdminPosController
                     if ($product === null || $product['status'] !== 'active') {
                         throw new \RuntimeException('One of the selected products is unavailable.');
                     }
-                    if ($product['stock_mode'] === 'limited_stock' && !$this->productRepo->decrementStock((int) $product['id'], $tenantId, $quantity)) {
-                        throw new \RuntimeException("Insufficient stock for {$product['name']}.");
-                    }
-
                     // Resolve variant if provided (for weight-based products)
                     $variant = null;
                     $variantId = null;
                     $variantSnapshot = null;
                     if (!empty($line['variant_uuid'])) {
                         $variant = $this->variantRepo->findByUuid($line['variant_uuid']);
-                        if ($variant !== null && (int) $variant['product_id'] === (int) $product['id'] && $variant['status'] === 'active') {
-                            $variantId = (int) $variant['id'];
-                            $variantSnapshot = json_encode(['name' => $variant['name'], 'price' => $variant['price'], 'weight_grams' => $variant['weight_grams']]);
+                        if ($variant === null || (int) $variant['product_id'] !== (int) $product['id'] || $variant['status'] !== 'active') {
+                            throw new \RuntimeException("The selected option for {$product['name']} is unavailable.");
                         }
+                        $variantId = (int) $variant['id'];
+                        $variantSnapshot = json_encode(['name' => $variant['name'], 'price' => $variant['price'], 'weight_grams' => $variant['weight_grams']]);
+                    }
+
+                    $stockAvailable = $variant !== null
+                        ? ($variant['stock_mode'] !== 'limited_stock' || $this->variantRepo->decrementStock((int) $variant['id'], $tenantId, $quantity))
+                        : ($product['stock_mode'] !== 'limited_stock' || $this->productRepo->decrementStock((int) $product['id'], $tenantId, $quantity));
+                    if (!$stockAvailable) {
+                        throw new \RuntimeException("Insufficient stock for {$product['name']}.");
                     }
 
                     $unitPrice = $variant ? (int) $variant['price'] : (int) ($product['sale_price'] ?? $product['base_price']);

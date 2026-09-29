@@ -100,7 +100,9 @@ final class DriverAssignmentRepository
     public function markDelivered(int $id, int $earnings): void
     {
         $this->db->execute(
-            "UPDATE driver_assignments SET status = 'delivered', delivered_at = NOW(), earnings = ? WHERE id = ?",
+            "UPDATE driver_assignments
+             SET status = 'delivered', delivered_at = NOW(), earnings = ?, delivery_otp = NULL
+             WHERE id = ? AND status = 'picked_up'",
             [$earnings, $id]
         );
     }

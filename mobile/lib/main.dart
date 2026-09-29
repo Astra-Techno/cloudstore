@@ -10,7 +10,6 @@ import 'app/providers/notification_provider.dart';
 import 'app/providers/driver_provider.dart';
 import 'app/providers/favourites_provider.dart';
 import 'app/providers/location_provider.dart';
-import 'config/app_config.dart';
 import 'services/notification_service.dart';
 
 Future<void> main() async {
@@ -43,7 +42,8 @@ Future<void> main() async {
     await SentryFlutter.init(
       (options) {
         options.dsn = sentryDsn;
-        options.environment = const String.fromEnvironment('SENTRY_ENV', defaultValue: 'production');
+        options.environment = const String.fromEnvironment('SENTRY_ENV',
+            defaultValue: 'production');
         options.tracesSampleRate = 0.2;
         options.attachScreenshot = true;
         options.sendDefaultPii = false;

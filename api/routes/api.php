@@ -299,6 +299,7 @@ return function (Router $router): void {
 
                 // Payments
                 $router->post('/payments/initiate', [PaymentController::class, 'initiate']);
+                $router->post('/payments/confirm', [PaymentController::class, 'confirm']);
 
                 // FCM token
                 $router->post('/me/fcm-token', [CustomerAuthController::class, 'saveFcmToken']);

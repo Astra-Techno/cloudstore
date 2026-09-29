@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../services/api_client.dart';
 import '../../app/providers/cart_provider.dart';
 import '../../app/providers/bootstrap_provider.dart';
@@ -29,6 +33,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   int _couponDiscount = 0;
   bool _applyingCoupon = false;
   String? _couponError;
+  String? _checkoutAttemptKey;
+  String? _checkoutPayloadSignature;
+  late final Razorpay _razorpay;
+  String? _paymentOrderUuid;
 
   // Serviceability state
   bool _validatingAddress = false;
@@ -39,6 +47,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final store = context.read<BootstrapProvider>();
       if (!store.deliveryEnabled && store.pickupEnabled && mounted) {
@@ -50,9 +62,67 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    _razorpay.clear();
     _notesController.dispose();
     _couponController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    final orderId = response.orderId;
+    final paymentId = response.paymentId;
+    final signature = response.signature;
+    if (orderId == null || paymentId == null || signature == null) {
+      if (mounted)
+        setState(() => _error = 'Payment confirmation details are incomplete.');
+      return;
+    }
+    try {
+      await ApiClient().post('/customer/payments/confirm', data: {
+        'gateway_order_id': orderId,
+        'gateway_payment_id': paymentId,
+        'signature': signature,
+      });
+      if (!mounted) return;
+      final orderUuid = _paymentOrderUuid;
+      _paymentOrderUuid = null;
+      if (orderUuid != null) context.go('/order/$orderUuid');
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final apiError =
+          body is Map && body['error'] is Map ? body['error'] as Map : null;
+      if (mounted) {
+        setState(() => _error = apiError?['message']?.toString() ??
+            'Payment was received but confirmation is pending. Check the order status.');
+      }
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (mounted) {
+      setState(() => _error = response.message ??
+          'Payment was not completed. You can retry from the order.');
+    }
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (mounted)
+      setState(() => _error =
+          'Complete payment in ${response.walletName ?? 'the selected wallet'}.');
+  }
+
+  void _openPayment(Map<String, dynamic> payment, String? orderUuid) {
+    _paymentOrderUuid = orderUuid;
+    _razorpay.open({
+      'key': payment['razorpay_key_id'],
+      'order_id': payment['razorpay_order_id'],
+      'amount': payment['amount'],
+      'currency': payment['currency'] ?? 'INR',
+      'name': context.read<BootstrapProvider>().tenantName ?? 'CloudMarket',
+      'description': 'Order payment',
+      'retry': {'enabled': true, 'max_count': 2},
+      'theme': {'color': '#E23744'},
+    });
   }
 
   Future<void> _validateServiceability() async {
@@ -183,62 +253,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         payload['coupon_code'] = _appliedCoupon;
       }
 
-      final response =
-          await ApiClient().post('/customer/checkout', data: payload);
+      final signature = jsonEncode(payload);
+      if (_checkoutAttemptKey == null ||
+          _checkoutPayloadSignature != signature) {
+        final random = Random.secure();
+        _checkoutAttemptKey = List<int>.generate(24, (_) => random.nextInt(256))
+            .map((value) => value.toRadixString(16).padLeft(2, '0'))
+            .join();
+        _checkoutPayloadSignature = signature;
+      }
+      final response = await ApiClient().post(
+        '/customer/checkout',
+        data: payload,
+        headers: {'X-Idempotency-Key': _checkoutAttemptKey},
+      );
       final data = response.data;
 
       if (data['success'] == true) {
+        _checkoutAttemptKey = null;
+        _checkoutPayloadSignature = null;
         if (mounted) {
           context.read<CartProvider>().loadCart();
 
           final orderUuid = data['data']?['order']?['uuid'] as String?;
           final payment = data['data']?['payment'] as Map<String, dynamic>?;
+          final paymentError = data['data']?['payment_error'] as Map?;
+
+          if (_paymentMethod == 'online' && paymentError != null) {
+            setState(() => _error = paymentError['message']?.toString() ??
+                'The payment service is unavailable. Open the order to retry payment.');
+            if (orderUuid != null && mounted) context.go('/order/$orderUuid');
+            return;
+          }
 
           if (payment != null && payment['razorpay_order_id'] != null) {
-            // Online payment order created - show payment info dialog
-            if (mounted) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Complete Payment'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                          'Your order has been placed. Please complete payment to confirm.'),
-                      const SizedBox(height: 16),
-                      Text('Order ID: ${payment['razorpay_order_id']}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black54)),
-                      Text(
-                          'Amount: ${PriceText.format((payment['amount'] as num).toInt())}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Redirecting to payment gateway...',
-                        style: TextStyle(
-                            color: Colors.blue, fontStyle: FontStyle.italic),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        if (orderUuid != null) {
-                          context.go('/order/$orderUuid');
-                        } else {
-                          context.go('/home');
-                        }
-                      },
-                      child: const Text('View Order'),
-                    ),
-                  ],
-                ),
-              );
-            }
+            _openPayment(payment, orderUuid);
             return;
           }
 
@@ -271,18 +320,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _applyCoupon() async {
     final code = _couponController.text.trim();
     if (code.isEmpty) return;
-    setState(() { _applyingCoupon = true; _couponError = null; });
+    setState(() {
+      _applyingCoupon = true;
+      _couponError = null;
+    });
     try {
-      final response = await ApiClient().post('/customer/cart/apply-coupon', data: {'coupon_code': code});
+      final response = await ApiClient()
+          .post('/customer/cart/apply-coupon', data: {'coupon_code': code});
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
         final d = data['data'];
         setState(() {
           _appliedCoupon = code.toUpperCase();
-          _couponDiscount = (d['discount'] as num?)?.toInt() ?? (d['total_discount'] as num?)?.toInt() ?? 0;
+          _couponDiscount = (d['discount'] as num?)?.toInt() ??
+              (d['total_discount'] as num?)?.toInt() ??
+              0;
         });
       } else {
-        setState(() => _couponError = data['error']?['message']?.toString() ?? 'Invalid coupon code');
+        setState(() => _couponError =
+            data['error']?['message']?.toString() ?? 'Invalid coupon code');
       }
     } catch (_) {
       setState(() => _couponError = 'Unable to apply coupon. Try again.');
@@ -543,16 +599,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                 // Coupon
                 const SizedBox(height: 24),
-                _sectionTitle(context, 'Have a coupon?', 'Apply a promo code for a discount'),
+                _sectionTitle(context, 'Have a coupon?',
+                    'Apply a promo code for a discount'),
                 const SizedBox(height: 8),
                 if (_appliedCoupon != null)
                   Card(
                     color: Colors.green.shade50,
                     child: ListTile(
-                      leading: Icon(Icons.local_offer_rounded, color: Colors.green.shade700),
-                      title: Text(_appliedCoupon!, style: TextStyle(fontWeight: FontWeight.w700, color: Colors.green.shade800)),
+                      leading: Icon(Icons.local_offer_rounded,
+                          color: Colors.green.shade700),
+                      title: Text(_appliedCoupon!,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.green.shade800)),
                       subtitle: _couponDiscount > 0
-                          ? Text('You save ${PriceText.format(_couponDiscount)}', style: TextStyle(color: Colors.green.shade700, fontSize: 12))
+                          ? Text(
+                              'You save ${PriceText.format(_couponDiscount)}',
+                              style: TextStyle(
+                                  color: Colors.green.shade700, fontSize: 12))
                           : null,
                       trailing: IconButton(
                         icon: const Icon(Icons.close),
@@ -579,7 +643,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       FilledButton(
                         onPressed: _applyingCoupon ? null : _applyCoupon,
                         child: _applyingCoupon
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
                             : const Text('Apply'),
                       ),
                     ],
@@ -699,9 +767,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _summaryRow(String label, int paise, {bool bold = false}) {
     final isNegative = paise < 0;
-    final displayText = isNegative
-        ? '-${PriceText.format(-paise)}'
-        : PriceText.format(paise);
+    final displayText =
+        isNegative ? '-${PriceText.format(-paise)}' : PriceText.format(paise);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(

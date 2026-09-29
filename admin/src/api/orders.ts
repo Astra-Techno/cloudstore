@@ -25,6 +25,14 @@ export const ordersApi = {
       store_location?: { latitude: number; longitude: number } | null
       customer_order_count?: number
       dining?: { table_name: string; access_code: string; opened_at: string; closed_at: string | null } | null
+      driver_assignment?: {
+        status: string
+        driver_name: string | null
+        driver_phone: string | null
+        vehicle_type: string | null
+        vehicle_number: string | null
+        assigned_at: string | null
+      } | null
     }>>(`/admin/orders/${uuid}`)
   },
 

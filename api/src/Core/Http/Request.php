@@ -50,6 +50,11 @@ final class Request
         return is_array($data) ? $data : [];
     }
 
+    public function rawBody(): string
+    {
+        return $this->rawBody;
+    }
+
     public function input(string $key, mixed $default = null): mixed
     {
         $data = $this->json();
@@ -73,6 +78,17 @@ final class Request
         }
 
         return null;
+    }
+
+    public function ip(): string
+    {
+        $forwarded = trim(explode(',', $this->header('x-forwarded-for'))[0] ?? '');
+        if ($forwarded !== '' && filter_var($forwarded, FILTER_VALIDATE_IP) !== false) {
+            return $forwarded;
+        }
+
+        $remote = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        return filter_var($remote, FILTER_VALIDATE_IP) !== false ? $remote : '0.0.0.0';
     }
 
     public function file(string $key): ?array

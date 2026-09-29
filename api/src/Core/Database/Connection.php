@@ -101,6 +101,13 @@ final class Connection
 
     public function transaction(callable $callback): mixed
     {
+        // Services may compose other transactional services. In that case the
+        // outermost caller owns commit/rollback and the nested callback simply
+        // participates in the existing transaction.
+        if ($this->getPdo()->inTransaction()) {
+            return $callback($this);
+        }
+
         $this->beginTransaction();
 
         try {

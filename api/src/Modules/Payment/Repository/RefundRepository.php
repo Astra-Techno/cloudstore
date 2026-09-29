@@ -36,6 +36,17 @@ final class RefundRepository
         );
     }
 
+    public function findForGatewayEvent(int $orderId, string $gatewayRefundId): ?array
+    {
+        return $this->db->fetchOne(
+            "SELECT * FROM refunds
+             WHERE order_id = ? AND (gateway_refund_id = ? OR (gateway_refund_id IS NULL AND status = 'pending'))
+             ORDER BY (gateway_refund_id = ?) DESC, id DESC
+             LIMIT 1",
+            [$orderId, $gatewayRefundId, $gatewayRefundId],
+        );
+    }
+
     public function updateStatus(int $id, string $status, ?string $gatewayRefundId = null): void
     {
         $sql = "UPDATE refunds SET status = ?";

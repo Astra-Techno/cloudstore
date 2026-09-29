@@ -49,18 +49,34 @@ final class CheckoutController
             return Response::validationError($validator->getErrors());
         }
 
-        // Idempotency check
-        $idempotencyKey = $request->header('x-idempotency-key');
+        // Atomically claim the retry key before any inventory or order mutation.
+        $idempotencyKey = trim($request->header('x-idempotency-key'));
+        $requestHash = '';
         if ($idempotencyKey !== '') {
+            if (strlen($idempotencyKey) > 64 || preg_match('/^[A-Za-z0-9._:-]{8,64}$/', $idempotencyKey) !== 1) {
+                return Response::error('Invalid checkout request key.', 'INVALID_IDEMPOTENCY_KEY', 422);
+            }
             $requestHash = IdempotencyService::hashRequest($data);
-            $cached = $this->idempotencyService->check($tenantId, $idempotencyKey, $requestHash);
-
-            if ($cached !== null) {
-                return Response::success($cached['body'], status: $cached['status']);
+            $claim = $this->idempotencyService->claim($tenantId, $customerId, $idempotencyKey, $requestHash);
+            if ($claim['state'] === 'cached') {
+                return Response::success($claim['body'], status: $claim['status']);
+            }
+            if ($claim['state'] === 'conflict') {
+                return Response::error('This checkout request key was already used for another request.', 'IDEMPOTENCY_CONFLICT', 409);
+            }
+            if ($claim['state'] === 'processing') {
+                return Response::error('This order is already being processed. Please refresh your orders.', 'CHECKOUT_IN_PROGRESS', 409);
             }
         }
 
-        $result = $this->checkoutService->createOrder($tenantId, $customerId, $data);
+        try {
+            $result = $this->checkoutService->createOrder($tenantId, $customerId, $data);
+        } catch (\Throwable $exception) {
+            if ($idempotencyKey !== '') {
+                $this->idempotencyService->release($tenantId, $customerId, $idempotencyKey, $requestHash);
+            }
+            throw $exception;
+        }
 
         if (isset($result['error'])) {
             $status = match ($result['code']) {
@@ -74,32 +90,52 @@ final class CheckoutController
                 default => 400,
             };
 
+            if ($idempotencyKey !== '') {
+                $this->idempotencyService->release($tenantId, $customerId, $idempotencyKey, $requestHash);
+            }
             return Response::error($result['error'], $result['code'], $status);
         }
 
         // If payment method is online, initiate Razorpay payment
         if (($data['payment_method'] ?? '') === 'online' && isset($result['order'])) {
-            $orderUuid = $result['order']['uuid'] ?? null;
             $orderId = (int) ($result['order']['id'] ?? 0);
             if ($orderId > 0) {
-                $paymentResult = $this->paymentService->initiatePayment($tenantId, $orderId, $customerId);
-                if (!isset($paymentResult['error'])) {
-                    $result['payment'] = $paymentResult;
+                try {
+                    $paymentResult = $this->paymentService->initiatePayment($tenantId, $orderId, $customerId);
+                    if (!isset($paymentResult['error'])) {
+                        $result['payment'] = $paymentResult;
+                    } else {
+                        $result['payment_error'] = [
+                            'message' => $paymentResult['error'],
+                            'code' => $paymentResult['code'] ?? 'PAYMENT_INITIATION_FAILED',
+                        ];
+                    }
+                } catch (\Throwable) {
+                    // The order is already committed. Return it to the client
+                    // so payment can be retried from order details.
+                    $result['payment_error'] = [
+                        'message' => 'Payment could not be started. Retry from your order details.',
+                        'code' => 'PAYMENT_INITIATION_FAILED',
+                    ];
                 }
-                // If payment initiation fails, still return the order (customer can retry via /payments/initiate)
             }
         }
 
         // Store idempotency result
         if ($idempotencyKey !== '') {
-            $this->idempotencyService->store(
-                $tenantId,
-                $customerId,
-                $idempotencyKey,
-                IdempotencyService::hashRequest($data),
-                $result,
-                201,
-            );
+            try {
+                $this->idempotencyService->complete(
+                    $tenantId,
+                    $customerId,
+                    $idempotencyKey,
+                    $requestHash,
+                    $result,
+                    201,
+                );
+            } catch (\Throwable) {
+                // The order is durable; cache failure must not change the
+                // successful checkout response into an apparent failure.
+            }
         }
 
         return Response::success($result, status: 201);

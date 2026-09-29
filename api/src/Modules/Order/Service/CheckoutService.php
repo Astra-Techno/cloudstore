@@ -290,16 +290,27 @@ final class CheckoutService
                 ];
             });
 
-            foreach ($this->adminRepo->findByTenant($tenantId) as $admin) {
-                if (($admin['status'] ?? 'active') === 'active') {
-                    $this->notificationService->notifyNewOrder(
-                        $tenantId,
-                        (int) $admin['id'],
-                        (string) $result['order']['order_number'],
-                        (int) $result['order']['total'],
-                        (string) ($result['order']['uuid'] ?? ''),
-                    );
+            // Notification delivery is best-effort. The order has already
+            // committed, so an unavailable notification channel must never
+            // make the customer see a failed checkout or retry the purchase.
+            try {
+                foreach ($this->adminRepo->findByTenant($tenantId) as $admin) {
+                    if (($admin['status'] ?? 'active') === 'active') {
+                        try {
+                            $this->notificationService->notifyNewOrder(
+                                $tenantId,
+                                (int) $admin['id'],
+                                (string) $result['order']['order_number'],
+                                (int) $result['order']['total'],
+                                (string) ($result['order']['uuid'] ?? ''),
+                            );
+                        } catch (\Throwable) {
+                            // Other admins and the checkout response still proceed.
+                        }
+                    }
                 }
+            } catch (\Throwable) {
+                // Admin lookup/notification failures do not invalidate an order.
             }
 
             return $result;

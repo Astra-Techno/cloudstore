@@ -98,6 +98,28 @@ final class OrderRepository
         $this->db->execute($sql, $params);
     }
 
+    public function transitionStatus(
+        int $id,
+        int $tenantId,
+        string $expectedStatus,
+        string $status,
+        ?string $timestampField = null,
+    ): bool {
+        $sql = 'UPDATE orders SET status = ?';
+        $params = [$status];
+
+        if ($timestampField !== null && in_array($timestampField, self::ALLOWED_TIMESTAMP_FIELDS, true)) {
+            $sql .= ", {$timestampField} = NOW()";
+        }
+
+        $sql .= ' WHERE id = ? AND tenant_id = ? AND status = ?';
+        $params[] = $id;
+        $params[] = $tenantId;
+        $params[] = $expectedStatus;
+
+        return $this->db->execute($sql, $params) === 1;
+    }
+
     public function addStatusHistory(int $orderId, ?string $from, string $to, ?string $actorType = null, ?int $actorId = null, ?string $notes = null): void
     {
         $this->db->execute(
@@ -195,14 +217,14 @@ final class OrderRepository
 
     public function generateOrderNumber(int $tenantId): string
     {
-        $date = date('Ymd');
-        $row = $this->db->fetchOne(
-            "SELECT COUNT(*) as cnt FROM orders WHERE tenant_id = ? AND DATE(created_at) = CURDATE()",
-            [$tenantId]
-        );
-        $seq = ((int) ($row['cnt'] ?? 0)) + 1;
+        // A COUNT()+1 sequence races under concurrent checkouts and also
+        // collided across tenants because order_number is globally unique.
+        // Include the tenant and random entropy while keeping the value short
+        // enough for receipts and the VARCHAR(30) column.
+        $tenantCode = substr(strtoupper(base_convert((string) $tenantId, 10, 36)), -6);
+        $entropy = strtoupper(bin2hex(random_bytes(4)));
 
-        return sprintf('ORD-%s-%06d', $date, $seq);
+        return sprintf('ORD-%s-%s-%s', date('Ymd'), $tenantCode, $entropy);
     }
 
     public function countsByStatus(int $tenantId): array

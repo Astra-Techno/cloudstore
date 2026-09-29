@@ -45,6 +45,14 @@ final class PaymentRepository
         );
     }
 
+    public function findByGatewayPaymentId(string $gatewayPaymentId): ?array
+    {
+        return $this->db->fetchOne(
+            'SELECT * FROM payments WHERE gateway_payment_id = ?',
+            [$gatewayPaymentId],
+        );
+    }
+
     public function create(array $data): int
     {
         $this->db->execute(

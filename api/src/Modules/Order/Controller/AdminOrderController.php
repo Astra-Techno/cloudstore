@@ -112,6 +112,7 @@ final class AdminOrderController
 
         // Dine-in table info
         $diningInfo = $this->orderRepo->getDiningInfo((int) $order['id']);
+        $assignment = $this->driverService->getAssignmentForAdmin((int) $order['id']);
 
         // Store location for map display
         $tenant = TenantContext::get();
@@ -135,6 +136,7 @@ final class AdminOrderController
             'store_location' => $storeLocation,
             'customer_order_count' => $orderCount[(int) $order['customer_id']] ?? 1,
             'dining' => $diningInfo,
+            'driver_assignment' => $assignment,
         ]);
     }
 

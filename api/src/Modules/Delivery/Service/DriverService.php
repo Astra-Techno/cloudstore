@@ -9,6 +9,7 @@ use App\Modules\Auth\Repository\DriverRepository;
 use App\Modules\Delivery\Repository\DriverAssignmentRepository;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
+use App\Modules\Order\Service\MarketplaceFeeAccrualService;
 use App\Modules\Notification\Service\NotificationService;
 
 final class DriverService
@@ -19,6 +20,7 @@ final class DriverService
         private readonly DriverAssignmentRepository $assignmentRepo,
         private readonly OrderRepository $orderRepo,
         private readonly ?NotificationService $notificationService = null,
+        private readonly ?MarketplaceFeeAccrualService $marketplaceFeeAccrual = null,
     ) {
     }
 
@@ -27,48 +29,67 @@ final class DriverService
      */
     public function assignDriver(int $tenantId, int $orderId, int $driverId): array
     {
-        $order = $this->orderRepo->findById($orderId, $tenantId);
-        if ($order === null) {
-            return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
-        }
+        return $this->db->transaction(function () use ($tenantId, $orderId, $driverId) {
+            // Lock both resources to prevent two admins assigning the same
+            // order or driver concurrently.
+            $order = $this->db->fetchOne(
+                'SELECT * FROM orders WHERE id = ? AND tenant_id = ? FOR UPDATE',
+                [$orderId, $tenantId],
+            );
+            if ($order === null) {
+                return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
+            }
+            if ($order['order_type'] !== 'delivery') {
+                return ['error' => 'Order is not a delivery order.', 'code' => 'NOT_DELIVERY'];
+            }
+            if (!in_array($order['status'], [OrderStatus::CONFIRMED, OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY], true)) {
+                return ['error' => 'A driver can only be assigned to an active delivery order.', 'code' => 'ORDER_NOT_READY_FOR_ASSIGNMENT'];
+            }
+            if ($this->assignmentRepo->findByOrderId($orderId) !== null) {
+                return ['error' => 'This order already has an active driver assignment.', 'code' => 'DRIVER_ALREADY_ASSIGNED'];
+            }
 
-        if ($order['order_type'] !== 'delivery') {
-            return ['error' => 'Order is not a delivery order.', 'code' => 'NOT_DELIVERY'];
-        }
+            $driver = $this->db->fetchOne(
+                'SELECT * FROM drivers WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+                [$driverId],
+            );
+            if ($driver === null || (int) $driver['tenant_id'] !== $tenantId) {
+                return ['error' => 'Driver not found.', 'code' => 'DRIVER_NOT_FOUND'];
+            }
+            if (($driver['status'] ?? 'active') !== 'active') {
+                return ['error' => 'This driver account is not active.', 'code' => 'DRIVER_INACTIVE'];
+            }
+            if (($driver['availability'] ?? 'offline') !== 'available') {
+                return ['error' => 'This driver is not available.', 'code' => 'DRIVER_UNAVAILABLE'];
+            }
 
-        if (!in_array($order['status'], [OrderStatus::CONFIRMED, OrderStatus::ACCEPTED, OrderStatus::PREPARING, OrderStatus::READY], true)) {
-            return ['error' => 'A driver can only be assigned to an active delivery order.', 'code' => 'ORDER_NOT_READY_FOR_ASSIGNMENT'];
-        }
+            $activeAssignment = $this->db->fetchOne(
+                "SELECT id FROM driver_assignments
+                 WHERE driver_id = ? AND status IN ('assigned', 'accepted', 'picked_up')
+                 LIMIT 1",
+                [$driverId],
+            );
+            if ($activeAssignment !== null) {
+                return ['error' => 'This driver already has an active delivery.', 'code' => 'DRIVER_BUSY'];
+            }
 
-        $existingAssignment = $this->assignmentRepo->findByOrderId($orderId);
-        if ($existingAssignment !== null) {
-            return ['error' => 'This order already has an active driver assignment.', 'code' => 'DRIVER_ALREADY_ASSIGNED'];
-        }
+            $assignmentId = $this->assignmentRepo->create([
+                'order_id' => $orderId,
+                'driver_id' => $driverId,
+                'tenant_id' => $tenantId,
+            ]);
 
-        $driver = $this->driverRepo->findById($driverId);
-        if ($driver === null || (int) $driver['tenant_id'] !== $tenantId) {
-            return ['error' => 'Driver not found.', 'code' => 'DRIVER_NOT_FOUND'];
-        }
-        if ($driver['availability'] === 'offline') {
-            return ['error' => 'This driver is offline.', 'code' => 'DRIVER_OFFLINE'];
-        }
-
-        $assignmentId = $this->assignmentRepo->create([
-            'order_id' => $orderId,
-            'driver_id' => $driverId,
-            'tenant_id' => $tenantId,
-        ]);
-
-        return [
-            'assignment_id' => $assignmentId,
-            'driver' => [
-                'id' => $driver['uuid'],
-                'name' => $driver['name'],
-                'phone' => $driver['phone'],
-                'vehicle_type' => $driver['vehicle_type'],
-                'vehicle_number' => $driver['vehicle_number'],
-            ],
-        ];
+            return [
+                'assignment_id' => $assignmentId,
+                'driver' => [
+                    'id' => $driver['uuid'],
+                    'name' => $driver['name'],
+                    'phone' => $driver['phone'],
+                    'vehicle_type' => $driver['vehicle_type'],
+                    'vehicle_number' => $driver['vehicle_number'],
+                ],
+            ];
+        });
     }
 
     /**
@@ -95,7 +116,9 @@ final class DriverService
         $validTransitions = [
             'assigned' => ['accepted', 'picked_up', 'cancelled'],
             'accepted' => ['picked_up', 'cancelled'],
-            'picked_up' => ['delivered'],
+            // Completion is intentionally excluded: delivery requires the
+            // customer's OTP through verifyDeliveryOtp().
+            'picked_up' => [],
         ];
 
         $allowed = $validTransitions[$assignment['status']] ?? [];
@@ -103,10 +126,30 @@ final class DriverService
             return ['error' => 'Invalid status transition.', 'code' => 'INVALID_TRANSITION'];
         }
 
-        $result = $this->db->transaction(function () use ($assignment, $assignmentId, $newStatus) {
-            $orderId = (int) $assignment['order_id'];
-            $tenantId = (int) $assignment['tenant_id'];
-            $order = $this->orderRepo->findById($orderId, $tenantId);
+        $result = $this->db->transaction(function () use ($driverId, $assignmentId, $newStatus) {
+            $lockedAssignment = $this->db->fetchOne(
+                'SELECT * FROM driver_assignments WHERE id = ? FOR UPDATE',
+                [$assignmentId],
+            );
+            if ($lockedAssignment === null || (int) $lockedAssignment['driver_id'] !== $driverId) {
+                return ['error' => 'Assignment not found.', 'code' => 'ASSIGNMENT_NOT_FOUND'];
+            }
+
+            $lockedTransitions = [
+                'assigned' => ['accepted', 'picked_up', 'cancelled'],
+                'accepted' => ['picked_up', 'cancelled'],
+                'picked_up' => [],
+            ];
+            if (!in_array($newStatus, $lockedTransitions[$lockedAssignment['status']] ?? [], true)) {
+                return ['error' => 'Assignment was already updated. Refresh and try again.', 'code' => 'INVALID_TRANSITION'];
+            }
+
+            $orderId = (int) $lockedAssignment['order_id'];
+            $tenantId = (int) $lockedAssignment['tenant_id'];
+            $order = $this->db->fetchOne(
+                'SELECT * FROM orders WHERE id = ? AND tenant_id = ? FOR UPDATE',
+                [$orderId, $tenantId],
+            );
 
             if ($order === null) {
                 return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
@@ -116,7 +159,7 @@ final class DriverService
                 return ['error' => 'The order must be accepted or prepared before pickup.', 'code' => 'ORDER_NOT_READY'];
             }
 
-            if ($newStatus === 'picked_up' && $assignment['status'] === 'assigned') {
+            if ($newStatus === 'picked_up' && $lockedAssignment['status'] === 'assigned') {
                 $this->assignmentRepo->updateStatus($assignmentId, 'accepted');
             }
 
@@ -137,36 +180,32 @@ final class DriverService
                 'picked_up' => $order['status'] === OrderStatus::READY_FOR_PICKUP
                     ? OrderStatus::PICKED_UP
                     : OrderStatus::OUT_FOR_DELIVERY,
-                'delivered' => OrderStatus::DELIVERED,
                 default => null,
             };
 
             if ($newStatus === 'picked_up' && $newOrderStatus === OrderStatus::OUT_FOR_DELIVERY
                 && !OrderStatus::canTransition($order['status'], $newOrderStatus)) {
-                $this->advanceDeliveryOrderToOutForDelivery($orderId, $tenantId, $order, (int) $assignment['driver_id']);
+                $this->advanceDeliveryOrderToOutForDelivery($orderId, $tenantId, $order, (int) $lockedAssignment['driver_id']);
             } elseif ($newOrderStatus !== null && OrderStatus::canTransition($order['status'], $newOrderStatus)) {
                 $timestampField = match ($newOrderStatus) {
                     OrderStatus::OUT_FOR_DELIVERY => 'picked_up_at',
-                    OrderStatus::DELIVERED => 'delivered_at',
                     default => null,
                 };
 
                 $this->orderRepo->updateStatus($orderId, $tenantId, $newOrderStatus, $timestampField);
                 $this->orderRepo->addStatusHistory(
                     $orderId, $order['status'], $newOrderStatus,
-                    'driver', (int) $assignment['driver_id']
+                    'driver', (int) $lockedAssignment['driver_id']
                 );
             }
 
-            return ['status' => $newStatus, 'order_id' => $orderId];
+            return ['status' => $newStatus, 'order_id' => $orderId, 'tenant_id' => $tenantId];
         });
 
-        if (!isset($result['error']) && in_array($newStatus, ['picked_up', 'delivered'], true)) {
-            $order = $this->orderRepo->findById((int) $result['order_id'], (int) $assignment['tenant_id']);
+        if (!isset($result['error']) && $newStatus === 'picked_up') {
+            $order = $this->orderRepo->findById((int) $result['order_id'], (int) $result['tenant_id']);
             if ($order !== null) {
-                $this->notifyCustomerOrderStatus((int) $assignment['tenant_id'], $order, $newStatus === 'picked_up'
-                    ? OrderStatus::OUT_FOR_DELIVERY
-                    : OrderStatus::DELIVERED);
+                $this->notifyCustomerOrderStatus((int) $result['tenant_id'], $order, OrderStatus::OUT_FOR_DELIVERY);
             }
         }
 
@@ -231,24 +270,26 @@ final class DriverService
      */
     public function verifyDeliveryOtp(int $driverId, int $assignmentId, string $otp): array
     {
-        $assignment = $this->assignmentRepo->findById($assignmentId);
-        if ($assignment === null || (int) $assignment['driver_id'] !== $driverId) {
-            return ['error' => 'Assignment not found.', 'code' => 'ASSIGNMENT_NOT_FOUND'];
-        }
+        $result = $this->db->transaction(function () use ($driverId, $assignmentId, $otp) {
+            // Lock the assignment so two concurrent OTP submissions cannot
+            // complete the same delivery twice.
+            $assignment = $this->db->fetchOne(
+                'SELECT * FROM driver_assignments WHERE id = ? FOR UPDATE',
+                [$assignmentId],
+            );
+            if ($assignment === null || (int) $assignment['driver_id'] !== $driverId) {
+                return ['error' => 'Assignment not found.', 'code' => 'ASSIGNMENT_NOT_FOUND'];
+            }
+            if ($assignment['status'] !== 'picked_up') {
+                return ['error' => 'Delivery can only be verified after pickup.', 'code' => 'INVALID_STATUS'];
+            }
+            if ($assignment['delivery_otp'] === null) {
+                return ['error' => 'No delivery OTP set for this assignment.', 'code' => 'NO_OTP'];
+            }
+            if (!hash_equals((string) $assignment['delivery_otp'], $otp)) {
+                return ['error' => 'Invalid OTP.', 'code' => 'INVALID_OTP'];
+            }
 
-        if ($assignment['status'] !== 'picked_up') {
-            return ['error' => 'Delivery can only be verified after pickup.', 'code' => 'INVALID_STATUS'];
-        }
-
-        if ($assignment['delivery_otp'] === null) {
-            return ['error' => 'No delivery OTP set for this assignment.', 'code' => 'NO_OTP'];
-        }
-
-        if ($assignment['delivery_otp'] !== $otp) {
-            return ['error' => 'Invalid OTP.', 'code' => 'INVALID_OTP'];
-        }
-
-        $result = $this->db->transaction(function () use ($assignment, $assignmentId) {
             $orderId = (int) $assignment['order_id'];
             $tenantId = (int) $assignment['tenant_id'];
             $order = $this->orderRepo->findById($orderId, $tenantId);
@@ -257,31 +298,36 @@ final class DriverService
                 return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
             }
 
+            if (!OrderStatus::canTransition((string) $order['status'], OrderStatus::DELIVERED)) {
+                return ['error' => 'Order is not ready to be completed.', 'code' => 'INVALID_ORDER_STATUS'];
+            }
+
             // Calculate earnings from delivery fee
             $earnings = (int) ($order['delivery_fee'] ?? 0);
 
             $this->assignmentRepo->markDelivered($assignmentId, $earnings);
 
             // Update order status to delivered
-            if ($order !== null && OrderStatus::canTransition($order['status'], OrderStatus::DELIVERED)) {
-                $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::DELIVERED, 'delivered_at');
-                $this->orderRepo->addStatusHistory(
-                    $orderId, $order['status'], OrderStatus::DELIVERED,
-                    'driver', (int) $assignment['driver_id']
-                );
-            }
+            $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::DELIVERED, 'delivered_at');
+            $this->orderRepo->addStatusHistory(
+                $orderId, $order['status'], OrderStatus::DELIVERED,
+                'driver', (int) $assignment['driver_id']
+            );
+
+            $this->marketplaceFeeAccrual?->accrue($tenantId, $orderId, (int) $order['total']);
 
             return [
                 'status' => 'delivered',
                 'earnings' => $earnings,
                 'order_id' => $orderId,
+                'tenant_id' => $tenantId,
             ];
         });
 
         if (!isset($result['error'])) {
-            $order = $this->orderRepo->findById((int) $result['order_id'], (int) $assignment['tenant_id']);
+            $order = $this->orderRepo->findById((int) $result['order_id'], (int) $result['tenant_id']);
             if ($order !== null) {
-                $this->notifyCustomerOrderStatus((int) $assignment['tenant_id'], $order, OrderStatus::DELIVERED);
+                $this->notifyCustomerOrderStatus((int) $result['tenant_id'], $order, OrderStatus::DELIVERED);
             }
         }
 
@@ -305,10 +351,36 @@ final class DriverService
             "SELECT id, uuid, name, phone, vehicle_type, vehicle_number,
                     last_location_lat, last_location_lng, last_location_at
              FROM drivers
-             WHERE tenant_id = ? AND availability = 'available' AND deleted_at IS NULL
+             WHERE tenant_id = ?
+               AND status = 'active'
+               AND availability = 'available'
+               AND deleted_at IS NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM driver_assignments da
+                   WHERE da.driver_id = drivers.id
+                     AND da.status IN ('assigned', 'accepted', 'picked_up')
+               )
              ORDER BY last_location_at DESC",
             [$tenantId]
         );
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getAssignmentForAdmin(int $orderId): ?array
+    {
+        $assignment = $this->assignmentRepo->findByOrderId($orderId);
+        if ($assignment === null) {
+            return null;
+        }
+
+        return [
+            'status' => $assignment['status'],
+            'driver_name' => $assignment['driver_name'] ?? null,
+            'driver_phone' => $assignment['driver_phone'] ?? null,
+            'vehicle_type' => $assignment['vehicle_type'] ?? null,
+            'vehicle_number' => $assignment['vehicle_number'] ?? null,
+            'assigned_at' => $assignment['assigned_at'] ?? null,
+        ];
     }
 
     /** @param array<string, mixed> $order */

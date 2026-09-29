@@ -52,6 +52,7 @@ use App\Modules\Cart\Repository\CartRepository;
 use App\Modules\Cart\Controller\CartController;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Order\Service\IdempotencyService;
+use App\Modules\Order\Service\InventoryRestorationService;
 use App\Modules\Order\Service\CheckoutService;
 use App\Modules\Order\Controller\CheckoutController;
 use App\Modules\Order\Controller\OrderController;
@@ -430,6 +431,12 @@ final class Application
         $this->container->singleton(IdempotencyService::class, fn () => new IdempotencyService(
             $this->container->get(Connection::class),
         ));
+        $this->container->singleton(InventoryRestorationService::class, fn () => new InventoryRestorationService(
+            $this->container->get(Connection::class),
+        ));
+        $this->container->singleton(\App\Modules\Order\Service\MarketplaceFeeAccrualService::class, fn () => new \App\Modules\Order\Service\MarketplaceFeeAccrualService(
+            $this->container->get(Connection::class),
+        ));
 
         $this->container->singleton(CheckoutService::class, fn () => new CheckoutService(
             $this->container->get(Connection::class),
@@ -497,6 +504,7 @@ final class Application
             $this->container->get(DriverAssignmentRepository::class),
             $this->container->get(OrderRepository::class),
             $this->container->get(NotificationService::class),
+            $this->container->get(\App\Modules\Order\Service\MarketplaceFeeAccrualService::class),
         ));
 
         $this->container->singleton(DriverDeliveryController::class, fn () => new DriverDeliveryController(
@@ -511,6 +519,8 @@ final class Application
             $this->container->get(OrderRepository::class),
             $this->container->get(DriverService::class),
             $this->container->get(NotificationService::class),
+            $this->container->get(InventoryRestorationService::class),
+            $this->container->get(\App\Modules\Order\Service\MarketplaceFeeAccrualService::class),
         ));
 
         $this->container->singleton(AdminOrderController::class, fn () => new AdminOrderController(
@@ -568,6 +578,7 @@ final class Application
 
         $this->container->singleton(AdminDriverController::class, fn () => new AdminDriverController(
             $this->container->get(DriverRepository::class),
+            $this->container->get(Connection::class),
         ));
 
         // Admin analytics & audit

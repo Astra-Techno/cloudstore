@@ -44,7 +44,7 @@ final class DriverDeliveryController
 
         $validator = new Validator();
         if (!$validator->validate($data, [
-            'status' => ['required', 'string', 'in:accepted,picked_up,delivered,cancelled'],
+            'status' => ['required', 'string', 'in:accepted,picked_up,cancelled'],
         ])) {
             return Response::validationError($validator->getErrors());
         }

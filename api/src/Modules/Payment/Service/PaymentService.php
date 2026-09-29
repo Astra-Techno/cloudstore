@@ -10,6 +10,7 @@ use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Payment\Repository\PaymentRepository;
 use App\Modules\Payment\Repository\RefundRepository;
+use App\Modules\Payment\Domain\RazorpaySignature;
 use Ramsey\Uuid\Uuid;
 
 final class PaymentService
@@ -145,51 +146,175 @@ final class PaymentService
      * Confirm payment (webhook or client callback).
      * Verifies the payment signature and updates order status.
      */
-    public function confirmPayment(string $gatewayOrderId, string $gatewayPaymentId, string $signature): array
+    public function confirmPayment(
+        string $gatewayOrderId,
+        string $gatewayPaymentId,
+        string $signature,
+        ?int $expectedTenantId = null,
+        ?int $expectedCustomerId = null,
+    ): array
     {
         $payment = $this->paymentRepo->findByGatewayOrderId($gatewayOrderId);
         if ($payment === null) {
             return ['error' => 'Payment not found.', 'code' => 'PAYMENT_NOT_FOUND'];
         }
 
+        if (($expectedTenantId !== null && (int) $payment['tenant_id'] !== $expectedTenantId)
+            || ($expectedCustomerId !== null && (int) $payment['customer_id'] !== $expectedCustomerId)) {
+            return ['error' => 'Payment not found.', 'code' => 'PAYMENT_NOT_FOUND'];
+        }
+
         if ($payment['status'] === 'paid') {
-            return ['error' => 'Payment already confirmed.', 'code' => 'ALREADY_CONFIRMED'];
+            $paidOrder = $this->orderRepo->findById((int) $payment['order_id'], (int) $payment['tenant_id']);
+            $needsReview = $paidOrder === null || in_array(
+                $paidOrder['status'],
+                [OrderStatus::CANCELLED, OrderStatus::REJECTED, OrderStatus::REFUNDED],
+                true,
+            );
+            return [
+                'status' => $needsReview ? 'payment_review_required' : 'confirmed',
+                'order_id' => (int) $payment['order_id'],
+                'payment_id' => (int) $payment['id'],
+            ];
+        }
+        if (in_array($payment['status'], ['failed', 'refunded'], true)) {
+            return ['error' => 'Payment can no longer be confirmed.', 'code' => 'PAYMENT_NOT_CONFIRMABLE'];
         }
 
         $credentials = $this->credentials((int) $payment['tenant_id']);
-        if ($credentials['webhook_secret'] === '') {
+        if ($credentials['key_secret'] === '') {
             return ['error' => 'Payment gateway is not configured.', 'code' => 'PAYMENT_NOT_CONFIGURED'];
         }
 
-        $expectedSignature = hash_hmac('sha256', $gatewayOrderId . '|' . $gatewayPaymentId, $credentials['webhook_secret']);
-        if ($signature === '' || !hash_equals($expectedSignature, $signature)) {
+        if (!RazorpaySignature::verifyCheckout($gatewayOrderId, $gatewayPaymentId, $signature, $credentials['key_secret'])) {
             return ['error' => 'Invalid payment signature.', 'code' => 'INVALID_PAYMENT_SIGNATURE'];
         }
 
-        return $this->db->transaction(function () use ($payment, $gatewayPaymentId, $signature) {
-            $this->paymentRepo->updateStatus((int) $payment['id'], 'paid', [
+        return $this->markPaymentPaid($payment, $gatewayPaymentId, $signature, 'Payment confirmed');
+    }
+
+    public function handleWebhook(string $rawBody, string $signature): array
+    {
+        $payload = json_decode($rawBody, true);
+        if (!is_array($payload)) {
+            return ['error' => 'Invalid webhook payload.', 'code' => 'INVALID_WEBHOOK'];
+        }
+        $event = (string) ($payload['event'] ?? '');
+
+        if (in_array($event, ['refund.processed', 'refund.failed'], true)) {
+            $refundEntity = $payload['payload']['refund']['entity'] ?? null;
+            $gatewayPaymentId = (string) ($refundEntity['payment_id'] ?? '');
+            $gatewayRefundId = (string) ($refundEntity['id'] ?? '');
+            if (!is_array($refundEntity) || $gatewayPaymentId === '' || $gatewayRefundId === '') {
+                return ['error' => 'Refund identifiers are missing.', 'code' => 'INVALID_WEBHOOK'];
+            }
+            $payment = $this->paymentRepo->findByGatewayPaymentId($gatewayPaymentId);
+            if ($payment === null) {
+                return ['error' => 'Payment not found.', 'code' => 'PAYMENT_NOT_FOUND'];
+            }
+            $secret = $this->credentials((int) $payment['tenant_id'])['webhook_secret'];
+            if (!RazorpaySignature::verifyWebhook($rawBody, $signature, $secret)) {
+                return ['error' => 'Invalid webhook signature.', 'code' => 'INVALID_WEBHOOK_SIGNATURE'];
+            }
+            $refund = $this->refundRepo->findForGatewayEvent((int) $payment['order_id'], $gatewayRefundId);
+            if ($refund === null) {
+                return ['error' => 'Refund record not found.', 'code' => 'REFUND_NOT_FOUND'];
+            }
+            if ($event === 'refund.failed') {
+                if ($refund['status'] !== 'completed') {
+                    $this->refundRepo->updateStatus((int) $refund['id'], 'failed', $gatewayRefundId);
+                }
+                return ['status' => 'failed', 'order_id' => (int) $payment['order_id']];
+            }
+
+            return $this->finalizeRefund((int) $refund['id'], $gatewayRefundId);
+        }
+
+        $gatewayOrderId = (string) ($payload['payload']['payment']['entity']['order_id']
+            ?? $payload['payload']['order']['entity']['id'] ?? '');
+        if ($gatewayOrderId === '') {
+            return ['error' => 'Payment order is missing.', 'code' => 'INVALID_WEBHOOK'];
+        }
+        $payment = $this->paymentRepo->findByGatewayOrderId($gatewayOrderId);
+        if ($payment === null) {
+            return ['error' => 'Payment not found.', 'code' => 'PAYMENT_NOT_FOUND'];
+        }
+        $secret = $this->credentials((int) $payment['tenant_id'])['webhook_secret'];
+        if (!RazorpaySignature::verifyWebhook($rawBody, $signature, $secret)) {
+            return ['error' => 'Invalid webhook signature.', 'code' => 'INVALID_WEBHOOK_SIGNATURE'];
+        }
+
+        if (in_array($event, ['payment.captured', 'order.paid'], true)) {
+            $paymentId = (string) ($payload['payload']['payment']['entity']['id'] ?? '');
+            if ($paymentId === '') {
+                return ['error' => 'Payment identifier is missing.', 'code' => 'INVALID_WEBHOOK'];
+            }
+            return $this->markPaymentPaid($payment, $paymentId, $signature, 'Razorpay webhook confirmed');
+        }
+        if ($event === 'payment.failed') {
+            $reason = (string) ($payload['payload']['payment']['entity']['error_description'] ?? 'Payment failed');
+            return $this->failPayment($gatewayOrderId, $reason);
+        }
+        return ['status' => 'ignored', 'event' => $event];
+    }
+
+    private function markPaymentPaid(array $payment, string $gatewayPaymentId, string $signature, string $note): array
+    {
+        return $this->db->transaction(function () use ($payment, $gatewayPaymentId, $signature, $note) {
+            $lockedPayment = $this->db->fetchOne(
+                'SELECT * FROM payments WHERE id = ? FOR UPDATE',
+                [(int) $payment['id']],
+            );
+            if ($lockedPayment === null) {
+                return ['error' => 'Payment not found.', 'code' => 'PAYMENT_NOT_FOUND'];
+            }
+            if ($lockedPayment['status'] === 'paid') {
+                $paidOrder = $this->orderRepo->findById(
+                    (int) $lockedPayment['order_id'],
+                    (int) $lockedPayment['tenant_id'],
+                );
+                $needsReview = $paidOrder === null || in_array(
+                    $paidOrder['status'],
+                    [OrderStatus::CANCELLED, OrderStatus::REJECTED, OrderStatus::REFUNDED],
+                    true,
+                );
+                return [
+                    'status' => $needsReview ? 'payment_review_required' : 'confirmed',
+                    'order_id' => (int) $lockedPayment['order_id'],
+                    'payment_id' => (int) $lockedPayment['id'],
+                ];
+            }
+            if (in_array($lockedPayment['status'], ['failed', 'refunded'], true)) {
+                return ['error' => 'Payment can no longer be confirmed.', 'code' => 'PAYMENT_NOT_CONFIRMABLE'];
+            }
+
+            $this->paymentRepo->updateStatus((int) $lockedPayment['id'], 'paid', [
                 'gateway_payment_id' => $gatewayPaymentId,
                 'gateway_signature' => $signature,
             ]);
-
-            $tenantId = (int) $payment['tenant_id'];
-            $orderId = (int) $payment['order_id'];
-
-            $order = $this->orderRepo->findById($orderId, $tenantId);
-
-            $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::CONFIRMED);
-            $this->orderRepo->addStatusHistory($orderId, $order['status'], OrderStatus::CONFIRMED, 'system', null, 'Payment confirmed');
-
-            // Update payment_status on order
-            $this->db->execute(
-                "UPDATE orders SET payment_status = 'paid', paid_at = NOW() WHERE id = ?",
-                [$orderId]
+            $tenantId = (int) $lockedPayment['tenant_id'];
+            $orderId = (int) $lockedPayment['order_id'];
+            $order = $this->db->fetchOne(
+                'SELECT * FROM orders WHERE id = ? AND tenant_id = ? FOR UPDATE',
+                [$orderId, $tenantId],
             );
-
+            $confirmable = $order !== null && in_array(
+                $order['status'],
+                [OrderStatus::PENDING_PAYMENT, OrderStatus::PAYMENT_PROCESSING],
+                true
+            );
+            if ($confirmable) {
+                $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::CONFIRMED);
+                $this->orderRepo->addStatusHistory($orderId, $order['status'], OrderStatus::CONFIRMED, 'system', null, $note);
+            }
+            $this->db->execute(
+                "UPDATE orders SET payment_status = 'paid', paid_at = NOW() WHERE id = ? AND tenant_id = ?",
+                [$orderId, $tenantId],
+            );
             return [
-                'status' => 'confirmed',
+                'status' => $confirmable ? 'confirmed' : 'payment_review_required',
                 'order_id' => $orderId,
-                'payment_id' => (int) $payment['id'],
+                'payment_id' => (int) $lockedPayment['id'],
             ];
         });
     }
@@ -203,24 +328,25 @@ final class PaymentService
         if ($payment === null) {
             return ['error' => 'Payment not found.', 'code' => 'PAYMENT_NOT_FOUND'];
         }
+        return $this->db->transaction(function () use ($payment, $reason) {
+            $lockedPayment = $this->db->fetchOne(
+                'SELECT * FROM payments WHERE id = ? FOR UPDATE',
+                [(int) $payment['id']],
+            );
+            if ($lockedPayment === null) {
+                return ['error' => 'Payment not found.', 'code' => 'PAYMENT_NOT_FOUND'];
+            }
+            if (in_array($lockedPayment['status'], ['paid', 'refunded'], true)) {
+                return ['error' => 'A successful payment cannot be marked failed.', 'code' => 'PAYMENT_ALREADY_PAID'];
+            }
+            if ($lockedPayment['status'] !== 'failed') {
+                $this->paymentRepo->updateStatus((int) $lockedPayment['id'], 'failed', [
+                    'failure_reason' => $reason,
+                ]);
+            }
 
-        $this->paymentRepo->updateStatus((int) $payment['id'], 'failed', [
-            'failure_reason' => $reason,
-        ]);
-
-        $tenantId = (int) $payment['tenant_id'];
-        $orderId = (int) $payment['order_id'];
-        $order = $this->orderRepo->findById($orderId, $tenantId);
-
-        $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::CANCELLED, 'cancelled_at');
-        $this->orderRepo->addStatusHistory($orderId, $order['status'], OrderStatus::CANCELLED, 'system', null, 'Payment failed: ' . $reason);
-
-        $this->db->execute(
-            "UPDATE orders SET payment_status = 'failed', cancel_reason = ? WHERE id = ?",
-            ['Payment failed: ' . $reason, $orderId]
-        );
-
-        return ['status' => 'failed', 'order_id' => $orderId];
+            return ['status' => 'failed', 'order_id' => (int) $lockedPayment['order_id']];
+        });
     }
 
     /**
@@ -228,74 +354,163 @@ final class PaymentService
      */
     public function initiateRefund(int $tenantId, int $orderId, string $reason, string $actorType, int $actorId): array
     {
-        $order = $this->orderRepo->findById($orderId, $tenantId);
-        if ($order === null) {
-            return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
-        }
-
-        if (!OrderStatus::canTransition($order['status'], OrderStatus::REFUNDED)) {
-            return ['error' => 'Order cannot be refunded in current status.', 'code' => 'INVALID_STATUS'];
-        }
-
-        $payment = $this->paymentRepo->findByOrderId($orderId, $tenantId);
-
-        return $this->db->transaction(function () use ($order, $payment, $tenantId, $orderId, $reason, $actorType, $actorId) {
-            $refundAmount = (int) $order['total'];
-
-            if ($payment !== null && $payment['status'] === 'paid') {
-                $refundStatus = 'completed';
-                $gatewayRefundId = null;
-
-                // If paid via Razorpay, call the refund API
-                if ($payment['gateway'] === 'razorpay'
-                    && !empty($payment['gateway_payment_id'])
-                    && $this->credentials($tenantId)['key_id'] !== ''
-                    && $this->credentials($tenantId)['key_secret'] !== ''
-                ) {
-                    $refundResult = $this->processRazorpayRefund(
-                        $payment['gateway_payment_id'],
-                        $refundAmount,
-                        $this->credentials($tenantId),
-                    );
-                    if (isset($refundResult['error'])) {
-                        // Log but still record the refund locally as pending
-                        $refundStatus = 'pending';
-                    } else {
-                        $gatewayRefundId = $refundResult['id'] ?? null;
-                    }
-                }
-
-                $refundId = $this->refundRepo->create([
-                    'uuid' => Uuid::uuid4()->toString(),
-                    'payment_id' => (int) $payment['id'],
-                    'order_id' => $orderId,
-                    'tenant_id' => $tenantId,
-                    'amount' => $refundAmount,
-                    'reason' => $reason,
-                    'status' => $refundStatus,
-                    'initiated_by_type' => $actorType,
-                    'initiated_by_id' => $actorId,
-                ]);
-
-                if ($gatewayRefundId !== null) {
-                    $this->refundRepo->updateStatus($refundId, 'completed', $gatewayRefundId);
-                }
-
-                $this->paymentRepo->updateStatus((int) $payment['id'], 'refunded');
+        $claim = $this->db->transaction(function () use ($tenantId, $orderId, $reason, $actorType, $actorId) {
+            $order = $this->db->fetchOne(
+                'SELECT * FROM orders WHERE id = ? AND tenant_id = ? FOR UPDATE',
+                [$orderId, $tenantId],
+            );
+            if ($order === null) {
+                return ['error' => 'Order not found.', 'code' => 'ORDER_NOT_FOUND'];
+            }
+            if (!OrderStatus::canTransition((string) $order['status'], OrderStatus::REFUNDED)) {
+                return ['error' => 'Order cannot be refunded in current status.', 'code' => 'INVALID_STATUS'];
             }
 
-            $this->orderRepo->updateStatus($orderId, $tenantId, OrderStatus::REFUNDED);
-            $this->orderRepo->addStatusHistory($orderId, $order['status'], OrderStatus::REFUNDED, $actorType, $actorId, 'Refund: ' . $reason);
+            $existing = $this->db->fetchOne(
+                'SELECT * FROM refunds WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE',
+                [$orderId],
+            );
+            if ($existing !== null) {
+                return [
+                    'existing' => true,
+                    'status' => $existing['status'],
+                    'order_id' => $orderId,
+                    'refund_amount' => (int) $existing['amount'],
+                ];
+            }
 
+            $payment = $this->db->fetchOne(
+                'SELECT * FROM payments WHERE order_id = ? AND tenant_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE',
+                [$orderId, $tenantId],
+            );
+            if ($payment === null || $payment['status'] !== 'paid' || empty($payment['gateway_payment_id'])) {
+                return ['error' => 'No captured online payment is available to refund.', 'code' => 'PAYMENT_NOT_REFUNDABLE'];
+            }
+            if ($payment['gateway'] !== 'razorpay') {
+                return ['error' => 'This payment provider is not supported for automatic refunds.', 'code' => 'REFUND_PROVIDER_UNSUPPORTED'];
+            }
+
+            $refundId = $this->refundRepo->create([
+                'uuid' => Uuid::uuid4()->toString(),
+                'payment_id' => (int) $payment['id'],
+                'order_id' => $orderId,
+                'tenant_id' => $tenantId,
+                'amount' => (int) $order['total'],
+                'reason' => $reason,
+                'status' => 'pending',
+                'initiated_by_type' => $actorType,
+                'initiated_by_id' => $actorId,
+            ]);
+
+            return [
+                'refund_id' => $refundId,
+                'payment_id' => (int) $payment['id'],
+                'gateway_payment_id' => (string) $payment['gateway_payment_id'],
+                'refund_amount' => (int) $order['total'],
+            ];
+        });
+
+        if (isset($claim['error'])) {
+            return $claim;
+        }
+        if (!empty($claim['existing'])) {
+            return [
+                'status' => $claim['status'],
+                'order_id' => $orderId,
+                'refund_amount' => $claim['refund_amount'],
+                'message' => 'A refund request already exists for this order.',
+            ];
+        }
+
+        $credentials = $this->credentials($tenantId);
+        if ($credentials['key_id'] === '' || $credentials['key_secret'] === '') {
+            return [
+                'status' => 'pending',
+                'order_id' => $orderId,
+                'refund_amount' => $claim['refund_amount'],
+                'message' => 'Refund credentials are unavailable. This request requires reconciliation.',
+            ];
+        }
+
+        $gatewayResult = $this->processRazorpayRefund(
+            $claim['gateway_payment_id'],
+            $claim['refund_amount'],
+            $credentials,
+        );
+        if (isset($gatewayResult['error'])) {
+            return [
+                'status' => 'pending',
+                'order_id' => $orderId,
+                'refund_amount' => $claim['refund_amount'],
+                'message' => 'The gateway refund is pending and requires reconciliation.',
+            ];
+        }
+
+        $gatewayRefundId = (string) ($gatewayResult['id'] ?? '');
+        if (($gatewayResult['status'] ?? 'pending') !== 'processed') {
+            if ($gatewayRefundId !== '') {
+                $this->refundRepo->updateStatus((int) $claim['refund_id'], 'pending', $gatewayRefundId);
+            }
+            return [
+                'status' => 'pending',
+                'order_id' => $orderId,
+                'refund_amount' => $claim['refund_amount'],
+                'message' => 'The gateway accepted the refund and processing is pending.',
+            ];
+        }
+
+        return $this->finalizeRefund((int) $claim['refund_id'], $gatewayRefundId);
+    }
+
+    private function finalizeRefund(int $refundId, string $gatewayRefundId): array
+    {
+        return $this->db->transaction(function () use ($refundId, $gatewayRefundId) {
+            $refund = $this->db->fetchOne(
+                'SELECT * FROM refunds WHERE id = ? FOR UPDATE',
+                [$refundId],
+            );
+            if ($refund === null) {
+                return ['error' => 'Refund record not found.', 'code' => 'REFUND_NOT_FOUND'];
+            }
+            $tenantId = (int) $refund['tenant_id'];
+            $orderId = (int) $refund['order_id'];
+            if ($refund['status'] !== 'completed') {
+                $this->refundRepo->updateStatus((int) $refund['id'], 'completed', $gatewayRefundId ?: null);
+                $this->paymentRepo->updateStatus((int) $refund['payment_id'], 'refunded');
+            }
+
+            $order = $this->db->fetchOne(
+                'SELECT * FROM orders WHERE id = ? AND tenant_id = ? FOR UPDATE',
+                [$orderId, $tenantId],
+            );
+            $orderUpdated = false;
+            if ($order !== null && OrderStatus::canTransition((string) $order['status'], OrderStatus::REFUNDED)) {
+                $orderUpdated = $this->orderRepo->transitionStatus(
+                    $orderId,
+                    $tenantId,
+                    (string) $order['status'],
+                    OrderStatus::REFUNDED,
+                );
+                if ($orderUpdated) {
+                    $this->orderRepo->addStatusHistory(
+                        $orderId,
+                        $order['status'],
+                        OrderStatus::REFUNDED,
+                        $refund['initiated_by_type'] ?? 'system',
+                        isset($refund['initiated_by_id']) ? (int) $refund['initiated_by_id'] : null,
+                        'Refund: ' . ($refund['reason'] ?? 'Payment refunded'),
+                    );
+                }
+            }
             $this->db->execute(
-                "UPDATE orders SET payment_status = 'refunded' WHERE id = ?",
-                [$orderId]
+                "UPDATE orders SET payment_status = 'refunded' WHERE id = ? AND tenant_id = ?",
+                [$orderId, $tenantId],
             );
 
             return [
-                'status' => 'refunded',
+                'status' => $orderUpdated ? 'refunded' : 'payment_refunded_order_review_required',
                 'order_id' => $orderId,
-                'refund_amount' => $refundAmount,
+                'refund_amount' => (int) $refund['amount'],
             ];
         });
     }

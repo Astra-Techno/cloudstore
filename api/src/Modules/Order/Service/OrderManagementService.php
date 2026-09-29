@@ -9,7 +9,6 @@ use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Delivery\Service\DriverService;
 use App\Modules\Notification\Service\NotificationService;
-use Ramsey\Uuid\Uuid;
 
 final class OrderManagementService
 {
@@ -21,6 +20,8 @@ final class OrderManagementService
         private readonly OrderRepository $orderRepo,
         private readonly ?DriverService $driverService = null,
         private readonly ?NotificationService $notificationService = null,
+        private readonly ?InventoryRestorationService $inventoryRestoration = null,
+        private readonly ?MarketplaceFeeAccrualService $marketplaceFeeAccrual = null,
     ) {
     }
 
@@ -55,6 +56,30 @@ final class OrderManagementService
             return ['error' => 'Delivery orders must use the delivery status flow.', 'code' => 'DELIVERY_STATUS_MISMATCH'];
         }
 
+        // Once a delivery uses a driver assignment, pickup and completion
+        // belong to the driver workflow. This prevents an admin status click
+        // from bypassing pickup and customer OTP verification.
+        if ($actorType === 'admin'
+            && $order['order_type'] === 'delivery'
+            && in_array($newStatus, [OrderStatus::OUT_FOR_DELIVERY, OrderStatus::DELIVERED], true)) {
+            $activeAssignment = $this->db->fetchOne(
+                "SELECT status FROM driver_assignments
+                 WHERE order_id = ? AND status IN ('assigned', 'accepted', 'picked_up')
+                 ORDER BY created_at DESC LIMIT 1",
+                [$orderId],
+            );
+            if ($activeAssignment !== null) {
+                return [
+                    'error' => $newStatus === OrderStatus::DELIVERED
+                        ? 'The driver must verify the customer delivery OTP to complete this order.'
+                        : 'The assigned driver must mark this order as picked up.',
+                    'code' => $newStatus === OrderStatus::DELIVERED
+                        ? 'DELIVERY_OTP_REQUIRED'
+                        : 'DRIVER_PICKUP_REQUIRED',
+                ];
+            }
+        }
+
         $timestampField = match ($newStatus) {
             OrderStatus::ACCEPTED => 'accepted_at',
             OrderStatus::PREPARING => 'preparing_at',
@@ -67,30 +92,49 @@ final class OrderManagementService
             default => null,
         };
 
-        $this->orderRepo->updateStatus($orderId, $tenantId, $newStatus, $timestampField);
-        $this->orderRepo->addStatusHistory($orderId, $order['status'], $newStatus, $actorType, $actorId, $notes);
-
-        // Generate delivery OTP when order goes out for delivery
-        if ($newStatus === OrderStatus::OUT_FOR_DELIVERY && $this->driverService !== null) {
-            $this->driverService->generateDeliveryOtp($orderId);
-        }
-
-        if ($newStatus === OrderStatus::CANCELLED && !empty($notes)) {
-            $this->db->execute("UPDATE orders SET cancel_reason = ? WHERE id = ?", [$notes, $orderId]);
-        }
-
-        // Marketplace commission is earned only after a merchant completes a
-        // delivery or pickup. Branded merchants never receive a platform fee.
-        if (in_array($newStatus, [OrderStatus::DELIVERED, OrderStatus::PICKED_UP], true)) {
-            $tenant = $this->db->fetchOne('SELECT commercial_plan FROM tenants WHERE id = ?', [$tenantId]);
-            if ($tenant !== null && ($tenant['commercial_plan'] ?? 'branded') === 'marketplace') {
-                $fee = min((int) round((int) $order['total'] * 0.01), 500);
-                $this->db->execute(
-                    'INSERT IGNORE INTO platform_fee_ledger (uuid, tenant_id, order_id, gross_order_value, fee_amount)
-                     VALUES (?, ?, ?, ?, ?)',
-                    [Uuid::uuid4()->toString(), $tenantId, $orderId, (int) $order['total'], $fee],
-                );
+        $transitioned = $this->db->transaction(function () use (
+            $orderId,
+            $tenantId,
+            $order,
+            $newStatus,
+            $timestampField,
+            $actorType,
+            $actorId,
+            $notes,
+        ): bool {
+            if (!$this->orderRepo->transitionStatus(
+                $orderId,
+                $tenantId,
+                (string) $order['status'],
+                $newStatus,
+                $timestampField,
+            )) {
+                return false;
             }
+
+            $this->orderRepo->addStatusHistory($orderId, $order['status'], $newStatus, $actorType, $actorId, $notes);
+
+            if ($newStatus === OrderStatus::OUT_FOR_DELIVERY && $this->driverService !== null) {
+                $this->driverService->generateDeliveryOtp($orderId);
+            }
+            if ($newStatus === OrderStatus::CANCELLED && !empty($notes)) {
+                $this->db->execute('UPDATE orders SET cancel_reason = ? WHERE id = ? AND tenant_id = ?', [$notes, $orderId, $tenantId]);
+            }
+            if (in_array($newStatus, [OrderStatus::CANCELLED, OrderStatus::REJECTED], true)) {
+                $this->inventoryRestoration?->restore($tenantId, $orderId);
+            }
+            if (in_array($newStatus, [OrderStatus::DELIVERED, OrderStatus::PICKED_UP], true)) {
+                $this->marketplaceFeeAccrual?->accrue($tenantId, $orderId, (int) $order['total']);
+            }
+
+            return true;
+        });
+
+        if (!$transitioned) {
+            return [
+                'error' => 'This order was updated by another request. Refresh and try again.',
+                'code' => 'ORDER_STATUS_CHANGED',
+            ];
         }
 
         // The order detail screen polls for this update, while the notification
@@ -156,11 +200,41 @@ final class OrderManagementService
         }
 
         $newStatus = OrderStatus::CANCELLED;
-        $this->orderRepo->updateStatus($orderId, $tenantId, $newStatus, 'cancelled_at');
-        $this->orderRepo->addStatusHistory($orderId, $order['status'], $newStatus, 'customer', $customerId, $reason);
+        $cancelled = $this->db->transaction(function () use (
+            $orderId,
+            $tenantId,
+            $order,
+            $newStatus,
+            $customerId,
+            $reason,
+        ): bool {
+            if (!$this->orderRepo->transitionStatus(
+                $orderId,
+                $tenantId,
+                (string) $order['status'],
+                $newStatus,
+                'cancelled_at',
+            )) {
+                return false;
+            }
 
-        if ($reason !== null && $reason !== '') {
-            $this->db->execute("UPDATE orders SET cancel_reason = ? WHERE id = ?", [$reason, $orderId]);
+            $this->orderRepo->addStatusHistory($orderId, $order['status'], $newStatus, 'customer', $customerId, $reason);
+            if ($reason !== null && $reason !== '') {
+                $this->db->execute(
+                    'UPDATE orders SET cancel_reason = ? WHERE id = ? AND tenant_id = ?',
+                    [$reason, $orderId, $tenantId],
+                );
+            }
+            $this->inventoryRestoration?->restore($tenantId, $orderId);
+
+            return true;
+        });
+
+        if (!$cancelled) {
+            return [
+                'error' => 'This order was updated before cancellation completed. Refresh and try again.',
+                'code' => 'ORDER_STATUS_CHANGED',
+            ];
         }
 
         return $this->orderRepo->findById($orderId, $tenantId) ?? ['error' => 'Order not found after cancellation.', 'code' => 'ORDER_NOT_FOUND'];

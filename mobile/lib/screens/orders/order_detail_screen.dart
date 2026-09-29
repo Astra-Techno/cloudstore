@@ -7,8 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../services/api_client.dart';
 import '../../app/providers/cart_provider.dart';
+import '../../app/providers/bootstrap_provider.dart';
 import '../../models/order.dart';
 import '../../models/json_value.dart';
 import '../../widgets/price_text.dart';
@@ -32,10 +34,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _loading = true;
   String? _error;
   Timer? _refreshTimer;
+  late final Razorpay _razorpay;
+  bool _paying = false;
 
   @override
   void initState() {
     super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadOrder();
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (_isActiveOrder) _loadOrder(background: true);
@@ -45,7 +53,87 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _razorpay.clear();
     super.dispose();
+  }
+
+  Future<void> _startPayment() async {
+    if (_paying) return;
+    final merchantName =
+        context.read<BootstrapProvider>().tenantName ?? 'CloudMarket';
+    setState(() {
+      _paying = true;
+      _error = null;
+    });
+    try {
+      final response = await ApiClient().post('/customer/payments/initiate',
+          data: {'order_uuid': widget.uuid});
+      final body = response.data;
+      final payment = body is Map && body['data'] is Map
+          ? Map<String, dynamic>.from(body['data'] as Map)
+          : null;
+      if (payment == null || payment['razorpay_order_id'] == null) {
+        throw StateError('Payment details are unavailable.');
+      }
+      _razorpay.open({
+        'key': payment['razorpay_key_id'],
+        'order_id': payment['razorpay_order_id'],
+        'amount': payment['amount'],
+        'currency': payment['currency'] ?? 'INR',
+        'name': merchantName,
+        'description': 'Order ${_order?.orderNumber ?? ''}',
+        'retry': {'enabled': true, 'max_count': 2},
+        'theme': {'color': '#E23744'},
+      });
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final apiError =
+          body is Map && body['error'] is Map ? body['error'] as Map : null;
+      if (mounted)
+        setState(() => _error =
+            apiError?['message']?.toString() ?? 'Unable to start payment.');
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Unable to start payment.');
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    if (response.orderId == null ||
+        response.paymentId == null ||
+        response.signature == null) {
+      if (mounted)
+        setState(() => _error = 'Payment confirmation details are incomplete.');
+      return;
+    }
+    try {
+      await ApiClient().post('/customer/payments/confirm', data: {
+        'gateway_order_id': response.orderId,
+        'gateway_payment_id': response.paymentId,
+        'signature': response.signature,
+      });
+      await _loadOrder();
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      final apiError =
+          body is Map && body['error'] is Map ? body['error'] as Map : null;
+      if (mounted)
+        setState(() => _error = apiError?['message']?.toString() ??
+            'Payment confirmation is pending. Refresh the order shortly.');
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (mounted)
+      setState(() => _error =
+          response.message ?? 'Payment was not completed. Please retry.');
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (mounted)
+      setState(() => _error =
+          'Complete payment in ${response.walletName ?? 'the selected wallet'}.');
   }
 
   Future<void> _loadOrder({bool background = false}) async {
@@ -56,11 +144,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ? Map<String, dynamic>.from(data['data'] as Map)
           : null;
       final orderJson = d == null ? null : JsonValue.object(d['order']);
-      if (data is Map && data['success'] == true && d != null && orderJson != null) {
+      if (data is Map &&
+          data['success'] == true &&
+          d != null &&
+          orderJson != null) {
         if (!mounted) return;
         setState(() {
           _order = Order.fromJson(orderJson);
-          _items = JsonValue.objectList(d['items']).map(OrderItem.fromJson).toList();
+          _items =
+              JsonValue.objectList(d['items']).map(OrderItem.fromJson).toList();
           _history = JsonValue.objectList(d['status_history'])
               .map(StatusHistoryEntry.fromJson)
               .toList();
@@ -148,8 +240,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                  data['error']?['message'] ?? 'Failed to cancel order'),
+              content:
+                  Text(data['error']?['message'] ?? 'Failed to cancel order'),
             ),
           );
         }
@@ -195,8 +287,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text(data['error']?['message'] ?? 'Failed to reorder'),
+            content: Text(data['error']?['message'] ?? 'Failed to reorder'),
           ),
         );
       }
@@ -207,8 +298,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                apiError?['message']?.toString() ?? 'Failed to reorder'),
+            content:
+                Text(apiError?['message']?.toString() ?? 'Failed to reorder'),
           ),
         );
       }
@@ -270,7 +361,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ? const EmptyStateWidget(
                       icon: Icons.receipt_long_outlined,
                       title: 'Order not found',
-                      subtitle: 'This order may have been removed or is unavailable.',
+                      subtitle:
+                          'This order may have been removed or is unavailable.',
                     )
                   : RefreshIndicator(
                       onRefresh: _loadOrder,
@@ -285,24 +377,32 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           _order!.orderNumber,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           DateFormat('dd MMM yyyy, hh:mm a')
-                                              .format(DateTime.parse(_order!.createdAt)),
-                                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                              .format(DateTime.parse(
+                                                  _order!.createdAt)),
+                                          style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 13),
                                         ),
                                       ],
                                     ),
-                                    StatusBadge(status: _order!.status, fontSize: 14),
+                                    StatusBadge(
+                                        status: _order!.status, fontSize: 14),
                                   ],
                                 ),
                               ),
@@ -311,13 +411,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             // Live tracking stepper for active orders
                             if (_isActiveOrder) ...[
                               const SizedBox(height: 16),
-                              Text('Order Progress', style: Theme.of(context).textTheme.titleMedium),
+                              Text('Order Progress',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 12),
                               Card(
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       // Status message
                                       _buildStatusMessage(),
@@ -325,7 +428,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                       // Visual stepper
                                       OrderTrackingStepper(
                                         currentStatus: _order!.status,
-                                        statusTimestamps: _buildStatusTimestamps(),
+                                        statusTimestamps:
+                                            _buildStatusTimestamps(),
                                       ),
                                     ],
                                   ),
@@ -346,41 +450,100 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 padding: const EdgeInsets.all(16),
                                 child: Column(
                                   children: [
-                                    _infoRow('Type', _order!.orderType.replaceAll('_', ' ')),
-                                    _infoRow('Payment', _order!.paymentMethod.replaceAll('_', ' ')),
-                                    _infoRow('Payment Status', _order!.paymentStatus),
+                                    _infoRow('Type',
+                                        _order!.orderType.replaceAll('_', ' ')),
+                                    _infoRow(
+                                        'Payment',
+                                        _order!.paymentMethod
+                                            .replaceAll('_', ' ')),
+                                    _infoRow('Payment Status',
+                                        _order!.paymentStatus),
                                   ],
                                 ),
                               ),
                             ),
+                            if (_order!.paymentMethod == 'online' &&
+                                _order!.paymentStatus != 'paid' &&
+                                _order!.status == 'pending_payment') ...[
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: _paying ? null : _startPayment,
+                                  icon: _paying
+                                      ? const SizedBox.square(
+                                          dimension: 18,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.lock_outline),
+                                  label: Text(_paying
+                                      ? 'Starting payment…'
+                                      : 'Pay securely now'),
+                                ),
+                              ),
+                            ],
 
-                            if (_order!.orderType == 'delivery' && _parseSnapshot(_order!.addressSnapshot).isNotEmpty) ...[
+                            if (_order!.orderType == 'delivery' &&
+                                _parseSnapshot(_order!.addressSnapshot)
+                                    .isNotEmpty) ...[
                               const SizedBox(height: 16),
-                              Text('Delivery address', style: Theme.of(context).textTheme.titleMedium),
+                              Text('Delivery address',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 8),
-                              Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Icon(Icons.location_on_outlined, color: primary),
-                                const SizedBox(width: 10),
-                                Expanded(child: Text([
-                                  _parseSnapshot(_order!.addressSnapshot)['address_line_1'],
-                                  _parseSnapshot(_order!.addressSnapshot)['address_line_2'],
-                                  _parseSnapshot(_order!.addressSnapshot)['landmark'],
-                                  _parseSnapshot(_order!.addressSnapshot)['city'],
-                                  _parseSnapshot(_order!.addressSnapshot)['postal_code'],
-                                ].where((part) => part != null && part.toString().trim().isNotEmpty).join(', '))),
-                              ]))),
+                              Card(
+                                  child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(Icons.location_on_outlined,
+                                                color: primary),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                                child: Text([
+                                              _parseSnapshot(
+                                                      _order!.addressSnapshot)[
+                                                  'address_line_1'],
+                                              _parseSnapshot(
+                                                      _order!.addressSnapshot)[
+                                                  'address_line_2'],
+                                              _parseSnapshot(_order!
+                                                  .addressSnapshot)['landmark'],
+                                              _parseSnapshot(_order!
+                                                  .addressSnapshot)['city'],
+                                              _parseSnapshot(
+                                                      _order!.addressSnapshot)[
+                                                  'postal_code'],
+                                            ]
+                                                    .where((part) =>
+                                                        part != null &&
+                                                        part
+                                                            .toString()
+                                                            .trim()
+                                                            .isNotEmpty)
+                                                    .join(', '))),
+                                          ]))),
                             ],
 
                             if (_order!.notes?.trim().isNotEmpty == true) ...[
                               const SizedBox(height: 16),
-                              Text('Your instructions', style: Theme.of(context).textTheme.titleMedium),
+                              Text('Your instructions',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 8),
-                              Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(_order!.notes!))),
+                              Card(
+                                  child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(_order!.notes!))),
                             ],
 
                             // Items
                             const SizedBox(height: 16),
-                            Text('Items', style: Theme.of(context).textTheme.titleMedium),
+                            Text('Items',
+                                style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: 8),
                             Card(
                               child: Padding(
@@ -388,36 +551,53 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 child: Column(
                                   children: [
                                     ..._items.map((item) {
-                                      final product = _parseSnapshot(item.productSnapshot);
-                                      final variant = _parseSnapshot(item.variantSnapshot);
+                                      final product =
+                                          _parseSnapshot(item.productSnapshot);
+                                      final variant =
+                                          _parseSnapshot(item.variantSnapshot);
                                       return Padding(
-                                        padding: const EdgeInsets.only(bottom: 12),
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
                                         child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    product['name']?.toString() ?? 'Item',
-                                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                                    product['name']
+                                                            ?.toString() ??
+                                                        'Item',
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600),
                                                   ),
-                                                  if (variant.isNotEmpty && variant['name'] != null)
+                                                  if (variant.isNotEmpty &&
+                                                      variant['name'] != null)
                                                     Text(
-                                                      variant['name'].toString(),
-                                                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                                      variant['name']
+                                                          .toString(),
+                                                      style: TextStyle(
+                                                          color:
+                                                              Colors.grey[600],
+                                                          fontSize: 13),
                                                     ),
                                                   Text(
                                                     '${item.quantity} x ${PriceText.format(item.unitPrice)}',
-                                                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                                                    style: TextStyle(
+                                                        color: Colors.grey[500],
+                                                        fontSize: 13),
                                                   ),
                                                 ],
                                               ),
                                             ),
                                             Text(
                                               PriceText.format(item.lineTotal),
-                                              style: const TextStyle(fontWeight: FontWeight.w600),
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w600),
                                             ),
                                           ],
                                         ),
@@ -425,18 +605,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     }),
                                     const Divider(),
                                     _priceRow('Subtotal', _order!.subtotal),
-                                    if (_order!.deliveryFee > 0) _priceRow('Delivery Fee', _order!.deliveryFee),
-                                    if (_order!.serviceCharge > 0) _priceRow('Service Charge', _order!.serviceCharge),
-                                    if (_order!.taxAmount > 0) _priceRow('Tax', _order!.taxAmount),
+                                    if (_order!.deliveryFee > 0)
+                                      _priceRow(
+                                          'Delivery Fee', _order!.deliveryFee),
+                                    if (_order!.serviceCharge > 0)
+                                      _priceRow('Service Charge',
+                                          _order!.serviceCharge),
+                                    if (_order!.taxAmount > 0)
+                                      _priceRow('Tax', _order!.taxAmount),
                                     if (_order!.discountAmount > 0)
-                                      _priceRow('Discount', -_order!.discountAmount),
+                                      _priceRow(
+                                          'Discount', -_order!.discountAmount),
                                     const Divider(),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         const Text(
                                           'Total',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16),
                                         ),
                                         Text(
                                           PriceText.format(_order!.total),
@@ -456,17 +645,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             // Status timeline (for completed/cancelled orders or as secondary info)
                             if (_history.isNotEmpty && !_isActiveOrder) ...[
                               const SizedBox(height: 16),
-                              Text('Order Timeline', style: Theme.of(context).textTheme.titleMedium),
+                              Text('Order Timeline',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 8),
                               Card(
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Column(
-                                    children: _history.asMap().entries.map((entry) {
+                                    children:
+                                        _history.asMap().entries.map((entry) {
                                       final h = entry.value;
-                                      final isLast = entry.key == _history.length - 1;
+                                      final isLast =
+                                          entry.key == _history.length - 1;
                                       return Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Column(
                                             children: [
@@ -491,14 +685,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Padding(
-                                              padding: const EdgeInsets.only(bottom: 16),
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 16),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    h.toStatus.replaceAll('_', ' ').toUpperCase(),
+                                                    h.toStatus
+                                                        .replaceAll('_', ' ')
+                                                        .toUpperCase(),
                                                     style: TextStyle(
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       fontSize: 13,
                                                       color: isLast
                                                           ? primary
@@ -507,16 +706,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                                   ),
                                                   const SizedBox(height: 2),
                                                   Text(
-                                                    DateFormat('dd MMM, hh:mm a')
-                                                        .format(DateTime.parse(h.createdAt)),
-                                                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                                                    DateFormat(
+                                                            'dd MMM, hh:mm a')
+                                                        .format(DateTime.parse(
+                                                            h.createdAt)),
+                                                    style: TextStyle(
+                                                        color: Colors.grey[500],
+                                                        fontSize: 12),
                                                   ),
                                                   if (h.notes != null)
                                                     Padding(
-                                                      padding: const EdgeInsets.only(top: 2),
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 2),
                                                       child: Text(
                                                         h.notes!,
-                                                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                                                        style: TextStyle(
+                                                            color: Colors
+                                                                .grey[500],
+                                                            fontSize: 12),
                                                       ),
                                                     ),
                                                 ],
@@ -532,22 +740,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ],
 
                             // Cancel / Reorder buttons
-                            if (_order!.status == 'pending_payment' || _order!.status == 'confirmed') ...[
+                            if (_order!.status == 'pending_payment' ||
+                                _order!.status == 'confirmed') ...[
                               const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
                                   onPressed: _cancelOrder,
-                                  icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-                                  label: const Text('Cancel Order', style: TextStyle(color: Colors.red)),
+                                  icon: const Icon(Icons.cancel_outlined,
+                                      color: Colors.red),
+                                  label: const Text('Cancel Order',
+                                      style: TextStyle(color: Colors.red)),
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
                                     side: const BorderSide(color: Colors.red),
                                   ),
                                 ),
                               ),
                             ],
-                            if (_order!.status == 'delivered' || _order!.status == 'picked_up' || _order!.status == 'cancelled') ...[
+                            if (_order!.status == 'delivered' ||
+                                _order!.status == 'picked_up' ||
+                                _order!.status == 'cancelled') ...[
                               const SizedBox(height: 16),
                               Row(
                                 children: [
@@ -557,19 +771,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                       icon: const Icon(Icons.replay_rounded),
                                       label: const Text('Reorder'),
                                       style: FilledButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 14),
                                       ),
                                     ),
                                   ),
-                                  if (_order!.status == 'delivered' || _order!.status == 'picked_up') ...[
+                                  if (_order!.status == 'delivered' ||
+                                      _order!.status == 'picked_up') ...[
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: OutlinedButton.icon(
                                         onPressed: _downloadInvoice,
-                                        icon: const Icon(Icons.receipt_long_outlined),
+                                        icon: const Icon(
+                                            Icons.receipt_long_outlined),
                                         label: const Text('Invoice'),
                                         style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 14),
                                         ),
                                       ),
                                     ),
@@ -579,7 +797,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ],
 
                             // Live driver tracking
-                            if (_driver != null && _isActiveOrder && (_order!.status == 'out_for_delivery')) ...[
+                            if (_driver != null &&
+                                _isActiveOrder &&
+                                (_order!.status == 'out_for_delivery')) ...[
                               const SizedBox(height: 16),
                               _buildDriverTrackingCard(),
                             ],
@@ -636,7 +856,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         children: [
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: status == 'preparing' ? 1000 : 700),
+            duration:
+                Duration(milliseconds: status == 'preparing' ? 1000 : 700),
             curve: Curves.easeInOut,
             builder: (_, progress, child) {
               if (status == 'preparing') {
@@ -648,7 +869,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   child: child,
                 );
               }
-              return Transform.scale(scale: 0.86 + (progress * 0.14), child: child);
+              return Transform.scale(
+                  scale: 0.86 + (progress * 0.14), child: child);
             },
             child: Icon(icon, color: primary, size: 22),
           ),
@@ -656,7 +878,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(color: primary, fontSize: 13, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  color: primary, fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -697,12 +920,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     children: [
                       const Text(
                         'Delivery Partner',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         driverName,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -733,22 +958,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
                   child: FlutterMap(
-                    options: MapOptions(initialCenter: LatLng(latitude, longitude), initialZoom: 14),
+                    options: MapOptions(
+                        initialCenter: LatLng(latitude, longitude),
+                        initialZoom: 14),
                     children: [
-                      TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.cloudmarket.cloudstore'),
+                      TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.cloudmarket.cloudstore'),
                       MarkerLayer(markers: [
                         Marker(
                           point: LatLng(latitude, longitude),
                           width: 48,
                           height: 48,
-                          child: const Icon(Icons.delivery_dining_rounded, color: Colors.red, size: 38),
+                          child: const Icon(Icons.delivery_dining_rounded,
+                              color: Colors.red, size: 38),
                         ),
                         if (destinationLat != null && destinationLng != null)
                           Marker(
                             point: LatLng(destinationLat, destinationLng),
                             width: 42,
                             height: 42,
-                            child: const Icon(Icons.home_rounded, color: Colors.black87, size: 30),
+                            child: const Icon(Icons.home_rounded,
+                                color: Colors.black87, size: 30),
                           ),
                       ]),
                     ],
@@ -760,11 +992,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 const Icon(Icons.timer_outlined, size: 18),
                 const SizedBox(width: 6),
                 Text(
-                  eta is num ? 'Estimated arrival in ${eta.toInt()} min' : 'Updating delivery location…',
+                  eta is num
+                      ? 'Estimated arrival in ${eta.toInt()} min'
+                      : 'Updating delivery location…',
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ]),
-              Text('Live location refreshes automatically every 15 seconds.', style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+              Text('Live location refreshes automatically every 15 seconds.',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 12)),
             ] else if (_driver != null) ...[
               const SizedBox(height: 14),
               Container(
@@ -777,11 +1012,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: primary)),
+                    SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: primary)),
                     const SizedBox(height: 10),
-                    Text('Waiting for driver location…', style: TextStyle(color: primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text('Waiting for driver location…',
+                        style: TextStyle(
+                            color: primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13)),
                     const SizedBox(height: 4),
-                    Text('Location will appear once the driver shares it.', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    Text('Location will appear once the driver shares it.',
+                        style:
+                            TextStyle(color: Colors.grey[600], fontSize: 12)),
                   ],
                 ),
               ),
@@ -835,14 +1080,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _downloadInvoice() async {
     try {
-      final response = await ApiClient().get('/customer/orders/${widget.uuid}/invoice');
+      final response =
+          await ApiClient().get('/customer/orders/${widget.uuid}/invoice');
       final data = response.data;
       if (data['success'] == true && data['data'] != null && mounted) {
         final invoice = Map<String, dynamic>.from(data['data'] as Map);
         _showInvoiceSheet(invoice);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['error']?['message'] ?? 'Failed to load invoice')),
+          SnackBar(
+              content:
+                  Text(data['error']?['message'] ?? 'Failed to load invoice')),
         );
       }
     } catch (_) {
@@ -871,19 +1119,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Text(
+              Center(
+                  child: Text(
                 'INVOICE',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2, color: Theme.of(ctx).colorScheme.primary),
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                    color: Theme.of(ctx).colorScheme.primary),
               )),
               const SizedBox(height: 4),
-              Center(child: Text(invoice['invoice_number']?.toString() ?? '', style: TextStyle(color: Colors.grey[600], fontSize: 13))),
+              Center(
+                  child: Text(invoice['invoice_number']?.toString() ?? '',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13))),
               const SizedBox(height: 16),
               if (invoice['store'] is Map) ...[
-                Text(invoice['store']['name']?.toString() ?? 'Store', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(invoice['store']['name']?.toString() ?? 'Store',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
                 if (invoice['store']['address'] != null)
-                  Text(invoice['store']['address'].toString(), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text(invoice['store']['address'].toString(),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 if (invoice['store']['gstin'] != null)
-                  Text('GSTIN: ${invoice['store']['gstin']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text('GSTIN: ${invoice['store']['gstin']}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12)),
               ],
               const Divider(height: 24),
               ...items.map((item) {
@@ -894,45 +1153,64 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Row(
                     children: [
-                      Expanded(child: Column(
+                      Expanded(
+                          child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${i['name'] ?? 'Item'}${i['variant'] != null ? ' (${i['variant']})' : ''}', style: const TextStyle(fontSize: 13)),
-                          Text('Qty: $qty', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                          Text(
+                              '${i['name'] ?? 'Item'}${i['variant'] != null ? ' (${i['variant']})' : ''}',
+                              style: const TextStyle(fontSize: 13)),
+                          Text('Qty: $qty',
+                              style: TextStyle(
+                                  color: Colors.grey[500], fontSize: 11)),
                         ],
                       )),
-                      Text(PriceText.format(total), style: const TextStyle(fontSize: 13)),
+                      Text(PriceText.format(total),
+                          style: const TextStyle(fontSize: 13)),
                     ],
                   ),
                 );
               }),
               const Divider(),
-              _invoiceRow('Subtotal', (invoice['subtotal'] as num?)?.toInt() ?? 0),
+              _invoiceRow(
+                  'Subtotal', (invoice['subtotal'] as num?)?.toInt() ?? 0),
               if (((invoice['delivery_fee'] as num?)?.toInt() ?? 0) > 0)
-                _invoiceRow('Delivery Fee', (invoice['delivery_fee'] as num).toInt()),
+                _invoiceRow(
+                    'Delivery Fee', (invoice['delivery_fee'] as num).toInt()),
               if (((invoice['service_charge'] as num?)?.toInt() ?? 0) > 0)
-                _invoiceRow('Service Charge', (invoice['service_charge'] as num).toInt()),
+                _invoiceRow('Service Charge',
+                    (invoice['service_charge'] as num).toInt()),
               if (((invoice['tax_amount'] as num?)?.toInt() ?? 0) > 0)
                 _invoiceRow('Tax', (invoice['tax_amount'] as num).toInt()),
               if (((invoice['discount_amount'] as num?)?.toInt() ?? 0) > 0)
-                _invoiceRow('Discount', -((invoice['discount_amount'] as num).toInt())),
+                _invoiceRow(
+                    'Discount', -((invoice['discount_amount'] as num).toInt())),
               const Divider(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(PriceText.format((invoice['total'] as num?)?.toInt() ?? 0),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(ctx).colorScheme.primary)),
+                  const Text('Total',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(
+                      PriceText.format(
+                          (invoice['total'] as num?)?.toInt() ?? 0),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Theme.of(ctx).colorScheme.primary)),
                 ],
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Payment: ${(invoice['payment_method'] ?? '').toString().replaceAll('_', ' ')}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  Text('Order type: ${(invoice['order_type'] ?? '').toString()}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text(
+                      'Payment: ${(invoice['payment_method'] ?? '').toString().replaceAll('_', ' ')}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text(
+                      'Order type: ${(invoice['order_type'] ?? '').toString()}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 ],
               ),
             ],
@@ -951,8 +1229,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         children: [
           Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
           Text(
-            isNegative ? '-${PriceText.format(-paise)}' : PriceText.format(paise),
-            style: TextStyle(fontSize: 13, color: isNegative ? Colors.green : null),
+            isNegative
+                ? '-${PriceText.format(-paise)}'
+                : PriceText.format(paise),
+            style: TextStyle(
+                fontSize: 13, color: isNegative ? Colors.green : null),
           ),
         ],
       ),
@@ -977,7 +1258,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               children: [
                 Icon(Icons.delivery_dining_rounded, color: primary),
                 const SizedBox(width: 8),
-                const Text('Live Tracking', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Text('Live Tracking',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ],
             ),
             const SizedBox(height: 12),
@@ -986,16 +1269,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: primary,
-                  child: Text(driverName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(driverName[0].toUpperCase(),
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: Column(
+                Expanded(
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(driverName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(driverName,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     if (eta != null)
-                      Text('ETA: ~$eta min${distance != null ? ' (${distance.toStringAsFixed(1)} km away)' : ''}',
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                      Text(
+                          'ETA: ~$eta min${distance != null ? ' (${distance.toStringAsFixed(1)} km away)' : ''}',
+                          style:
+                              TextStyle(color: Colors.grey[700], fontSize: 13)),
                   ],
                 )),
                 if (driverPhone != null)
@@ -1004,7 +1293,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       final launched = await DeviceActions.call(driverPhone);
                       if (!launched && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Could not open phone app')),
+                          const SnackBar(
+                              content: Text('Could not open phone app')),
                         );
                       }
                     },
@@ -1043,7 +1333,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         children: [
           Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
           Text(
-            paise < 0 ? '-${PriceText.format(-paise)}' : PriceText.format(paise),
+            paise < 0
+                ? '-${PriceText.format(-paise)}'
+                : PriceText.format(paise),
             style: TextStyle(
               fontSize: 14,
               color: paise < 0 ? Colors.green : null,

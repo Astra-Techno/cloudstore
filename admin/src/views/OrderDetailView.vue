@@ -15,6 +15,14 @@ const storeLocation = ref<{ latitude: number; longitude: number } | null>(null)
 const customerOrderCount = ref(1)
 const routeInfo = ref<{ distance: string; duration: string } | null>(null)
 const dining = ref<{ table_name: string; access_code: string; opened_at: string; closed_at: string | null } | null>(null)
+const driverAssignment = ref<{
+  status: string
+  driver_name: string | null
+  driver_phone: string | null
+  vehicle_type: string | null
+  vehicle_number: string | null
+  assigned_at: string | null
+} | null>(null)
 const loading = ref(true)
 const updating = ref(false)
 const error = ref('')
@@ -62,6 +70,7 @@ async function loadOrder() {
       storeLocation.value = data.data.store_location || null
       customerOrderCount.value = data.data.customer_order_count || 1
       dining.value = data.data.dining || null
+      driverAssignment.value = data.data.driver_assignment || null
       fetchRouteInfo()
     }
   } catch (e) {
@@ -185,9 +194,9 @@ const statusColors: Record<string, string> = {
 }
 
 const canAssignDriver = computed(() => {
-  if (order.value?.order_type === 'dine_in') return false
+  if (order.value?.order_type !== 'delivery' || driverAssignment.value) return false
   const s = order.value?.status
-  return s === 'ready' || s === 'preparing' || s === 'accepted'
+  return s === 'confirmed' || s === 'ready' || s === 'preparing' || s === 'accepted'
 })
 
 const canRefund = computed(() => {
@@ -198,6 +207,9 @@ const visibleTransitions = computed(() => allowedTransitions.value.filter((trans
   if (order.value?.order_type === 'dine_in') return !['ready_for_pickup', 'picked_up', 'out_for_delivery', 'delivered'].includes(transition)
   if (transition === 'served') return false
   if (order.value?.order_type === 'pickup') return !['ready', 'out_for_delivery', 'delivered'].includes(transition)
+  if (order.value?.order_type === 'delivery' && driverAssignment.value) {
+    return !['ready_for_pickup', 'picked_up', 'out_for_delivery', 'delivered'].includes(transition)
+  }
   return !['ready_for_pickup', 'picked_up'].includes(transition)
 }))
 
@@ -317,8 +329,23 @@ onMounted(loadOrder)
       <div v-if="success" class="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{{ success }}</div>
 
       <!-- Actions -->
-      <div v-if="visibleTransitions.length > 0 || canAssignDriver || canRefund" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div v-if="visibleTransitions.length > 0 || canAssignDriver || canRefund || driverAssignment" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-3">Actions</h2>
+
+        <div v-if="driverAssignment" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+          <div>
+            <p class="text-sm font-semibold text-gray-900">{{ driverAssignment.driver_name || 'Assigned driver' }}</p>
+            <p class="text-xs text-gray-600">
+              {{ driverAssignment.driver_phone || 'Phone unavailable' }}
+              <span v-if="driverAssignment.vehicle_type || driverAssignment.vehicle_number">
+                · {{ [driverAssignment.vehicle_type, driverAssignment.vehicle_number].filter(Boolean).join(' ') }}
+              </span>
+            </p>
+          </div>
+          <span class="rounded-full bg-white px-3 py-1 text-xs font-bold capitalize text-red-700 ring-1 ring-red-200">
+            {{ driverAssignment.status.replace(/_/g, ' ') }}
+          </span>
+        </div>
 
         <!-- Status notes -->
         <div v-if="visibleTransitions.length" class="mb-3">
