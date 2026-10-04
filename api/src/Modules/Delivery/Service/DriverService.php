@@ -29,7 +29,7 @@ final class DriverService
      */
     public function assignDriver(int $tenantId, int $orderId, int $driverId): array
     {
-        return $this->db->transaction(function () use ($tenantId, $orderId, $driverId) {
+        $result = $this->db->transaction(function () use ($tenantId, $orderId, $driverId) {
             // Lock both resources to prevent two admins assigning the same
             // order or driver concurrently.
             $order = $this->db->fetchOne(
@@ -81,6 +81,7 @@ final class DriverService
 
             return [
                 'assignment_id' => $assignmentId,
+                'order_number' => (string) $order['order_number'],
                 'driver' => [
                     'id' => $driver['uuid'],
                     'name' => $driver['name'],
@@ -90,6 +91,24 @@ final class DriverService
                 ],
             ];
         });
+
+        // External notification delivery must happen after the transaction has
+        // committed so a temporary FCM failure can never roll back assignment.
+        if (!isset($result['error']) && $this->notificationService !== null) {
+            try {
+                $this->notificationService->notifyDriverAssignment(
+                    $tenantId,
+                    $driverId,
+                    (string) $result['order_number'],
+                );
+            } catch (\Throwable) {
+                // Assignment is already committed. Notification storage or
+                // FCM outages must not make the admin retry the assignment.
+            }
+            unset($result['order_number']);
+        }
+
+        return $result;
     }
 
     /**

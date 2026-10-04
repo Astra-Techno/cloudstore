@@ -16,7 +16,9 @@ final class OrderRepository
     public function findById(int $id, int $tenantId): ?array
     {
         return $this->db->fetchOne(
-            "SELECT * FROM orders WHERE id = ? AND tenant_id = ?",
+            "SELECT o.*, ms.name AS meal_session_name FROM orders o
+             LEFT JOIN meal_sessions ms ON ms.id = o.meal_session_id
+             WHERE o.id = ? AND o.tenant_id = ?",
             [$id, $tenantId]
         );
     }
@@ -24,7 +26,9 @@ final class OrderRepository
     public function findByUuid(string $uuid, int $tenantId): ?array
     {
         return $this->db->fetchOne(
-            "SELECT * FROM orders WHERE uuid = ? AND tenant_id = ?",
+            "SELECT o.*, ms.name AS meal_session_name FROM orders o
+             LEFT JOIN meal_sessions ms ON ms.id = o.meal_session_id
+             WHERE o.uuid = ? AND o.tenant_id = ?",
             [$uuid, $tenantId]
         );
     }
@@ -32,7 +36,9 @@ final class OrderRepository
     public function findByOrderNumber(string $orderNumber, int $tenantId): ?array
     {
         return $this->db->fetchOne(
-            "SELECT * FROM orders WHERE order_number = ? AND tenant_id = ?",
+            "SELECT o.*, ms.name AS meal_session_name FROM orders o
+             LEFT JOIN meal_sessions ms ON ms.id = o.meal_session_id
+             WHERE o.order_number = ? AND o.tenant_id = ?",
             [$orderNumber, $tenantId]
         );
     }
@@ -42,8 +48,8 @@ final class OrderRepository
         $this->db->execute(
             "INSERT INTO orders (uuid, order_number, tenant_id, customer_id, address_id, status, order_type,
              subtotal, delivery_fee, service_charge, tax_amount, discount_amount, total,
-             coupon_code, payment_method, payment_status, notes, address_snapshot, scheduled_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             coupon_code, payment_method, payment_status, notes, address_snapshot, scheduled_at, meal_session_id, service_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 $data['uuid'], $data['order_number'], $data['tenant_id'], $data['customer_id'],
                 $data['address_id'] ?? null, $data['status'] ?? 'pending_payment',
@@ -54,6 +60,7 @@ final class OrderRepository
                 $data['coupon_code'] ?? null, $data['payment_method'] ?? null,
                 $data['payment_status'] ?? 'pending', $data['notes'] ?? null,
                 $data['address_snapshot'], $data['scheduled_at'] ?? null,
+                $data['meal_session_id'] ?? null, $data['service_date'] ?? null,
             ]
         );
 
@@ -148,16 +155,19 @@ final class OrderRepository
     public function findByCustomer(int $customerId, int $tenantId, int $limit = 20, int $offset = 0): array
     {
         return $this->db->fetchAll(
-            "SELECT * FROM orders WHERE customer_id = ? AND tenant_id = ?
-             ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            "SELECT o.*, ms.name AS meal_session_name FROM orders o
+             LEFT JOIN meal_sessions ms ON ms.id = o.meal_session_id
+             WHERE o.customer_id = ? AND o.tenant_id = ?
+             ORDER BY o.created_at DESC LIMIT ? OFFSET ?",
             [$customerId, $tenantId, $limit, $offset]
         );
     }
 
     public function findByTenant(int $tenantId, ?string $status = null, int $limit = 50, int $offset = 0): array
     {
-        $sql = "SELECT o.*, c.name as customer_name, c.phone as customer_phone
+        $sql = "SELECT o.*, c.name as customer_name, c.phone as customer_phone, ms.name AS meal_session_name
                 FROM orders o JOIN customers c ON c.id = o.customer_id
+                LEFT JOIN meal_sessions ms ON ms.id = o.meal_session_id
                 WHERE o.tenant_id = ?";
         $params = [$tenantId];
 
@@ -243,13 +253,14 @@ final class OrderRepository
     public function findByTenantWithItems(int $tenantId, int $limit = 200): array
     {
         $orders = $this->db->fetchAll(
-            "SELECT o.*, c.name as customer_name, c.phone as customer_phone,
+            "SELECT o.*, c.name as customer_name, c.phone as customer_phone, ms.name AS meal_session_name,
                     dt.name AS dining_table_name, ds.id AS dining_session_id, ds.access_code AS dining_access_code
              FROM orders o
              JOIN customers c ON c.id = o.customer_id
              LEFT JOIN dining_orders dord ON dord.order_id = o.id
              LEFT JOIN dining_sessions ds ON ds.id = dord.session_id
              LEFT JOIN dining_tables dt ON dt.id = ds.table_id
+             LEFT JOIN meal_sessions ms ON ms.id = o.meal_session_id
              WHERE o.tenant_id = ?
              ORDER BY o.created_at DESC LIMIT ?",
             [$tenantId, $limit]

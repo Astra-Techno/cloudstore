@@ -152,6 +152,7 @@ final class DiningController
         return $this->respond(function () use ($r, $p) {
             $table = $this->publicTable($p['token']);
             $tenant = (int) $table['tenant_id'];
+            $session = $this->requireOpenSession($table, (string) ($r->json()['access_code'] ?? ''));
             $phone = preg_replace('/\D/', '', trim((string) ($r->json()['phone'] ?? '')));
             if (strlen($phone) < 10) throw new \DomainException('Enter a valid mobile number.');
             $phone = substr($phone, -10);
@@ -176,18 +177,15 @@ final class DiningController
                 }
             }
             // Link phone to the dining session's customer record
-            $session = $this->db->fetchOne('SELECT * FROM dining_sessions WHERE table_id = ? AND closed_at IS NULL', [$table['id']]);
-            if ($session) {
-                if ($customer) {
+            if ($customer) {
                     // Update session to use the real customer
                     $this->db->execute('UPDATE dining_sessions SET customer_id = ? WHERE id = ?', [$customer['id'], $session['id']]);
                     // Update existing orders in this session too
                     $this->db->execute('UPDATE orders o JOIN dining_orders d ON d.order_id = o.id SET o.customer_id = ? WHERE d.session_id = ?', [$customer['id'], $session['id']]);
-                } else {
+            } else {
                     // Create a real customer with this phone
                     $newId = $this->customers->create(['uuid' => Uuid::uuid4()->toString(), 'tenant_id' => $tenant, 'phone' => $phone]);
                     $this->db->execute('UPDATE dining_sessions SET customer_id = ? WHERE id = ?', [$newId, $session['id']]);
-                }
             }
             return ['returning' => $customer !== null, 'name' => $customer['name'] ?? null, 'suggestions' => $suggestions];
         });
@@ -202,8 +200,7 @@ final class DiningController
             return $this->db->transaction(function () use ($data, $p) {
                 $table = $this->publicTable($p['token'], true);
                 $tenant = (int) $table['tenant_id'];
-                $session = $this->db->fetchOne('SELECT * FROM dining_sessions WHERE table_id = ? AND closed_at IS NULL', [$table['id']]);
-                if (!$session) throw new \DomainException('Ask the staff to open your table before ordering.');
+                $session = $this->requireOpenSession($table, (string) ($data['access_code'] ?? ''));
                 $previous = $this->db->fetchOne('SELECT receipt_token FROM dining_orders WHERE session_id = ? AND request_key = ?', [$session['id'], $data['request_key']]);
                 if ($previous) return $previous;
                 $subtotal = 0;
@@ -280,5 +277,21 @@ final class DiningController
             $row['items'] = $this->orders->getItems((int) $row['id']); unset($row['id']);
             return $row;
         });
+    }
+
+    /** @param array<string, mixed> $table */
+    private function requireOpenSession(array $table, string $accessCode): array
+    {
+        $session = $this->db->fetchOne(
+            'SELECT * FROM dining_sessions WHERE table_id = ? AND closed_at IS NULL',
+            [$table['id']],
+        );
+        if ($session === null) {
+            throw new \DomainException('Ask the staff to open your table before ordering.');
+        }
+        if (!preg_match('/^\d{6}$/D', $accessCode) || !hash_equals((string) $session['access_code'], $accessCode)) {
+            throw new \DomainException('Enter the current 6-digit table code shown by the staff.');
+        }
+        return $session;
     }
 }

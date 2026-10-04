@@ -58,6 +58,8 @@ use App\Modules\Order\Controller\CheckoutController;
 use App\Modules\Order\Controller\OrderController;
 use App\Modules\Order\Controller\AdminOrderController;
 use App\Modules\Order\Controller\AdminPosController;
+use App\Modules\Order\Controller\MealSessionController;
+use App\Modules\Order\Service\MealSessionService;
 use App\Modules\Order\Service\OrderManagementService;
 use App\Modules\Payment\Repository\PaymentRepository;
 use App\Modules\Payment\Repository\RefundRepository;
@@ -450,6 +452,7 @@ final class Application
             $this->container->get(CouponRepository::class),
             $this->container->get(AdminRepository::class),
             $this->container->get(NotificationService::class),
+            $this->container->get(MealSessionService::class),
         ));
 
         $this->container->singleton(CheckoutController::class, fn () => new CheckoutController(
@@ -538,6 +541,13 @@ final class Application
             $this->container->get(VariantRepository::class),
             $this->container->get(CustomerRepository::class),
             $this->container->get(OrderRepository::class),
+        ));
+        $this->container->singleton(MealSessionService::class, fn () => new MealSessionService(
+            $this->container->get(Connection::class),
+        ));
+        $this->container->singleton(MealSessionController::class, fn () => new MealSessionController(
+            $this->container->get(Connection::class),
+            $this->container->get(MealSessionService::class),
         ));
 
         // Notification module
@@ -640,6 +650,17 @@ final class Application
             $this->container->get(Connection::class),
             (int) $this->container->get(Config::class)->get('RATE_LIMIT_MAX', '120'),
             (int) $this->container->get(Config::class)->get('RATE_LIMIT_WINDOW', '60'),
+        ));
+        $this->container->singleton('middleware.rate_limit', fn () => $this->container->get(RateLimitMiddleware::class));
+        $this->container->singleton('middleware.rate_limit.auth', fn () => new RateLimitMiddleware(
+            $this->container->get(Connection::class),
+            10,
+            300,
+        ));
+        $this->container->singleton('middleware.rate_limit.dining', fn () => new RateLimitMiddleware(
+            $this->container->get(Connection::class),
+            30,
+            300,
         ));
 
         $this->container->singleton('middleware.error_monitoring', fn () => new ErrorMonitoringMiddleware());

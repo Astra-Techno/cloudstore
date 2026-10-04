@@ -174,6 +174,7 @@ final class PlatformAdminController
             'drivers' => true,
             'payments_online' => false,
             'loyalty' => false,
+            'meal_sessions' => in_array($data['business_type'], ['home_kitchen', 'cloud_kitchen', 'catering'], true),
             'reviews' => false,
         ];
         $this->capabilityRepo->setMany($tenant->id, $defaultCapabilities);

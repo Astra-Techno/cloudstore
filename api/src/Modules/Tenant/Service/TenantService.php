@@ -166,8 +166,9 @@ final class TenantService
                 'combos' => true,
                 'reviews' => true,
             ]),
-            'home_kitchen' => array_merge($base, [
+            'home_kitchen', 'cloud_kitchen', 'catering' => array_merge($base, [
                 'scheduled_order' => true,
+                'meal_sessions' => true,
                 'limited_quantity' => true,
             ]),
             'bakery', 'sweet_shop' => array_merge($base, [

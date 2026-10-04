@@ -68,6 +68,6 @@ final class RateLimitMiddleware
             return 'user:' . $request->authClaims['sub'];
         }
 
-        return 'ip:' . ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+        return 'ip:' . $request->ip();
     }
 }
