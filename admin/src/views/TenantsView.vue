@@ -534,8 +534,9 @@ onMounted(load)
               </select>
             </div>
             <div>
-              <label class="block text-xs font-bold text-gray-500 mb-1">Email</label>
+              <label class="block text-xs font-bold text-gray-500 mb-1">Contact Email</label>
               <input v-model="editForm.contact_email" class="w-full border rounded-lg px-3 py-2" />
+              <p v-if="selectedTenant?.owner_email" class="text-xs text-gray-400 mt-1">Admin login: {{ selectedTenant.owner_email }}</p>
             </div>
             <div>
               <label class="block text-xs font-bold text-gray-500 mb-1">Phone</label>
