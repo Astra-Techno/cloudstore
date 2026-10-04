@@ -54,12 +54,18 @@ final class PlatformAdminController
             // Get capabilities
             $t['capabilities'] = $this->capabilityRepo->getForTenant($tenant->id);
 
-            // Get admin count
+            // Get admin count + primary admin email
             $row = $this->db->fetchOne(
                 "SELECT COUNT(*) as cnt FROM admins WHERE tenant_id = ? AND deleted_at IS NULL",
                 [$tenant->id]
             );
             $t['admin_count'] = (int) $row['cnt'];
+            $owner = $this->db->fetchOne(
+                "SELECT name, email FROM admins WHERE tenant_id = ? AND role = 'tenant_owner' AND deleted_at IS NULL ORDER BY id LIMIT 1",
+                [$tenant->id]
+            );
+            $t['owner_name'] = $owner['name'] ?? null;
+            $t['owner_email'] = $owner['email'] ?? null;
 
             // Get order/revenue stats
             $stats = $this->db->fetchOne(

@@ -19,6 +19,8 @@ interface Tenant {
   capabilities: Record<string, boolean>
   commercial_plan: 'branded' | 'marketplace'
   marketplace_status: 'hidden' | 'pending' | 'active' | 'paused'
+  owner_name: string | null
+  owner_email: string | null
 }
 
 interface TenantAdmin {
@@ -406,7 +408,7 @@ onMounted(load)
                   <div class="list-row-mark">{{ t.name.charAt(0) }}</div>
                   <div>
                     <strong>{{ t.name }}</strong>
-                    <small>{{ t.slug }} &middot; {{ t.contact_email }}</small>
+                    <small>{{ t.slug }} &middot; {{ t.owner_email || t.contact_email }}</small>
                   </div>
                 </div>
               </td>
