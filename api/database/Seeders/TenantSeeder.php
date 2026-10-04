@@ -31,7 +31,7 @@ final class TenantSeeder
             'business_type' => 'meat_shop',
             'status' => 'active',
             'contact_phone' => '+919876543210',
-            'contact_email' => 'jeyam@example.com',
+            'contact_email' => 'jeyam-mutton@cloudstore.com',
             'address' => '123 Main Street, Chennai',
             'configuration' => ['delivery' => ['latitude' => 13.0827, 'longitude' => 80.2707]],
         ]);
@@ -56,7 +56,7 @@ final class TenantSeeder
             'business_type' => 'hotel',
             'status' => 'active',
             'contact_phone' => '+919876543211',
-            'contact_email' => 'hotel@example.com',
+            'contact_email' => 'hotel-abc@cloudstore.com',
             'address' => '456 Beach Road, Chennai',
             'configuration' => ['delivery' => ['latitude' => 13.0500, 'longitude' => 80.2500]],
         ]);
@@ -81,7 +81,7 @@ final class TenantSeeder
             'business_type' => 'home_kitchen',
             'status' => 'active',
             'contact_phone' => '+919876543212',
-            'contact_email' => 'amma@example.com',
+            'contact_email' => 'amma-home-kitchen@cloudstore.com',
             'address' => '789 Lake View, Chennai',
             'configuration' => ['delivery' => ['latitude' => 13.0600, 'longitude' => 80.2200]],
         ]);
