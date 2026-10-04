@@ -97,6 +97,7 @@ const allCapabilities = [
   { key: 'drivers', label: 'Fleet / Drivers' },
   { key: 'payments_online', label: 'Online Payments' },
   { key: 'loyalty', label: 'Loyalty Program' },
+  { key: 'meal_sessions', label: 'Meal Sessions & Preorders' },
   { key: 'reviews', label: 'Reviews & Ratings' },
 ]
 

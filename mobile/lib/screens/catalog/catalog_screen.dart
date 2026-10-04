@@ -30,6 +30,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Map<String, String> _productCategories = const {};
   String? _category;
   String _query = '';
+  List<Map<String, dynamic>> _mealSessions = const [];
+  Map<String, dynamic>? _selectedMealSession;
+  Set<String> _favSessionUuids = <String>{};
   bool _loading = true;
   String? _error;
 
@@ -38,6 +41,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     super.initState();
     _load();
     _loadOffers();
+    _loadFavSessions();
   }
 
   @override
@@ -52,6 +56,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
       _error = null;
     });
     try {
+      await _loadMealSessions();
       final response = await ApiClient().get('/catalog');
       final data = response.data;
       if (data['success'] == true && data['data'] is List) {
@@ -94,6 +99,108 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
   }
 
+  bool get _isFavSession => _selectedMealSession != null && _favSessionUuids.contains(_selectedMealSession!['uuid']?.toString());
+
+  Future<void> _toggleFavSession() async {
+    final uuid = _selectedMealSession?['uuid']?.toString();
+    if (uuid == null) return;
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) { context.push('/login'); return; }
+    try {
+      final response = await ApiClient().post('/meal-sessions/$uuid/favourite');
+      final fav = response.data['data']?['favourited'] == true;
+      if (mounted) setState(() { if (fav) _favSessionUuids.add(uuid); else _favSessionUuids.remove(uuid); });
+    } catch (_) {}
+  }
+
+  Future<void> _loadFavSessions() async {
+    try {
+      final auth = context.read<AuthProvider>();
+      if (!auth.isAuthenticated) return;
+      final response = await ApiClient().get('/meal-sessions/favourites');
+      final data = response.data['data'];
+      if (data is List && mounted) setState(() => _favSessionUuids = data.map((e) => e.toString()).toSet());
+    } catch (_) {}
+  }
+
+  Future<void> _loadMealSessions() async {
+    try {
+      final response = await ApiClient().get('/meal-sessions');
+      final raw = response.data['data'];
+      if (raw is! List) return;
+      final sessions =
+          raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      if (!mounted) return;
+      Map<String, dynamic>? selected;
+      final cart = context.read<CartProvider>();
+      for (final session in sessions) {
+        if (session['accepting_orders'] == true &&
+            session['uuid'] == cart.mealSessionUuid &&
+            session['service_date'] == cart.serviceDate) selected = session;
+      }
+      if (selected == null) {
+        for (final session in sessions) {
+          if (session['accepting_orders'] == true) {
+            selected = session;
+            break;
+          }
+        }
+      }
+      if (selected != null) {
+        cart.selectMealSession(
+            uuid: selected['uuid'].toString(),
+            date: selected['service_date'].toString(),
+            name: selected['name'].toString(),
+            productUuids: (selected['product_uuids'] as List? ?? const [])
+                .map((e) => e.toString()));
+      } else if (sessions.isNotEmpty) {
+        cart.clearMealSessionSelection();
+      }
+      if (mounted)
+        setState(() {
+          _mealSessions = sessions;
+          _selectedMealSession = selected;
+        });
+    } catch (_) {
+      // Stores without meal sessions continue to use the normal catalog.
+    }
+  }
+
+  Future<void> _selectMealSession(Map<String, dynamic> session) async {
+    if (session['accepting_orders'] != true) return;
+    final cart = context.read<CartProvider>();
+    if (!cart.isEmpty &&
+        (cart.mealSessionUuid != session['uuid'] ||
+            cart.serviceDate != session['service_date'])) {
+      final clear = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                  title: const Text('Start a different meal order?'),
+                  content: const Text(
+                      'Items already in your cart belong to another meal session and must be cleared.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Keep cart')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Clear and switch'))
+                  ]));
+      if (clear != true || !await cart.clearCart()) return;
+    }
+    if (!mounted) return;
+    cart.selectMealSession(
+        uuid: session['uuid'].toString(),
+        date: session['service_date'].toString(),
+        name: session['name'].toString(),
+        productUuids: (session['product_uuids'] as List? ?? const [])
+            .map((e) => e.toString()));
+    setState(() {
+      _selectedMealSession = session;
+      _category = null;
+    });
+  }
+
   Future<void> _loadOffers() async {
     try {
       final response = await ApiClient().get('/offers');
@@ -116,8 +223,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   List<Product> get _visible {
     final term = _query.trim().toLowerCase();
+    final allowed = _selectedMealSession?['product_uuids'] is List
+        ? Set<String>.from((_selectedMealSession!['product_uuids'] as List)
+            .map((e) => e.toString()))
+        : null;
     return _products
         .where((product) =>
+            (allowed == null || allowed.contains(product.uuid)) &&
             (_category == null ||
                 _productCategories[product.uuid] == _category) &&
             (term.isEmpty ||
@@ -266,6 +378,104 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                             BorderRadius.circular(16)),
                                   )),
                             ])))),
+            if (_mealSessions.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 0, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Text('Choose your meal',
+                            style: TextStyle(
+                                fontSize: 17, fontWeight: FontWeight.w800)),
+                        const Spacer(),
+                        if (_selectedMealSession != null)
+                          TextButton.icon(
+                            icon: Icon(_isFavSession ? Icons.notifications_active : Icons.notifications_none_rounded, size: 16),
+                            label: Text(_isFavSession ? 'Reminded' : 'Remind me', style: const TextStyle(fontSize: 12)),
+                            onPressed: _toggleFavSession,
+                          ),
+                      ]),
+                      const SizedBox(height: 9),
+                      SizedBox(
+                        height: 92,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.only(right: 18),
+                          itemCount: _mealSessions.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 9),
+                          itemBuilder: (_, index) {
+                            final session = _mealSessions[index];
+                            final selected = _selectedMealSession?['uuid'] ==
+                                    session['uuid'] &&
+                                _selectedMealSession?['service_date'] ==
+                                    session['service_date'];
+                            final accepting =
+                                session['accepting_orders'] == true;
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: accepting
+                                  ? () => _selectMealSession(session)
+                                  : null,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: 170,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? primary
+                                      : (accepting
+                                          ? Colors.white
+                                          : Colors.grey.shade100),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                      color: selected
+                                          ? primary
+                                          : Colors.grey.shade200),
+                                ),
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                          '${session['name']} · ${session['service_date']}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              color: selected
+                                                  ? Colors.white
+                                                  : Colors.black87)),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                          '${session['service_start']}–${session['service_end']}',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: selected
+                                                  ? Colors.white70
+                                                  : Colors.grey.shade700)),
+                                      const Spacer(),
+                                      Text(session['message']?.toString() ?? '',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: selected
+                                                  ? Colors.white
+                                                  : (accepting
+                                                      ? primary
+                                                      : Colors.grey.shade600))),
+                                    ]),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (_promotions.isNotEmpty || _bundles.isNotEmpty)
               SliverToBoxAdapter(
                   child:
@@ -362,7 +572,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
             else if (_visible.isEmpty)
               SliverFillRemaining(child: _EmptyCatalog(onRetry: () {
                 _search.clear();
-                setState(() { _query = ''; _category = null; });
+                setState(() {
+                  _query = '';
+                  _category = null;
+                });
                 return _load();
               }))
             else
@@ -370,9 +583,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 108),
                   sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                          (context, index) => StaggeredEntrance(
-                              index: index,
-                              child: _ProductRow(product: _visible[index])),
+                          (context, index) {
+                            final product = _visible[index];
+                            final overrides = _selectedMealSession?['product_overrides'];
+                            final priceOverride = (overrides is Map && overrides[product.uuid] is Map)
+                                ? (overrides[product.uuid]['price'] as num?)?.toInt()
+                                : null;
+                            return StaggeredEntrance(
+                                index: index,
+                                child: _ProductRow(product: product, sessionPrice: priceOverride));
+                          },
                           childCount: _visible.length))),
           ]),
     );
@@ -576,7 +796,8 @@ class _StoreAvailabilityPill extends StatelessWidget {
 
 class _ProductRow extends StatefulWidget {
   final Product product;
-  const _ProductRow({required this.product});
+  final int? sessionPrice;
+  const _ProductRow({required this.product, this.sessionPrice});
 
   @override
   State<_ProductRow> createState() => _ProductRowState();
@@ -632,7 +853,9 @@ class _ProductRowState extends State<_ProductRow> {
     final primary = Theme.of(context).colorScheme.primary;
     final product = widget.product;
     final store = context.watch<BootstrapProvider>();
-    final isAvailable = store.isAcceptingOrders && product.isAvailable;
+    final isAvailable = (store.isAcceptingOrders ||
+            context.watch<CartProvider>().mealSessionUuid != null) &&
+        product.isAvailable;
     final accent = primary;
     final tint = AppTheme.primaryLight(primary);
     final image = product.images.where((item) => item.isPrimary).firstOrNull ??
@@ -691,11 +914,13 @@ class _ProductRowState extends State<_ProductRow> {
                                           fontSize: 12))),
                             const SizedBox(height: 8),
                             PriceText(
-                                paise: product.effectivePrice,
-                                showStrike: product.salePrice != null,
-                                strikePrice: product.salePrice != null
-                                    ? product.basePrice
-                                    : null),
+                                paise: widget.sessionPrice ?? product.effectivePrice,
+                                showStrike: widget.sessionPrice != null || product.salePrice != null,
+                                strikePrice: widget.sessionPrice != null
+                                    ? product.effectivePrice
+                                    : product.salePrice != null
+                                        ? product.basePrice
+                                        : null),
                             if (product.stockMode == 'limited_stock' &&
                                 (product.stockQuantity ?? 0) <= 5)
                               Padding(

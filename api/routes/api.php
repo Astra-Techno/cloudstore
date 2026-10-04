@@ -28,6 +28,7 @@ use App\Modules\Admin\Controller\AdminSettingsController;
 use App\Modules\Admin\Controller\AdminDriverController;
 use App\Modules\Admin\Controller\AnalyticsController;
 use App\Modules\Order\Controller\AdminPosController;
+use App\Modules\Order\Controller\MealSessionController;
 use App\Modules\Offer\Controller\AdminOfferController;
 use App\Modules\Offer\Controller\PublicOfferController;
 use App\Modules\Platform\Controller\PlatformAdminController;
@@ -49,14 +50,14 @@ return function (Router $router): void {
     // API v1
     $router->group('/api/v1', [], function (Router $router) {
         $router->get('/dining/menu/{token}', [DiningController::class, 'menu']);
-        $router->post('/dining/menu/{token}/identify', [DiningController::class, 'identify']);
-    $router->post('/dining/menu/{token}/orders', [DiningController::class, 'placeOrder']);
+        $router->post('/dining/menu/{token}/identify', [DiningController::class, 'identify'], ['middleware.rate_limit.dining']);
+        $router->post('/dining/menu/{token}/orders', [DiningController::class, 'placeOrder'], ['middleware.rate_limit.dining']);
         $router->get('/dining/receipts/{token}', [DiningController::class, 'receipt']);
         // Bootstrap
         $router->post('/app/bootstrap', [BootstrapController::class, 'bootstrap']);
 
         // Admin auth
-        $router->post('/admin/login', [AdminAuthController::class, 'login']);
+        $router->post('/admin/login', [AdminAuthController::class, 'login'], ['middleware.rate_limit.auth']);
         $router->get('/admin/me', [AdminAuthController::class, 'me'], ['middleware.auth.admin']);
         $router->post('/admin/change-password', [AdminAuthController::class, 'changePassword'], ['middleware.auth.admin']);
 
@@ -96,6 +97,15 @@ return function (Router $router): void {
 
             // Counter / POS
             $router->post('/pos/checkout', [AdminPosController::class, 'checkout']);
+            $router->get('/meal-sessions', [MealSessionController::class, 'adminList']);
+            $router->post('/meal-sessions', [MealSessionController::class, 'create']);
+            $router->put('/meal-sessions/{uuid}', [MealSessionController::class, 'update']);
+            $router->delete('/meal-sessions/{uuid}', [MealSessionController::class, 'delete']);
+            $router->post('/meal-sessions/{uuid}/action', [MealSessionController::class, 'quickAction']);
+            $router->post('/meal-sessions/{uuid}/exceptions', [MealSessionController::class, 'addException']);
+            $router->delete('/meal-sessions/{uuid}/exceptions/{date}', [MealSessionController::class, 'removeException']);
+            $router->get('/meal-sessions/production', [MealSessionController::class, 'production']);
+            $router->get('/meal-sessions/{uuid}/packing', [MealSessionController::class, 'packingList']);
 
             // Catalog
             $router->get('/categories', [AdminCatalogController::class, 'listCategories']);
@@ -233,11 +243,11 @@ return function (Router $router): void {
         // Public/customer routes (tenant-scoped via X-App-Token)
         $router->group('', [TenantMiddleware::class], function (Router $router) {
             // Auth
-            $router->post('/customer/otp/request', [CustomerAuthController::class, 'requestOtp']);
-            $router->post('/customer/otp/verify', [CustomerAuthController::class, 'verifyOtp']);
+            $router->post('/customer/otp/request', [CustomerAuthController::class, 'requestOtp'], ['middleware.rate_limit.auth']);
+            $router->post('/customer/otp/verify', [CustomerAuthController::class, 'verifyOtp'], ['middleware.rate_limit.auth']);
             $router->get('/customer/me', [CustomerAuthController::class, 'me'], ['middleware.auth.customer']);
             $router->put('/customer/me', [CustomerAuthController::class, 'updateProfile'], ['middleware.auth.customer']);
-            $router->post('/driver/login', [DriverAuthController::class, 'login']);
+            $router->post('/driver/login', [DriverAuthController::class, 'login'], ['middleware.rate_limit.auth']);
             $router->get('/driver/me', [DriverAuthController::class, 'me'], ['middleware.auth.driver']);
             $router->post('/driver/me/fcm-token', [DriverAuthController::class, 'saveFcmToken'], ['middleware.auth.driver']);
 
@@ -246,6 +256,9 @@ return function (Router $router): void {
 
             // Public catalog
             $router->get('/offers', [PublicOfferController::class, 'activeOffers']);
+            $router->get('/meal-sessions', [MealSessionController::class, 'publicList']);
+            $router->post('/meal-sessions/{uuid}/favourite', [MealSessionController::class, 'toggleFavourite'], ['middleware.auth.customer']);
+            $router->get('/meal-sessions/favourites', [MealSessionController::class, 'myFavourites'], ['middleware.auth.customer']);
             $router->get('/catalog', [PublicCatalogController::class, 'catalog']);
             $router->get('/categories', [PublicCatalogController::class, 'categories']);
             $router->get('/categories/{uuid}/products', [PublicCatalogController::class, 'productsByCategory']);

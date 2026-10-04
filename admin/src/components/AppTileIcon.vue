@@ -14,7 +14,7 @@ const paths: Record<string, string> = {
   Refunds: 'M3 10a8 8 0 111 8 M3 4v6h6 M12 8v8 M15 9h-4a2 2 0 000 4h2a2 2 0 010 4h-4',
   'All apps': 'M3 3h4v4H3z M10 3h4v4h-4z M17 3h4v4h-4z M3 10h4v4H3z M10 10h4v4h-4z M17 10h4v4h-4z M3 17h4v4H3z M10 17h4v4h-4z M17 17h4v4h-4z',
 }
-const aliases: Record<string, string> = { Dashboard: 'Overview', Orders: 'Sales', Products: 'Catalog', Categories: 'All apps', 'Stock alerts': 'Catalog', Offers: 'Marketing', Coupons: 'Marketing', Combos: 'Catalog', Customers: 'People', Drivers: 'People', Support: 'People', 'Driver earnings': 'Reports', 'Store settings': 'Manage', Settings: 'Manage', 'Platform settings': 'Manage', 'Audit log': 'Sales', 'Delivery zones': 'Tables', 'Mobile apps': 'All apps', Tenants: 'People', 'Fee ledger': 'Reports' }
+const aliases: Record<string, string> = { Dashboard: 'Overview', Orders: 'Sales', Products: 'Catalog', Categories: 'All apps', 'Stock alerts': 'Catalog', 'Meal sessions': 'Counter', Offers: 'Marketing', Coupons: 'Marketing', Combos: 'Catalog', Customers: 'People', Drivers: 'People', Support: 'People', 'Driver earnings': 'Reports', 'Store settings': 'Manage', Settings: 'Manage', 'Platform settings': 'Manage', 'Audit log': 'Sales', 'Delivery zones': 'Tables', 'Mobile apps': 'All apps', Tenants: 'People', 'Fee ledger': 'Reports' }
 const path = computed(() => paths[aliases[props.name] || props.name] || paths['All apps'])
 </script>
 <template><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="path"/></svg></template>

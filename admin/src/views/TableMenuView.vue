@@ -17,6 +17,7 @@ let timer: ReturnType<typeof setInterval>
 
 // Phone identification
 const phone = ref('')
+const accessCode = ref('')
 const identified = ref(false)
 const identifying = ref(false)
 const customerName = ref('')
@@ -44,9 +45,10 @@ async function load() {
 async function identify() {
   const cleaned = phone.value.replace(/\D/g, '')
   if (cleaned.length < 10) { error.value = 'Enter a valid 10-digit mobile number.'; return }
+  if (!/^\d{6}$/.test(accessCode.value)) { error.value = 'Enter the 6-digit table code shown by the staff.'; return }
   identifying.value = true; error.value = ''
   try {
-    const { data } = await api.post(`/dining/menu/${token}/identify`, { phone: cleaned })
+    const { data } = await api.post(`/dining/menu/${token}/identify`, { phone: cleaned, access_code: accessCode.value })
     if (data.data) {
       customerName.value = data.data.name || ''
       suggestions.value = data.data.suggestions || []
@@ -87,7 +89,7 @@ async function track() {
 async function place() {
   busy.value = true; error.value = ''
   try {
-    const { data } = await api.post(`/dining/menu/${token}/orders`, { request_key: requestKey, notes: notes.value, items: cart.value.map(({product_uuid,variant_uuid,addon_ids,quantity}) => ({product_uuid,variant_uuid,addon_ids,quantity})) })
+    const { data } = await api.post(`/dining/menu/${token}/orders`, { access_code: accessCode.value, request_key: requestKey, notes: notes.value, items: cart.value.map(({product_uuid,variant_uuid,addon_ids,quantity}) => ({product_uuid,variant_uuid,addon_ids,quantity})) })
     if (!receiptTokens.value.includes(data.data.receipt_token)) receiptTokens.value.push(data.data.receipt_token)
     try { localStorage.setItem(`dining:${token}`, JSON.stringify(receiptTokens.value.slice(-20))) } catch { /* Private browsing may disallow storage. */ }
     cart.value = []; notes.value = ''; requestKey = crypto.randomUUID(); await track()
@@ -97,7 +99,7 @@ async function place() {
 onMounted(async () => {
   try { const saved = JSON.parse(localStorage.getItem(`dining:${token}`) || '[]'); if (Array.isArray(saved)) receiptTokens.value = saved.filter((s: any) => typeof s === 'string' && /^[a-f0-9]{64}$/.test(s)).slice(-20) } catch { /* Ignore invalid local cache. */ }
   // Restore saved phone
-  try { const savedPhone = localStorage.getItem(`dining-phone:${token}`); if (savedPhone && /^\d{10,}$/.test(savedPhone)) { phone.value = savedPhone; identified.value = true } } catch { /* ignore */ }
+  try { const savedPhone = localStorage.getItem(`dining-phone:${token}`); if (savedPhone && /^\d{10,}$/.test(savedPhone)) phone.value = savedPhone } catch { /* ignore */ }
   await load(); await track(); timer = setInterval(() => { if (!document.hidden) track() }, 8000)
 })
 onUnmounted(() => clearInterval(timer))
@@ -116,14 +118,15 @@ onUnmounted(() => clearInterval(timer))
 
       <!-- Phone identification gate -->
       <section v-if="!identified" class="phone-gate">
-        <h2>Enter your mobile number</h2>
-        <p>We'll remember your preferences for faster ordering.</p>
+        <h2>Join this table</h2>
+        <p>Enter the current table code from the staff, then your mobile number.</p>
         <div class="phone-form">
+          <input v-model="accessCode" class="access-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit table code" :disabled="identifying">
           <div class="phone-input-row">
             <span class="phone-prefix">+91</span>
             <input v-model="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" :disabled="identifying" @keyup.enter="identify">
           </div>
-          <button class="primary" :disabled="identifying || phone.replace(/\D/g, '').length < 10" @click="identify">{{ identifying ? 'Checking…' : 'Continue' }}</button>
+          <button class="primary" :disabled="identifying || phone.replace(/\D/g, '').length < 10 || !/^\d{6}$/.test(accessCode)" @click="identify">{{ identifying ? 'Checking…' : 'Continue' }}</button>
         </div>
       </section>
 
@@ -210,6 +213,7 @@ onUnmounted(() => clearInterval(timer))
 <style scoped>
 .guest-menu{--brand:#e23744;max-width:760px;margin:auto;padding:28px 20px 60px;background:white;min-height:100vh;color:#172033;font-family:Inter,system-ui,sans-serif}.eyebrow{font-size:11px;letter-spacing:2px;font-weight:750;color:var(--brand)}h1{font-size:30px;font-weight:800;margin:8px 0}h2{font-size:18px;font-weight:750}header p{color:#64748b;margin-bottom:12px}.table-pill{display:inline-block;background:#fff1f2;color:var(--brand);border-radius:30px;padding:9px 14px;font-weight:650}.search{width:100%;background:#f8fafc;padding:15px;border-radius:14px;border:1px solid #e2e8f0;margin:24px 0 12px}nav{display:flex;gap:8px;overflow:auto;padding-bottom:16px}button{cursor:pointer;border:1px solid #e2e8f0;border-radius:10px;padding:9px 14px;white-space:nowrap}button:disabled{opacity:.45;cursor:not-allowed}nav .active,.primary{background:var(--brand);color:white;border-color:var(--brand)}.products article{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:22px 0;border-bottom:1px solid #eef2f6}.products small{color:#64748b}.products p{color:#64748b;margin:6px 0 10px}.products article>div+.product-action button{color:var(--brand);font-weight:750}.product-action{position:relative;flex-shrink:0}.item-badge{position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--brand);color:white;font-size:11px;font-weight:800;z-index:1}.unavailable{opacity:.5}.cart,.receipts{margin-top:28px;padding:20px;background:#f8fafc;border-radius:20px}.cart small,.cart span,.receipts span{display:block}.cart-count{font-size:14px;font-weight:600;color:var(--brand)}.quantity{display:flex;align-items:center;gap:12px}.cart label{display:block;margin:14px 0;font-weight:600}.cart input,.cart textarea{display:block;width:100%;margin-top:8px;padding:12px;border:1px solid #ddd;border-radius:10px;background:white}.cart p{margin:14px 0;color:#64748b;font-size:14px}.primary{width:100%;padding:14px;font-weight:700;font-size:16px}.error,.notice{padding:16px;background:#fff1f2;color:#9f1239;border-radius:12px;margin:16px 0}.receipts article{margin:14px 0}.receipts span{font-size:12px;color:#64748b}.receipts strong{text-transform:capitalize;color:var(--brand)}.scrim{position:fixed;inset:0;background:#0007;display:flex;align-items:end;justify-content:center;z-index:100}.options{position:relative;background:white;padding:28px;width:min(100%,600px);border-radius:24px 24px 0 0;max-height:85vh;overflow:auto}.options fieldset{margin:22px 0}.options label{display:flex;gap:12px;margin:12px 0}.close{float:right}.options legend{font-weight:700}
 .phone-gate{text-align:center;padding:32px 0}.phone-gate h2{margin-bottom:6px}.phone-gate p{color:#64748b;font-size:14px;margin-bottom:20px}.phone-form{max-width:320px;margin:auto}.phone-input-row{display:flex;align-items:center;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:14px}.phone-prefix{padding:12px;background:#f8fafc;color:#64748b;font-weight:700;border-right:1px solid #e2e8f0}.phone-input-row input{flex:1;border:0;padding:12px;outline:none;font-size:16px}
+.access-code{width:100%;padding:14px;margin-bottom:12px;border:1px solid #e2e8f0;border-radius:12px;text-align:center;font-size:20px;font-weight:800;letter-spacing:.35em;outline:none}.access-code:focus{border-color:var(--brand)}
 .welcome-back{padding:14px 18px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;color:#166534;font-weight:700;margin:16px 0}
 .suggestions{margin:20px 0}.suggestions h3{font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}.suggestion-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}.suggestion-chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;background:white;white-space:nowrap}.suggestion-chip strong{font-size:13px;color:#172033}.suggestion-chip small{font-size:11px;color:#64748b}
 @media(prefers-reduced-motion:no-preference){.receipts article{animation:arrive .25s ease-out}@keyframes arrive{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}}

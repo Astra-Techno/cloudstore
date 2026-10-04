@@ -16,6 +16,7 @@ use App\Modules\Offer\Service\DiscountCalculator;
 use App\Modules\Offer\Repository\CouponRepository;
 use App\Modules\Order\Domain\OrderStatus;
 use App\Modules\Order\Exception\InsufficientStockException;
+use App\Modules\Order\Exception\MealSessionCapacityException;
 use App\Modules\Order\Repository\OrderRepository;
 use App\Modules\Tenant\Domain\TenantContext;
 use App\Modules\Notification\Service\NotificationService;
@@ -35,6 +36,7 @@ final class CheckoutService
         private readonly CouponRepository $couponRepo,
         private readonly AdminRepository $adminRepo,
         private readonly NotificationService $notificationService,
+        private readonly MealSessionService $mealSessionService,
     ) {
     }
 
@@ -47,7 +49,9 @@ final class CheckoutService
         $tenant = TenantContext::get();
         $tenantConfig = $tenant->configuration ?? [];
 
-        if (!$this->isStoreOpen($tenantConfig, $tenant->timezone)) {
+        // A valid meal-session window may accept preorders while the physical
+        // kitchen is closed. Normal unscheduled orders still follow store hours.
+        if (empty($input['meal_session_uuid']) && !$this->isStoreOpen($tenantConfig, $tenant->timezone)) {
             return ['error' => 'This store is currently closed for orders.', 'code' => 'STORE_CLOSED'];
         }
         $cart = $this->cartRepo->findActiveByCustomer($customerId, $tenantId);
@@ -73,6 +77,20 @@ final class CheckoutService
             if ($item['variant_id'] !== null && $item['variant_status'] !== 'active') {
                 return ['error' => "Variant '{$item['variant_name']}' is no longer available.", 'code' => 'VARIANT_UNAVAILABLE'];
             }
+        }
+
+        $mealSession = null;
+        $mealAvailability = null;
+        if ($this->mealSessionService->hasEnabledSessions($tenantId)) {
+            $sessionUuid = trim((string) ($input['meal_session_uuid'] ?? ''));
+            $serviceDate = trim((string) ($input['service_date'] ?? ''));
+            if ($sessionUuid === '' || $serviceDate === '') {
+                return ['error' => 'Choose a meal session and service date.', 'code' => 'MEAL_SESSION_REQUIRED'];
+            }
+            $selection = $this->mealSessionService->validateSelection($tenantId, $tenant->timezone, $sessionUuid, $serviceDate, $items);
+            if (isset($selection['error'])) return $selection;
+            $mealSession = $selection['session'];
+            $mealAvailability = $selection['availability'];
         }
 
         // Fulfilment and payment are merchant-owned choices, not client hints.
@@ -188,6 +206,11 @@ final class CheckoutService
             $deliveryFee = (int) ($tenantConfig['delivery_charge_fixed'] ?? 0);
         }
 
+        // Session-specific delivery fee override
+        if ($orderType === 'delivery' && $mealSession !== null && $mealSession['delivery_fee_override'] !== null) {
+            $deliveryFee = (int) $mealSession['delivery_fee_override'];
+        }
+
         // Calculate service charge
         $serviceChargePercent = (float) ($tenantConfig['service_charge_percent'] ?? 0);
         $serviceCharge = $serviceChargePercent > 0
@@ -221,8 +244,11 @@ final class CheckoutService
             $result = $this->db->transaction(function () use (
                 $tenantId, $customerId, $cart, $address, $addressSnapshot,
                 $subtotal, $deliveryFee, $serviceCharge, $taxAmount, $total, $discountAmount, $couponCode, $discountResult,
-                $orderType, $paymentMethod, $initialStatus, $orderItems, $input, $items
+                $orderType, $paymentMethod, $initialStatus, $orderItems, $input, $items, $mealSession, $mealAvailability
             ) {
+                if ($mealSession !== null && !$this->mealSessionService->lockAndCheckCapacity($tenantId, (int) $mealSession['id'], (string) $mealAvailability['service_date'])) {
+                    throw new MealSessionCapacityException('This meal session has reached capacity.');
+                }
                 foreach ($items as $item) {
                     $stockMode = $item['variant_id'] !== null ? $item['variant_stock_mode'] : $item['stock_mode'];
                     if ($stockMode !== 'limited_stock') {
@@ -259,7 +285,9 @@ final class CheckoutService
                 'payment_status' => $paymentMethod === 'cash_on_delivery' ? 'cod' : 'pending',
                 'notes' => $input['notes'] ?? null,
                 'address_snapshot' => $addressSnapshot,
-                'scheduled_at' => $input['scheduled_at'] ?? null,
+                'scheduled_at' => $mealAvailability !== null ? $mealAvailability['service_date'] . ' ' . $mealAvailability['service_start'] . ':00' : ($input['scheduled_at'] ?? null),
+                'meal_session_id' => $mealSession['id'] ?? null,
+                'service_date' => $mealAvailability['service_date'] ?? null,
             ]);
 
             // Record coupon usage
@@ -319,6 +347,8 @@ final class CheckoutService
                 'error' => "Insufficient stock for '{$exception->getProductName()}'.",
                 'code' => 'INSUFFICIENT_STOCK',
             ];
+        } catch (MealSessionCapacityException $exception) {
+            return ['error' => $exception->getMessage(), 'code' => 'MEAL_SESSION_FULL'];
         }
     }
 

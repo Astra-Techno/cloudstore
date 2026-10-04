@@ -44,6 +44,8 @@ export interface Order {
   notes: string | null
   address_snapshot: string
   scheduled_at: string | null
+  meal_session_name?: string | null
+  service_date?: string | null
   service_charge: number
   dining_table_name?: string | null
   dining_session_id?: number | null

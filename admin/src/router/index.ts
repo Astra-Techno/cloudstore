@@ -48,6 +48,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/meal-sessions',
+      name: 'meal-sessions',
+      component: () => import('@/views/MealSessionsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/products/:uuid',
       name: 'product-edit',
       component: () => import('@/views/ProductEditView.vue'),

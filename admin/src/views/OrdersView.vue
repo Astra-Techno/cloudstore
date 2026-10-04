@@ -553,6 +553,9 @@ onUnmounted(() => {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 {{ formatScheduledTime(order.scheduled_at!) }}
               </span>
+              <span v-if="order.meal_session_name" class="ob-badge ob-badge--scheduled" title="Meal session preorder">
+                {{ order.meal_session_name }}<template v-if="order.service_date"> · {{ order.service_date }}</template>
+              </span>
               <!-- Feature 3: High-value -->
               <span v-if="isHighValue(order)" class="ob-badge ob-badge--high-value" title="High-value order">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
