@@ -10,6 +10,7 @@ use Database\Seeders\AdminSeeder;
 use Database\Seeders\CatalogSeeder;
 use Database\Seeders\DeliveryZoneSeeder;
 use Database\Seeders\OfferSeeder;
+use Database\Seeders\AnnapurnaSeeder;
 
 final class SeedCommand
 {
@@ -64,6 +65,12 @@ final class SeedCommand
         echo "\nSeeding offers:\n";
         $offerSeeder = new OfferSeeder();
         $offerSeeder->run($connection);
+
+        // Annapurna Veg Kitchen (cloud kitchen with meal sessions)
+        echo "\nSeeding Annapurna Veg Kitchen:\n";
+        $annapurnaSeeder = new AnnapurnaSeeder();
+        $annapurna = $annapurnaSeeder->run($connection);
+        echo "  App Token: {$annapurna['app_token']}\n";
 
         echo "\nIMPORTANT: Save these app tokens. They cannot be retrieved later.\n";
         echo "Default admin password: Admin@123\n";
