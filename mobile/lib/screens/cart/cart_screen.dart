@@ -278,7 +278,9 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (!store.isAcceptingOrders || hasUnavailableItems) ...[
+                if ((!store.isAcceptingOrders &&
+                        cart.mealSessionUuid == null) ||
+                    hasUnavailableItems) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
@@ -302,14 +304,18 @@ class _CartScreenState extends State<CartScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: store.isAcceptingOrders && !hasUnavailableItems
+                    onPressed: (store.isAcceptingOrders ||
+                                cart.mealSessionUuid != null) &&
+                            !hasUnavailableItems
                         ? () => context.push('/checkout')
                         : null,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: Text(
-                        store.isAcceptingOrders && !hasUnavailableItems
+                        (store.isAcceptingOrders ||
+                                    cart.mealSessionUuid != null) &&
+                                !hasUnavailableItems
                             ? 'Proceed to Checkout'
                             : 'Ordering unavailable',
                         style: const TextStyle(fontSize: 16)),

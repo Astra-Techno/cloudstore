@@ -16,6 +16,9 @@ class Order {
   final String paymentStatus;
   final String? notes;
   final String? addressSnapshot;
+  final String? scheduledAt;
+  final String? mealSessionName;
+  final String? serviceDate;
   final String createdAt;
   final String updatedAt;
   final List<OrderItem> items;
@@ -37,6 +40,9 @@ class Order {
     required this.paymentStatus,
     this.notes,
     this.addressSnapshot,
+    this.scheduledAt,
+    this.mealSessionName,
+    this.serviceDate,
     required this.createdAt,
     required this.updatedAt,
     this.items = const [],
@@ -60,9 +66,13 @@ class Order {
       paymentStatus: JsonValue.string(json['payment_status'], 'pending'),
       notes: JsonValue.nullableString(json['notes']),
       addressSnapshot: JsonValue.nullableString(json['address_snapshot']),
+      scheduledAt: JsonValue.nullableString(json['scheduled_at']),
+      mealSessionName: JsonValue.nullableString(json['meal_session_name']),
+      serviceDate: JsonValue.nullableString(json['service_date']),
       createdAt: JsonValue.string(json['created_at']),
       updatedAt: JsonValue.string(json['updated_at'] ?? json['created_at']),
-      items: JsonValue.objectList(json['items']).map(OrderItem.fromJson).toList(),
+      items:
+          JsonValue.objectList(json['items']).map(OrderItem.fromJson).toList(),
       statusHistory: JsonValue.objectList(json['status_history'])
           .map(StatusHistoryEntry.fromJson)
           .toList(),
@@ -111,7 +121,6 @@ class OrderItem {
       notes: JsonValue.nullableString(json['notes']),
     );
   }
-
 }
 
 class StatusHistoryEntry {

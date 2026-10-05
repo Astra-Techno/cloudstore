@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/cart_models.dart';
 import '../../services/api_client.dart';
@@ -6,6 +7,7 @@ import '../../services/api_response.dart';
 
 class CartProvider extends ChangeNotifier {
   static const _cacheKey = 'cart';
+  static const _mealSessionCacheKey = 'cart_meal_session';
   static const _cacheTtl = Duration(minutes: 5);
 
   List<CartItem> _items = [];
@@ -13,6 +15,10 @@ class CartProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   final Set<int> _updatingItemIds = <int>{};
+  String? _mealSessionUuid;
+  String? _serviceDate;
+  String? _mealSessionName;
+  Set<String> _mealSessionProductUuids = <String>{};
 
   List<CartItem> get items => List.unmodifiable(_items);
   int get itemCount => _items.fold(0, (total, item) => total + item.quantity);
@@ -21,8 +27,43 @@ class CartProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isEmpty => _items.isEmpty;
   bool isUpdatingItem(int itemId) => _updatingItemIds.contains(itemId);
+  String? get mealSessionUuid => _mealSessionUuid;
+  String? get serviceDate => _serviceDate;
+  String? get mealSessionName => _mealSessionName;
+
+  void selectMealSession(
+      {required String uuid,
+      required String date,
+      required String name,
+      Iterable<String> productUuids = const []}) {
+    _mealSessionUuid = uuid;
+    _serviceDate = date;
+    _mealSessionName = name;
+    _mealSessionProductUuids = productUuids.toSet();
+    unawaited(CacheService.put(
+      _mealSessionCacheKey,
+      {
+        'uuid': uuid,
+        'date': date,
+        'name': name,
+        'product_uuids': productUuids.toList(),
+      },
+      ttl: const Duration(days: 8),
+    ));
+    notifyListeners();
+  }
+
+  void clearMealSessionSelection() {
+    _mealSessionUuid = null;
+    _serviceDate = null;
+    _mealSessionName = null;
+    _mealSessionProductUuids = <String>{};
+    unawaited(CacheService.remove(_mealSessionCacheKey));
+    notifyListeners();
+  }
 
   Future<void> loadCart() async {
+    await _restoreMealSessionSelection();
     _isLoading = true;
     notifyListeners();
     try {
@@ -50,6 +91,29 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _restoreMealSessionSelection() async {
+    if (_mealSessionUuid != null) return;
+    try {
+      final cached = await CacheService.get(_mealSessionCacheKey);
+      if (cached is! Map) return;
+      final value = Map<String, dynamic>.from(cached);
+      final uuid = value['uuid']?.toString();
+      final date = value['date']?.toString();
+      final name = value['name']?.toString();
+      if (uuid == null || uuid.isEmpty || date == null || name == null) return;
+      _mealSessionUuid = uuid;
+      _serviceDate = date;
+      _mealSessionName = name;
+      _mealSessionProductUuids = (value['product_uuids'] is List)
+          ? (value['product_uuids'] as List)
+              .map((item) => item.toString())
+              .toSet()
+          : <String>{};
+    } catch (_) {
+      await CacheService.remove(_mealSessionCacheKey);
+    }
+  }
+
   Future<void> _loadFromCache() async {
     try {
       final cached = await CacheService.get(_cacheKey);
@@ -69,6 +133,12 @@ class CartProvider extends ChangeNotifier {
       int quantity = 1,
       List<int>? addonIds}) async {
     _error = null;
+    if (_mealSessionUuid != null &&
+        !_mealSessionProductUuids.contains(productUuid)) {
+      _error = 'This item is not available in the selected meal session.';
+      notifyListeners();
+      return false;
+    }
     try {
       final payload = <String, dynamic>{
         'product_uuid': productUuid,
@@ -153,7 +223,12 @@ class CartProvider extends ChangeNotifier {
     _error = null;
     _isLoading = false;
     _updatingItemIds.clear();
+    _mealSessionUuid = null;
+    _serviceDate = null;
+    _mealSessionName = null;
+    _mealSessionProductUuids = <String>{};
     CacheService.remove(_cacheKey);
+    CacheService.remove(_mealSessionCacheKey);
     notifyListeners();
   }
 

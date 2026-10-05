@@ -48,8 +48,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         if (!mounted) return;
         setState(() {
           _product = Product.fromJson(data['data']);
-          final availableVariants = _product!.variants
-              .where((variant) => variant.status == 'active');
+          final availableVariants =
+              _product!.variants.where((variant) => variant.status == 'active');
           if (availableVariants.isNotEmpty) {
             _selectedVariant = availableVariants.first;
           }
@@ -85,7 +85,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _addToCart() async {
     final store = context.read<BootstrapProvider>();
-    if (!store.isAcceptingOrders || _product == null || !_product!.isAvailable) {
+    if ((!store.isAcceptingOrders &&
+            context.read<CartProvider>().mealSessionUuid == null) ||
+        _product == null ||
+        !_product!.isAvailable) {
       return;
     }
     final auth = context.read<AuthProvider>();
@@ -120,32 +123,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     setState(() => _adding = false);
 
     if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Added to cart'), duration: Duration(seconds: 1)),
-        );
-        Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Added to cart'), duration: Duration(seconds: 1)),
+      );
+      Navigator.of(context).pop();
     } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(cart.error ?? 'Failed to add')),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(cart.error ?? 'Failed to add')),
+      );
     }
   }
 
   Future<void> _loadReviews() async {
     setState(() => _reviewsLoading = true);
     try {
-      final ratingRes = await ApiClient().get('/products/${widget.uuid}/rating');
+      final ratingRes =
+          await ApiClient().get('/products/${widget.uuid}/rating');
       final ratingData = ratingRes.data;
       if (ratingData['success'] == true && ratingData['data'] != null) {
         if (!mounted) return;
         setState(() {
-          _avgRating = (ratingData['data']['average_rating'] as num?)?.toDouble() ?? 0;
-          _reviewCount = (ratingData['data']['review_count'] as num?)?.toInt() ?? 0;
+          _avgRating =
+              (ratingData['data']['average_rating'] as num?)?.toDouble() ?? 0;
+          _reviewCount =
+              (ratingData['data']['review_count'] as num?)?.toInt() ?? 0;
         });
       }
 
-      final reviewsRes = await ApiClient().get('/products/${widget.uuid}/reviews');
+      final reviewsRes =
+          await ApiClient().get('/products/${widget.uuid}/reviews');
       final reviewsData = reviewsRes.data;
       if (reviewsData['success'] == true && reviewsData['data'] is List) {
         if (!mounted) return;
@@ -173,23 +180,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       showDragHandle: true,
       builder: (sheetCtx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          padding: EdgeInsets.fromLTRB(
+              20, 8, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Write a Review', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const Text('Write a Review',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) => IconButton(
-                  onPressed: () => setSheetState(() => selectedRating = i + 1),
-                  icon: Icon(
-                    i < selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: Colors.amber,
-                    size: 36,
-                  ),
-                )),
+                children: List.generate(
+                    5,
+                    (i) => IconButton(
+                          onPressed: () =>
+                              setSheetState(() => selectedRating = i + 1),
+                          icon: Icon(
+                            i < selectedRating
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: Colors.amber,
+                            size: 36,
+                          ),
+                        )),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -206,22 +220,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: FilledButton(
                   onPressed: () async {
                     try {
-                      final res = await ApiClient().post('/customer/reviews', data: {
+                      final res =
+                          await ApiClient().post('/customer/reviews', data: {
                         'product_uuid': widget.uuid,
                         'rating': selectedRating,
-                        'comment': commentController.text.trim().isEmpty ? null : commentController.text.trim(),
+                        'comment': commentController.text.trim().isEmpty
+                            ? null
+                            : commentController.text.trim(),
                       });
                       if (res.data['success'] == true && ctx.mounted) {
                         Navigator.pop(ctx, true);
                       } else if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                          content: Text(res.data['error']?['message'] ?? 'Failed to submit review'),
+                          content: Text(res.data['error']?['message'] ??
+                              'Failed to submit review'),
                         ));
                       }
                     } catch (_) {
                       if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(content: Text('Failed to submit review')),
+                          const SnackBar(
+                              content: Text('Failed to submit review')),
                         );
                       }
                     }
@@ -250,7 +269,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final store = context.watch<BootstrapProvider>();
     final canOrder = _product != null &&
         _product!.isAvailable &&
-        store.isAcceptingOrders;
+        (store.isAcceptingOrders ||
+            context.watch<CartProvider>().mealSessionUuid != null);
     return Scaffold(
       appBar: AppBar(
         title: Text(_product?.name ?? 'Product'),
@@ -298,9 +318,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(children: [
-                            Icon(Icons.info_outline, color: Colors.grey.shade700),
+                            Icon(Icons.info_outline,
+                                color: Colors.grey.shade700),
                             const SizedBox(width: 8),
-                            Expanded(child: Text(
+                            Expanded(
+                                child: Text(
                               _product!.isAvailable
                                   ? store.orderingMessage
                                   : 'This item is currently unavailable',
@@ -417,15 +439,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               _selectedAddonIds.contains(item.id);
                           return CheckboxListTile(
                             value: isSelected,
-                            onChanged: canOrder ? (val) {
-                              setState(() {
-                                if (val == true) {
-                                  _selectedAddonIds.add(item.id);
-                                } else {
-                                  _selectedAddonIds.remove(item.id);
-                                }
-                              });
-                            } : null,
+                            onChanged: canOrder
+                                ? (val) {
+                                    setState(() {
+                                      if (val == true) {
+                                        _selectedAddonIds.add(item.id);
+                                      } else {
+                                        _selectedAddonIds.remove(item.id);
+                                      }
+                                    });
+                                  }
+                                : null,
                             title: Text(item.name),
                             subtitle: item.price > 0
                                 ? Text('+${PriceText.format(item.price)}')
@@ -440,11 +464,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       const SizedBox(height: 24),
                       Row(
                         children: [
-                          Text('Ratings & Reviews', style: Theme.of(context).textTheme.titleMedium),
+                          Text('Ratings & Reviews',
+                              style: Theme.of(context).textTheme.titleMedium),
                           const Spacer(),
                           TextButton.icon(
                             onPressed: _submitReview,
-                            icon: const Icon(Icons.rate_review_outlined, size: 18),
+                            icon: const Icon(Icons.rate_review_outlined,
+                                size: 18),
                             label: const Text('Write Review'),
                           ),
                         ],
@@ -453,15 +479,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            ...List.generate(5, (i) => Icon(
-                              i < _avgRating.round() ? Icons.star_rounded : Icons.star_outline_rounded,
-                              color: Colors.amber,
-                              size: 20,
-                            )),
+                            ...List.generate(
+                                5,
+                                (i) => Icon(
+                                      i < _avgRating.round()
+                                          ? Icons.star_rounded
+                                          : Icons.star_outline_rounded,
+                                      color: Colors.amber,
+                                      size: 20,
+                                    )),
                             const SizedBox(width: 8),
                             Text(
                               '${_avgRating.toStringAsFixed(1)} ($_reviewCount ${_reviewCount == 1 ? 'review' : 'reviews'})',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 13),
                             ),
                           ],
                         ),
@@ -469,37 +500,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       if (_reviews.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         ...(_reviews.take(3).map((r) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(children: [
-                                    ...List.generate(5, (i) => Icon(
-                                      i < ((r['rating'] as num?)?.toInt() ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded,
-                                      color: Colors.amber,
-                                      size: 16,
-                                    )),
-                                    const Spacer(),
-                                    Text(
-                                      r['customer_name']?.toString() ?? 'Customer',
-                                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                                    ),
-                                  ]),
-                                  if (r['comment'] != null && r['comment'].toString().isNotEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Text(r['comment'].toString(), style: const TextStyle(fontSize: 13)),
-                                  ],
-                                ],
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(children: [
+                                        ...List.generate(
+                                            5,
+                                            (i) => Icon(
+                                                  i <
+                                                          ((r['rating'] as num?)
+                                                                  ?.toInt() ??
+                                                              0)
+                                                      ? Icons.star_rounded
+                                                      : Icons
+                                                          .star_outline_rounded,
+                                                  color: Colors.amber,
+                                                  size: 16,
+                                                )),
+                                        const Spacer(),
+                                        Text(
+                                          r['customer_name']?.toString() ??
+                                              'Customer',
+                                          style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12),
+                                        ),
+                                      ]),
+                                      if (r['comment'] != null &&
+                                          r['comment']
+                                              .toString()
+                                              .isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Text(r['comment'].toString(),
+                                            style:
+                                                const TextStyle(fontSize: 13)),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ))),
+                            ))),
                       ] else if (!_reviewsLoading) ...[
                         const SizedBox(height: 8),
-                        Text('No reviews yet. Be the first!', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                        Text('No reviews yet. Be the first!',
+                            style: TextStyle(
+                                color: Colors.grey[500], fontSize: 13)),
                       ],
 
                       // Quantity

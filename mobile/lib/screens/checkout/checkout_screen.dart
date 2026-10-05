@@ -216,7 +216,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _placeOrder() async {
     final store = context.read<BootstrapProvider>();
     final cart = context.read<CartProvider>();
-    if (!store.isAcceptingOrders) return;
+    if (!store.isAcceptingOrders && cart.mealSessionUuid == null) return;
     if (cart.subtotal < store.minOrderAmount) {
       setState(() => _error =
           'Minimum order value is ${PriceText.format(store.minOrderAmount)}');
@@ -252,6 +252,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (_appliedCoupon != null) {
         payload['coupon_code'] = _appliedCoupon;
       }
+      if (cart.mealSessionUuid != null && cart.serviceDate != null) {
+        payload['meal_session_uuid'] = cart.mealSessionUuid;
+        payload['service_date'] = cart.serviceDate;
+      }
 
       final signature = jsonEncode(payload);
       if (_checkoutAttemptKey == null ||
@@ -273,7 +277,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _checkoutAttemptKey = null;
         _checkoutPayloadSignature = null;
         if (mounted) {
-          context.read<CartProvider>().loadCart();
+          // Checkout completes the server cart. Clear local items and the
+          // persisted meal-session selection immediately so an old preorder
+          // cannot leak into the next basket while navigation continues.
+          context.read<CartProvider>().reset();
 
           final orderUuid = data['data']?['order']?['uuid'] as String?;
           final payment = data['data']?['payment'] as Map<String, dynamic>?;
@@ -436,7 +443,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!bootstrap.isAcceptingOrders) ...[
+                if (cart.mealSessionName != null &&
+                    cart.serviceDate != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                        color: primary.withAlpha(18),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: primary.withAlpha(55))),
+                    child: Row(children: [
+                      Icon(Icons.event_available_rounded, color: primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            Text(cart.mealSessionName!,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800)),
+                            Text('Service date: ${cart.serviceDate}',
+                                style: TextStyle(
+                                    color: Colors.grey.shade700, fontSize: 12))
+                          ]))
+                    ]),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (!bootstrap.isAcceptingOrders &&
+                    cart.mealSessionUuid == null) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -516,13 +551,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   SegmentedButton<String>(
                     segments: fulfilmentOptions,
                     selected: {_orderType},
-                    onSelectionChanged:
-                        bootstrap.isAcceptingOrders && !_validatingAddress
-                            ? (s) {
-                                setState(() => _orderType = s.first);
-                                _validateServiceability();
-                              }
-                            : null,
+                    onSelectionChanged: (bootstrap.isAcceptingOrders ||
+                                cart.mealSessionUuid != null) &&
+                            !_validatingAddress
+                        ? (s) {
+                            setState(() => _orderType = s.first);
+                            _validateServiceability();
+                          }
+                        : null,
                   ),
 
                 // Address (for delivery)
@@ -723,7 +759,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _placing ||
-                            !bootstrap.isAcceptingOrders ||
+                            (!bootstrap.isAcceptingOrders &&
+                                cart.mealSessionUuid == null) ||
                             _validatingAddress ||
                             (!_addressServiceable &&
                                 _orderType == 'delivery') ||

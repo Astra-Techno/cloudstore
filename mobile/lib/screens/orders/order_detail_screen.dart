@@ -408,6 +408,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               ),
                             ),
 
+                            if (_order!.mealSessionName != null) ...[
+                              const SizedBox(height: 12),
+                              Card(
+                                color: primary.withValues(alpha: 0.08),
+                                child: ListTile(
+                                  leading: Icon(Icons.schedule, color: primary),
+                                  title: Text(_order!.mealSessionName!,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700)),
+                                  subtitle: Text(
+                                    _order!.scheduledAt != null
+                                        ? 'Scheduled for ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(_order!.scheduledAt!))}'
+                                        : 'Service date ${_order!.serviceDate ?? ''}',
+                                  ),
+                                ),
+                              ),
+                            ],
+
                             // Live tracking stepper for active orders
                             if (_isActiveOrder) ...[
                               const SizedBox(height: 16),
