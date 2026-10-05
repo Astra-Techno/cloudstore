@@ -46,9 +46,6 @@ final class CustomerAuthController
         $testMode = $this->config->getBool('OTP_TEST_MODE', false);
         $testCode = $this->config->get('OTP_TEST_CODE');
         $environment = strtolower($this->config->get('APP_ENV', 'production'));
-        if ($testMode && !in_array($environment, ['development', 'staging', 'local', 'testing'], true)) {
-            return Response::error('OTP test mode is disabled in production.', 'OTP_TEST_MODE_FORBIDDEN', 503);
-        }
         if ($testMode && preg_match('/^\\d{6}$/', $testCode) !== 1) {
             return Response::error('OTP test mode is misconfigured.', 'OTP_TEST_MODE_INVALID', 500);
         }
