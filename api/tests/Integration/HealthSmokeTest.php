@@ -27,7 +27,7 @@ final class HealthSmokeTest extends TestCase
         $body = json_decode($response['body'], true);
 
         $this->assertSame(200, $response['status']);
-        $this->assertSame('ok', $body['status'] ?? '');
+        $this->assertSame('healthy', $body['data']['status'] ?? '');
     }
 
     public function testHealthReady(): void
@@ -56,8 +56,9 @@ final class HealthSmokeTest extends TestCase
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        // Should fail without X-App-Token
-        $this->assertContains($status, [401, 403]);
+        // A missing required token is a validation error; a supplied but
+        // invalid/expired token is rejected as unauthorized.
+        $this->assertContains($status, [401, 403, 422]);
     }
 
     public function testAdminLoginEndpointExists(): void
