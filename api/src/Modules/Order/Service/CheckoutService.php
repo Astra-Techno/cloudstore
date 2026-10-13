@@ -81,12 +81,9 @@ final class CheckoutService
 
         $mealSession = null;
         $mealAvailability = null;
-        if ($this->mealSessionService->hasEnabledSessions($tenantId)) {
-            $sessionUuid = trim((string) ($input['meal_session_uuid'] ?? ''));
-            $serviceDate = trim((string) ($input['service_date'] ?? ''));
-            if ($sessionUuid === '' || $serviceDate === '') {
-                return ['error' => 'Choose a meal session and service date.', 'code' => 'MEAL_SESSION_REQUIRED'];
-            }
+        $sessionUuid = trim((string) ($input['meal_session_uuid'] ?? ''));
+        $serviceDate = trim((string) ($input['service_date'] ?? ''));
+        if ($sessionUuid !== '' && $serviceDate !== '') {
             $selection = $this->mealSessionService->validateSelection($tenantId, $tenant->timezone, $sessionUuid, $serviceDate, $items);
             if (isset($selection['error'])) return $selection;
             $mealSession = $selection['session'];
