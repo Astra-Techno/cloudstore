@@ -221,6 +221,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
   }
 
+  String _formatSessionDate(String? dateStr) {
+    if (dateStr == null) return '';
+    final date = DateTime.tryParse(dateStr);
+    if (date == null) return dateStr;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = DateTime(date.year, date.month, date.day).difference(today).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Tomorrow';
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]}';
+  }
+
   List<Product> get _visible {
     final term = _query.trim().toLowerCase();
     final allowed = _selectedMealSession?['product_uuids'] is List
@@ -413,6 +427,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                     session['service_date'];
                             final accepting =
                                 session['accepting_orders'] == true;
+                            final dateLabel = _formatSessionDate(session['service_date']?.toString());
                             return InkWell(
                               borderRadius: BorderRadius.circular(14),
                               onTap: accepting
@@ -439,19 +454,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                          '${session['name']} · ${session['service_date']}',
+                                          session['name']?.toString() ?? '',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                               fontWeight: FontWeight.w800,
+                                              fontSize: 13,
                                               color: selected
                                                   ? Colors.white
                                                   : Colors.black87)),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 2),
                                       Text(
-                                          '${session['service_start']}–${session['service_end']}',
+                                          '$dateLabel · ${session['service_start']}–${session['service_end']}',
                                           style: TextStyle(
-                                              fontSize: 12,
+                                              fontSize: 11,
                                               color: selected
                                                   ? Colors.white70
                                                   : Colors.grey.shade700)),
