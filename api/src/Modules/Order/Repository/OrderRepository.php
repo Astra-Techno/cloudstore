@@ -85,7 +85,7 @@ final class OrderRepository
     }
 
     private const ALLOWED_TIMESTAMP_FIELDS = [
-        'confirmed_at', 'preparing_at', 'ready_at', 'picked_up_at',
+        'accepted_at', 'preparing_at', 'ready_at', 'picked_up_at',
         'delivered_at', 'completed_at', 'cancelled_at',
     ];
 
